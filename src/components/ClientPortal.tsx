@@ -3,8 +3,8 @@
 import { createClient } from '@/lib/supabase-browser'
 import { useState, useEffect, useMemo, useCallback, useRef, use } from 'react'
 import { notificarClickUpChat } from '@/actions/clickup'
-import { 
-  CheckCircle2, ExternalLink, Calendar, 
+import {
+  CheckCircle2, ExternalLink, Calendar,
   AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
@@ -32,17 +32,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const supabase = createClient()
   const [cliente, setCliente] = useState<any>(null)
   const [todosMateriais, setTodosMateriais] = useState<any[]>([])
-  
+
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'videos' | 'roteiros'>('roteiros')
   const [mediaTab, setMediaTab] = useState<'video' | 'capa'>('video')
-  
+
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null)
   const [isRequestingAjuste, setIsRequestingAjuste] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  
+
   const [alvoAjuste, setAlvoAjuste] = useState<'video' | 'capa' | 'ambos'>('video')
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
@@ -52,7 +52,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const materiaisVisualizados = useRef<Set<string>>(new Set());
 
-const loadPortal = useCallback(async () => {
+  const loadPortal = useCallback(async () => {
     if (!token || token === 'undefined') return
     try {
       const { data: c, error: clientError } = await supabase.from('clientes').select('*').eq('token_magico', token).single()
@@ -61,15 +61,15 @@ const loadPortal = useCallback(async () => {
 
       const { data: allM } = await supabase.from('materiais').select('*').eq('cliente_id', c.id).neq('status', 'concluido').order('created_at', { ascending: false })
       setTodosMateriais(allM || [])
-      
+
       setSelectedMaterial((prevSelected: any) => {
         if (!prevSelected) return null;
         return allM?.find((m: any) => m.id === prevSelected.id) || null;
       })
-    } catch (err) { 
-      console.error(err) 
-    } finally { 
-      setLoading(false) 
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
   }, [token, supabase])
 
@@ -93,7 +93,7 @@ const loadPortal = useCallback(async () => {
     setAlvoAjuste('video')
     setMinutoAjuste('')
     setSegundoAjuste('')
-  }, [activeTab]) 
+  }, [activeTab])
 
   // 🔥 LÓGICA CORRIGIDA: Define a aba e alvo padrão dependendo do que foi entregue
   useEffect(() => {
@@ -149,9 +149,9 @@ const loadPortal = useCallback(async () => {
 
   const metricasCiclo = useMemo(() => {
     if (todosMateriais.length === 0) return { ciclo: 1, total: 0, aprovados: 0, percentual: 0 };
-    
+
     const activeCycle = Math.max(...todosMateriais.map(m => m.ciclo || 1), 1);
-    
+
     if (activeTab === 'roteiros') {
       const itemsInCycle = roteirosList.filter(m => (m.ciclo || 1) === activeCycle);
       const total = itemsInCycle.length || 1;
@@ -174,11 +174,11 @@ const loadPortal = useCallback(async () => {
     setActionLoading(true);
     const updated = { ...selectedMaterial, status: 'post_aprovado', feedback: null };
     setTodosMateriais(prev => prev.map(m => m.id === id ? updated : m));
-    setSelectedMaterial(updated); 
-    
+    setSelectedMaterial(updated);
+
     await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', id)
-    await registrarLogAcesso(id, `✅ POST Aprovado`); 
-    
+    await registrarLogAcesso(id, `✅ POST Aprovado`);
+
     const msg = `✅ POST APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${selectedMaterial.titulo}\nA edição final foi aprovada pelo cliente.`;
     await notificarClickUpChat(msg);
     toast.success("Post aprovado com sucesso!");
@@ -191,13 +191,13 @@ const loadPortal = useCallback(async () => {
     const updated = { ...selectedMaterial, status: 'roteiro_aprovado', feedback: null };
     setTodosMateriais(prev => prev.map(m => m.id === id ? updated : m));
     setSelectedMaterial(updated);
-    
+
     await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', id)
-    await registrarLogAcesso(id, `✅ Roteiro Aprovado`); 
+    await registrarLogAcesso(id, `✅ Roteiro Aprovado`);
 
     const msg = `📝✅ ROTEIRO APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${selectedMaterial.titulo}\nO Roteiro foi aprovado.`;
     await notificarClickUpChat(msg);
-    toast.success("Roteiro aprovado! A equipa de produção foi notificada.");
+    toast.success("Roteiro aprovado! A equipe de produção foi notificada.");
     setActionLoading(false);
   }
 
@@ -208,7 +208,7 @@ const loadPortal = useCallback(async () => {
 
     let textoBase = feedbackText;
     const isRoteiro = activeTab === 'roteiros';
-    
+
     if (!isRoteiro && (minutoAjuste || segundoAjuste)) {
       const min = minutoAjuste.padStart(2, '0') || '00';
       const seg = segundoAjuste.padStart(2, '0') || '00';
@@ -225,13 +225,13 @@ const loadPortal = useCallback(async () => {
     } else if (!isRoteiro) {
       flagVideo = false;
     }
-    
+
     const historicoAtual = selectedMaterial.feedback ? `\n\n${selectedMaterial.feedback}` : '';
     const textoFinal = `${textoBase}${historicoAtual}`;
-    
-    const updatedMaterial = { 
-      ...selectedMaterial, 
-      status: 'ajustes', 
+
+    const updatedMaterial = {
+      ...selectedMaterial,
+      status: 'ajustes',
       feedback: textoFinal,
       video_entregue: flagVideo,
       design_entregue: flagDesign
@@ -240,42 +240,42 @@ const loadPortal = useCallback(async () => {
     setTodosMateriais(prev => prev.map(m => m.id === id ? updatedMaterial : m))
     setSelectedMaterial(updatedMaterial)
     setIsRequestingAjuste(false)
-    
-    await supabase.from('materiais').update({ 
-      status: 'ajustes', 
+
+    await supabase.from('materiais').update({
+      status: 'ajustes',
       feedback: textoFinal,
       video_entregue: flagVideo,
       design_entregue: flagDesign
     }).eq('id', id)
-    
-    await registrarLogAcesso(id, `⚠️ Pedido de Ajuste`); 
+
+    await registrarLogAcesso(id, `⚠️ Pedido de Ajuste`);
 
     const msg = `⚠️ SOLICITAÇÃO DE AJUSTE\n\nCliente: ${cliente.nome}\nMaterial: ${selectedMaterial.titulo}\nNovo Ajuste: ${textoBase}`;
     await notificarClickUpChat(msg);
-    
-    setFeedbackText(''); 
+
+    setFeedbackText('');
     setMinutoAjuste('');
     setSegundoAjuste('');
-    toast.success("Solicitação de ajuste enviada para a equipa!");
+    toast.success("Solicitação de ajuste enviada para a equipe!");
     setActionLoading(false);
   }
 
   const handleCancelarAjuste = async (id: string) => {
     if (!selectedMaterial) return;
     setActionLoading(true);
-    
+
     const isRoteiro = activeTab === 'roteiros';
     const estadoAnterior = isRoteiro ? 'roteiro_pendente' : 'pendente';
-    
+
     const fbs = selectedMaterial.feedback?.split('\n\n').filter(Boolean) || [];
     const historicoRestaurado = fbs.slice(1).join('\n\n') || null;
-    
+
     const updatedMaterial = { ...selectedMaterial, status: estadoAnterior, feedback: historicoRestaurado };
     setTodosMateriais(prev => prev.map(m => m.id === id ? updatedMaterial : m))
     setSelectedMaterial(updatedMaterial)
-    
+
     await supabase.from('materiais').update({ status: estadoAnterior, feedback: historicoRestaurado }).eq('id', id)
-    await registrarLogAcesso(id, `❌ Cliente cancelou o pedido de ajuste`); 
+    await registrarLogAcesso(id, `❌ Cliente cancelou o pedido de ajuste`);
     toast.info("Solicitação de ajuste cancelada.");
     setActionLoading(false);
   }
@@ -296,13 +296,13 @@ const loadPortal = useCallback(async () => {
     </div>
   )
 
-  const isRoteiro = activeTab === 'roteiros' 
+  const isRoteiro = activeTab === 'roteiros'
   const embedUrl = selectedMaterial ? getEmbedUrl(selectedMaterial.link_drive) : null
   const capaEmbedUrl = selectedMaterial?.link_capa ? getEmbedUrl(selectedMaterial.link_capa) : null
   const statusAtual = selectedMaterial?.status?.toLowerCase()
-  
+
   const isItemSelectedAprovado = selectedMaterial ? (
-    isRoteiro 
+    isRoteiro
       ? (selectedMaterial.status === 'roteiro_aprovado' || selectedMaterial.status === 'aprovado')
       : (['aprovado', 'post_aprovado'].includes(selectedMaterial.status) && !!(selectedMaterial.link_drive || selectedMaterial.link_capa))
   ) : false;
@@ -310,9 +310,9 @@ const loadPortal = useCallback(async () => {
   return (
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 pb-24 md:pb-8">
       <Toaster position="top-right" richColors />
-      
+
       {/* HEADER MOBILE COM WHITE-LABEL */}
-      <div 
+      <div
         className="md:hidden text-white rounded-b-[24px] p-4 pt-6 shadow-md mb-4 relative overflow-hidden"
         style={{ backgroundColor: cliente?.cor_marca || '#1e3a5f' }}
       >
@@ -334,9 +334,9 @@ const loadPortal = useCallback(async () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 md:pt-6">
-        
+
         {/* HEADER DESKTOP COM WHITE-LABEL */}
-        <header 
+        <header
           className="hidden md:flex mb-6 justify-between items-center gap-4 bg-white p-6 rounded-[24px] shadow-sm"
           style={{ borderBottom: `4px solid ${cliente?.cor_marca || '#1e3a5f'}` }}
         >
@@ -345,7 +345,7 @@ const loadPortal = useCallback(async () => {
               <img src={cliente.logo_url} alt={`Logo ${cliente.nome}`} className="h-12 max-w-[200px] object-contain border-r border-zinc-100 pr-4" />
             ) : null}
             <div>
-              <p 
+              <p
                 className="font-black text-[10px] uppercase tracking-[0.2em] mb-1"
                 style={{ color: cliente?.cor_marca || '#1e3a5f' }}
               >
@@ -379,24 +379,24 @@ const loadPortal = useCallback(async () => {
           </div>
 
           <div className="hidden md:flex bg-white p-1.5 rounded-[20px] shadow-sm border border-zinc-200 w-full md:w-64 h-fit self-center flex-row-reverse">
-            <button onClick={() => {setActiveTab('videos'); setSelectedMaterial(null)}} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'videos' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
-              <PlayCircle size={14}/> Posts
+            <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'videos' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+              <PlayCircle size={14} /> Posts
             </button>
-            <button onClick={() => {setActiveTab('roteiros'); setSelectedMaterial(null)}} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'roteiros' ? 'bg-purple-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
-              <FileText size={14}/> Roteiros
+            <button onClick={() => { setActiveTab('roteiros'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'roteiros' ? 'bg-purple-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+              <FileText size={14} /> Roteiros
             </button>
           </div>
         </div>
 
         {currentList.length === 0 ? (
-           <div className="bg-white p-8 rounded-[24px] border border-dashed border-zinc-200 text-center w-full mt-10">
-             <CheckCircle2 size={32} className="text-zinc-300 mx-auto mb-3" />
-             <h3 className="text-lg font-black uppercase text-zinc-400">Lista Vazia</h3>
-             <p className="text-zinc-400 font-medium text-sm mt-1">A sua agência está a trabalhar nos próximos conteúdos.</p>
-           </div>
+          <div className="bg-white p-8 rounded-[24px] border border-dashed border-zinc-200 text-center w-full mt-10">
+            <CheckCircle2 size={32} className="text-zinc-300 mx-auto mb-3" />
+            <h3 className="text-lg font-black uppercase text-zinc-400">Lista Vazia</h3>
+            <p className="text-zinc-400 font-medium text-sm mt-1">A sua agência está a trabalhar nos próximos conteúdos.</p>
+          </div>
         ) : (
           <div className="flex flex-col-reverse lg:grid lg:grid-cols-12 gap-4 lg:gap-6 items-start">
-            
+
             {/* LISTA DE MATERIAIS */}
             <div className="lg:col-span-4 space-y-4 md:space-y-6 w-full">
               {Object.entries(grouped).map(([cicloLabel, itens]) => (
@@ -405,21 +405,21 @@ const loadPortal = useCallback(async () => {
                     <Calendar size={12} className="text-zinc-400" />
                     <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
                   </div>
-                  
+
                   <div className="space-y-2">
                     {itens.map((m: any) => {
                       const isSelected = selectedMaterial?.id === m.id
-                      
+
                       let isItemAprovado = false;
                       if (isRoteiro) {
                         isItemAprovado = (m.status === 'roteiro_aprovado' || m.status === 'aprovado');
                       } else {
                         isItemAprovado = ['aprovado', 'post_aprovado'].includes(m.status) && !!(m.link_drive || m.link_capa);
                       }
-                      
+
                       let badgeClass = 'bg-zinc-100 text-zinc-500';
                       let badgeText = 'Pendente';
-                      
+
                       if (isItemAprovado) {
                         badgeClass = 'bg-green-100 text-green-700';
                         badgeText = 'Aprovado';
@@ -435,15 +435,15 @@ const loadPortal = useCallback(async () => {
                       }
 
                       let buttonClass = 'bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm';
-                      
+
                       if (isItemAprovado) {
                         buttonClass = isSelected ? 'bg-green-50 border-green-200 text-zinc-900 shadow-inner' : 'bg-zinc-50 border-zinc-100 text-zinc-500 opacity-80 hover:opacity-100 hover:bg-white';
                       } else if (isSelected) {
-                        buttonClass = isRoteiro 
-                          ? 'bg-purple-600 border-purple-600 text-white shadow-md lg:scale-[1.02]' 
+                        buttonClass = isRoteiro
+                          ? 'bg-purple-600 border-purple-600 text-white shadow-md lg:scale-[1.02]'
                           : 'bg-[#1e3a5f] border-[#1e3a5f] text-white shadow-md lg:scale-[1.02]';
                       }
-                      
+
                       return (
                         <button
                           key={m.id}
@@ -458,7 +458,7 @@ const loadPortal = useCallback(async () => {
                             <p className="font-bold text-xs md:text-sm leading-snug truncate">{m.titulo}</p>
                             <div className="flex items-center justify-between">
                               <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-widest ${badgeClass}`}>
-                                {isItemAprovado ? <><CheckCircle2 size={10} className="inline mr-1"/>{badgeText}</> : badgeText}
+                                {isItemAprovado ? <><CheckCircle2 size={10} className="inline mr-1" />{badgeText}</> : badgeText}
                               </span>
                               {!isItemAprovado && isSelected && (isRoteiro ? <FileText size={14} className="text-white opacity-80" /> : <PlayCircle size={14} className="text-white opacity-80" />)}
                             </div>
@@ -480,10 +480,10 @@ const loadPortal = useCallback(async () => {
                 </div>
               ) : (
                 <div className="bg-white rounded-[24px] p-5 md:p-6 shadow-md border border-zinc-100 animate-in fade-in duration-300 w-full overflow-hidden">
-                  
+
                   <div className="mb-4 border-b border-zinc-100 pb-4">
                     <span className={`${isRoteiro ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-2.5 py-1 rounded font-black text-[8px] md:text-[9px] uppercase tracking-widest flex items-center gap-1.5 w-max mb-2`}>
-                      {isRoteiro ? <FileText size={12}/> : <PlayCircle size={12}/>} 
+                      {isRoteiro ? <FileText size={12} /> : <PlayCircle size={12} />}
                       {isRoteiro ? 'Aprovação de Roteiro' : 'Aprovação de Post'}
                     </span>
                     <h2 className="text-lg md:text-xl font-black tracking-tight text-zinc-900 uppercase leading-tight truncate">{selectedMaterial.titulo}</h2>
@@ -501,10 +501,10 @@ const loadPortal = useCallback(async () => {
                       {(selectedMaterial.link_drive && selectedMaterial.link_capa) && (
                         <div className="flex bg-zinc-100 p-1.5 rounded-[16px] mb-4 w-full md:w-max">
                           <button onClick={() => { setMediaTab('video'); setAlvoAjuste('video'); }} className={`flex-1 md:px-8 py-3 md:py-2.5 rounded-[12px] font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${mediaTab === 'video' ? 'bg-white text-blue-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-200/50'}`}>
-                            <PlayCircle size={16}/> Vídeo/Post
+                            <PlayCircle size={16} /> Vídeo/Post
                           </button>
                           <button onClick={() => { setMediaTab('capa'); setAlvoAjuste('capa'); }} className={`flex-1 md:px-8 py-3 md:py-2.5 rounded-[12px] font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${mediaTab === 'capa' ? 'bg-white text-pink-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-200/50'}`}>
-                            <ImageIcon size={16}/> Capa/Card
+                            <ImageIcon size={16} /> Capa/Card
                           </button>
                         </div>
                       )}
@@ -512,8 +512,8 @@ const loadPortal = useCallback(async () => {
                       {/* AVISO DE CARROSSEL / PASTA DO DRIVE */}
                       {mediaTab === 'capa' && (
                         <div className="bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-xl mb-4 flex items-center gap-2 text-[10px] md:text-xs font-bold shadow-sm">
-                           <AlertCircle size={16} className="shrink-0" />
-                           Carrossel ou Pasta: Clique nas imagens abaixo para visualizar em tela cheia e passe para o lado.
+                          <AlertCircle size={16} className="shrink-0" />
+                          Carrossel ou Pasta: Clique nas imagens abaixo para visualizar em tela cheia e passe para o lado.
                         </div>
                       )}
 
@@ -528,7 +528,7 @@ const loadPortal = useCallback(async () => {
                                 <ExternalLink className="text-white" size={20} />
                               </div>
                               <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Este link não suporta reprodução direta no portal.</p>
-                              <a href={selectedMaterial.link_drive} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Material Original <ExternalLink size={12}/></a>
+                              <a href={selectedMaterial.link_drive} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Material Original <ExternalLink size={12} /></a>
                             </div>
                           )
                         ) : (
@@ -542,7 +542,7 @@ const loadPortal = useCallback(async () => {
                                 <ImageIcon className="text-white" size={20} />
                               </div>
                               <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Este link precisa ser aberto no navegador.</p>
-                              <a href={selectedMaterial.link_capa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Imagens <ExternalLink size={12}/></a>
+                              <a href={selectedMaterial.link_capa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Imagens <ExternalLink size={12} /></a>
                             </div>
                           )
                         )}
@@ -550,13 +550,13 @@ const loadPortal = useCallback(async () => {
 
                       {/* Botão de Tela Cheia Mobile */}
                       <div className="md:hidden mb-5">
-                        <button 
+                        <button
                           onClick={() => {
                             const urlAtual = mediaTab === 'video' ? embedUrl : capaEmbedUrl;
                             const linkOriginal = mediaTab === 'video' ? selectedMaterial.link_drive : selectedMaterial.link_capa;
                             if (urlAtual) setPreviewUrl(urlAtual);
                             else window.open(linkOriginal, '_blank');
-                          }} 
+                          }}
                           className="w-full bg-zinc-900 text-white rounded-[16px] py-4 flex items-center justify-center gap-3 shadow-md active:scale-95 transition-all"
                         >
                           {mediaTab === 'video' ? <PlayCircle size={20} className="text-blue-400" /> : <ImageIcon size={20} className="text-pink-400" />}
@@ -578,12 +578,12 @@ const loadPortal = useCallback(async () => {
                         <div className="flex items-center gap-2 text-orange-700 font-black uppercase text-[10px] tracking-widest mb-3 border-b border-orange-100 pb-3">
                           <MessageSquare size={16} /> Ajustes Solicitados
                         </div>
-                        
+
                         {(() => {
                           const feedbacks = selectedMaterial.feedback?.split('\n\n').filter(Boolean) || [];
                           const currentFeedback = feedbacks[0];
                           const historicalFeedbacks = feedbacks.slice(1);
-                          
+
                           return (
                             <div>
                               <div className="bg-white border border-orange-200 p-4 rounded-[16px] shadow-sm">
@@ -597,7 +597,7 @@ const loadPortal = useCallback(async () => {
                                     <ChevronDown size={14} className={`transition-transform duration-300 ${isHistoryExpanded ? 'rotate-180' : ''}`} />
                                     {isHistoryExpanded ? 'Ocultar Histórico Anterior' : `Ver Histórico Anterior (${historicalFeedbacks.length})`}
                                   </button>
-                                  
+
                                   {isHistoryExpanded && (
                                     <div className="mt-3 space-y-2 animate-in fade-in duration-300 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                                       {historicalFeedbacks.map((fbd: string, idx: number) => (
@@ -613,7 +613,7 @@ const loadPortal = useCallback(async () => {
                           )
                         })()}
                       </div>
-                      
+
                       <button onClick={() => handleCancelarAjuste(selectedMaterial.id)} disabled={actionLoading} className="w-full py-4 bg-white border-2 border-zinc-200 text-zinc-600 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
                         {actionLoading ? <Loader2 size={16} className="animate-spin" /> : null}
                         Cancelar Pedido de Ajuste
@@ -623,9 +623,9 @@ const loadPortal = useCallback(async () => {
                     !isRequestingAjuste ? (
                       <div className="flex flex-col sm:flex-row gap-3">
                         <button onClick={() => setIsRequestingAjuste(true)} className="w-full sm:flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all active:scale-95 flex justify-center items-center gap-2">
-                          <AlertCircle size={16}/> Solicitar {isRoteiro ? 'Alteração' : 'Ajuste'}
+                          <AlertCircle size={16} /> Solicitar {isRoteiro ? 'Alteração' : 'Ajuste'}
                         </button>
-                        
+
                         <button onClick={() => isRoteiro ? handleAprovarRoteiro(selectedMaterial.id) : handleAprovarVideo(selectedMaterial.id)} disabled={actionLoading} className={`w-full sm:flex-1 py-4 text-white rounded-[16px] font-black uppercase text-[10px] tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}>
                           {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           {isRoteiro ? "Aprovar Roteiro" : "Aprovar Post"}
@@ -633,7 +633,7 @@ const loadPortal = useCallback(async () => {
                       </div>
                     ) : (
                       <div className="space-y-4 bg-zinc-50 p-5 rounded-[20px] border border-zinc-200 animate-in slide-in-from-bottom-4 shadow-sm">
-                        
+
                         {/* 🔥 OPÇÕES DE ALVO DO AJUSTE INTELIGENTE (Só mostra se houver Capa E Vídeo) */}
                         {!isRoteiro && (selectedMaterial.link_drive && selectedMaterial.link_capa) && (
                           <div className="space-y-2">
@@ -650,35 +650,35 @@ const loadPortal = useCallback(async () => {
 
                         {/* 🔥 MINUTAGEM OPCIONAL (Não aparece para Carrosséis) */}
                         {!isRoteiro && selectedMaterial.link_drive && (alvoAjuste === 'video' || alvoAjuste === 'ambos') && (
-                           <div className="space-y-2">
-                              <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
-                                Em qual momento do vídeo? (Opcional)
-                              </label>
-                              <div className="flex items-center gap-2">
-                                 <div className="flex items-center bg-white border border-zinc-200 rounded-xl px-4 py-2.5 w-max shadow-sm">
-                                    <input 
-                                      type="number" 
-                                      min="0" 
-                                      max="59" 
-                                      placeholder="00" 
-                                      className="w-10 text-center text-sm font-bold outline-none bg-transparent"
-                                      value={minutoAjuste}
-                                      onChange={(e) => setMinutoAjuste(e.target.value.slice(0, 2))}
-                                    />
-                                    <span className="font-bold text-zinc-400 px-1">:</span>
-                                    <input 
-                                      type="number" 
-                                      min="0" 
-                                      max="59" 
-                                      placeholder="00" 
-                                      className="w-10 text-center text-sm font-bold outline-none bg-transparent"
-                                      value={segundoAjuste}
-                                      onChange={(e) => setSegundoAjuste(e.target.value.slice(0, 2))}
-                                    />
-                                 </div>
-                                 <span className="text-xs text-zinc-400 font-medium">Ex: 01:23</span>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
+                              Em qual momento do vídeo? (Opcional)
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center bg-white border border-zinc-200 rounded-xl px-4 py-2.5 w-max shadow-sm">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="59"
+                                  placeholder="00"
+                                  className="w-10 text-center text-sm font-bold outline-none bg-transparent"
+                                  value={minutoAjuste}
+                                  onChange={(e) => setMinutoAjuste(e.target.value.slice(0, 2))}
+                                />
+                                <span className="font-bold text-zinc-400 px-1">:</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="59"
+                                  placeholder="00"
+                                  className="w-10 text-center text-sm font-bold outline-none bg-transparent"
+                                  value={segundoAjuste}
+                                  onChange={(e) => setSegundoAjuste(e.target.value.slice(0, 2))}
+                                />
                               </div>
-                           </div>
+                              <span className="text-xs text-zinc-400 font-medium">Ex: 01:23</span>
+                            </div>
+                          </div>
                         )}
 
                         {/* ÁREA DE TEXTO DO FEEDBACK */}
@@ -686,7 +686,7 @@ const loadPortal = useCallback(async () => {
                           <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
                             <AlertCircle size={14} className="text-orange-500" /> Detalhe o que precisa ser ajustado
                           </label>
-                          <textarea 
+                          <textarea
                             className="w-full p-4 rounded-xl border border-zinc-200 focus:border-orange-500 outline-none font-medium transition-all min-h-[120px] text-sm resize-none shadow-sm"
                             placeholder={isRoteiro ? "Ex: Alterar o gancho inicial, remover a menção à marca..." : "Ex: Mudar a cor da fonte, trocar a música de fundo..."}
                             value={feedbackText}
@@ -709,16 +709,16 @@ const loadPortal = useCallback(async () => {
                 </div>
               )}
             </div>
-            
+
           </div>
         )}
       </div>
 
       {/* BOTÃO FLUTUANTE DO WHATSAPP */}
-      <a 
+      <a
         href={`https://wa.me/${(cliente?.wpp_suporte || "5511999999999").replace(/\D/g, '')}?text=${encodeURIComponent("Olá! Estou no meu Portal de Cliente e preciso de uma ajuda.")}`}
-        target="_blank" 
-        rel="noopener noreferrer" 
+        target="_blank"
+        rel="noopener noreferrer"
         className="fixed bottom-24 right-4 md:bottom-6 md:right-6 bg-green-500 text-white p-3 md:p-3.5 rounded-full shadow-lg z-30 hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
         title="Falar com o Suporte"
       >
@@ -732,7 +732,7 @@ const loadPortal = useCallback(async () => {
           <span className="text-[9px] font-black uppercase tracking-widest">Roteiros</span>
           {activeTab === 'roteiros' && <div className="w-1 h-1 bg-purple-600 rounded-full mt-0.5"></div>}
         </button>
-        
+
         <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null); }} className={`flex flex-col items-center gap-1 p-2 w-20 transition-all ${activeTab === 'videos' ? 'text-blue-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
           <PlayCircle size={20} className={activeTab === 'videos' ? 'fill-blue-50' : ''} />
           <span className="text-[9px] font-black uppercase tracking-widest">Posts</span>
@@ -744,15 +744,15 @@ const loadPortal = useCallback(async () => {
       {previewUrl && (
         <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
           <div className="absolute top-4 right-4 flex items-center gap-2 z-[10000]">
-             <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-               <ExternalLink size={18} />
-             </a>
-             <button onClick={() => setPreviewUrl(null)} className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-               <X size={20} />
-             </button>
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
+              <ExternalLink size={18} />
+            </a>
+            <button onClick={() => setPreviewUrl(null)} className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
+              <X size={20} />
+            </button>
           </div>
           <div className="w-full h-[85vh] max-w-[400px] md:max-w-5xl mx-auto flex items-center justify-center overflow-hidden">
-             <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
+            <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
           </div>
         </div>
       )}
