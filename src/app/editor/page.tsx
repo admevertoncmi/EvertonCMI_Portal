@@ -1,0 +1,593 @@
+"use client"
+
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase-browser'
+import { Toaster, toast } from 'sonner'
+import { notificarClickUpChat } from '@/actions/clickup'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { 
+  PenTool, CheckCircle, LogOut, Calendar, ChevronRight,
+  AlertCircle, ExternalLink, X, MessageSquare, Search, Eye, Folder, FileVideo, Menu, Image as ImageIcon,
+  ListTree, FileText, Loader2, Send, ChevronDown, Edit3, Trash2, Sun, Moon
+} from 'lucide-react'
+
+interface Cliente { id: string; nome: string; }
+interface Material {
+  id: string; cliente_id: string; titulo: string; 
+  ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string;
+  data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean;
+  status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null;
+  cliente?: { nome: string; };
+}
+
+export default function EditorDashboard() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  // --- TEMA ---
+  const [theme, setTheme] = useState<'dark' | 'light'>('light')
+  useEffect(() => { const storedTheme = localStorage.getItem('editorTheme') as 'dark' | 'light' | null; if (storedTheme) setTheme(storedTheme); }, []);
+  const toggleTheme = () => { const newTheme = theme === 'dark' ? 'light' : 'dark'; setTheme(newTheme); localStorage.setItem('editorTheme', newTheme); };
+
+  const tc = {
+    bgApp: theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50', bgCard: theme === 'dark' ? 'bg-zinc-900' : 'bg-white',
+    borderStrong: theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200', textMain: theme === 'dark' ? 'text-zinc-100' : 'text-zinc-900',
+    textMuted: theme === 'dark' ? 'text-zinc-400' : 'text-zinc-500', bgInput: theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50',
+    bgHover: theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50', bgHighlight: theme === 'dark' ? 'bg-zinc-800/50' : 'bg-zinc-50/50',
+  };
+
+  const bgPrincipal = tc.bgApp; const bgSecundario = tc.bgCard; const borderSecundario = tc.borderStrong;
+  const textPrincipal = tc.textMain; const textSecundario = tc.textMuted; const hoverSecundario = tc.bgHover;
+
+  // --- ESTADOS ---
+  const [activeTab, setActiveTab] = useState<'ajustes' | 'revisao'>('ajustes')
+  const [materiais, setMateriais] = useState<Material[]>([])
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<{nome: string, role: string} | null>(null)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [expandedFeedbacks, setExpandedFeedbacks] = useState<string[]>([]);
+  const toggleFeedback = (id: string) => setExpandedFeedbacks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const [expandedClients, setExpandedClients] = useState<string[]>([])
+  const [expandedCiclos, setExpandedCiclos] = useState<string[]>([])
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
+  const [newDriveLink, setNewDriveLink] = useState('')
+  const [newCapaLink, setNewCapaLink] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewRoteiro, setPreviewRoteiro] = useState<Material | null>(null);
+
+  // 🔥 ESTADOS PARA RELATAR PROBLEMA
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [issueType, setIssueType] = useState<'faltando_material' | 'verificar_material'>('verificar_material');
+  const [issueText, setIssueText] = useState('');
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/'); return; }
+    setUserId(user.id)
+    const { data: profile } = await supabase.from('perfis_equipe').select('*').eq('id', user.id).single();
+    if (profile) setUserProfile(profile as any);
+    const { data: m, error } = await supabase.from('materiais').select(`*, cliente:clientes(nome)`).or(`editor_id.eq.${user.id},designer_id.eq.${user.id}`).order('created_at', { ascending: false })
+    if (m) setMateriais(m as Material[])
+    setLoading(false)
+  }, [supabase, router])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase.channel('editor-realtime-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais', filter: `editor_id=eq.${userId}` }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais', filter: `designer_id=eq.${userId}` }, () => loadData())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase, loadData, userId])
+
+  const minhaFilaProducao = useMemo(() => materiais.filter(m => {
+    // 🔥 AGORA INCLUI OS STATUS DE PROBLEMA PARA ELES NÃO SUMIREM DA TELA
+    if (m.status !== 'ajustes' && m.status !== 'em_edicao' && m.status !== 'faltando_material' && m.status !== 'verificar_material') return false;
+    const souEditor = m.editor_id === userId;
+    const souDesigner = m.designer_id === userId;
+    if (souEditor && !m.video_entregue) return true;
+    if (souDesigner && !m.design_entregue) return true;
+    return false;
+  }), [materiais, userId]);
+  
+  const ajustesAgrupadosPorCliente = useMemo(() => {
+    const grupos: Record<string, { clienteNome: string, tarefasMae: Record<string, { itens: Material[], videosOk: number, capasOk: number }> }> = {};
+    minhaFilaProducao.forEach(m => {
+      const cid = m.cliente_id;
+      const cicloLabel = `CICLO ${m.ciclo || 1}`; 
+      if (!grupos[cid]) grupos[cid] = { clienteNome: m.cliente?.nome || 'Sem Cliente', tarefasMae: {} };
+      if (!grupos[cid].tarefasMae[cicloLabel]) grupos[cid].tarefasMae[cicloLabel] = { itens: [], videosOk: 0, capasOk: 0 };
+      grupos[cid].tarefasMae[cicloLabel].itens.push(m);
+      if (m.link_drive && m.link_drive.trim() !== '') grupos[cid].tarefasMae[cicloLabel].videosOk++;
+      if (m.link_capa && m.link_capa.trim() !== '') grupos[cid].tarefasMae[cicloLabel].capasOk++;
+    });
+    return grupos;
+  }, [minhaFilaProducao]);
+
+  const minhaFilaRevisao = useMemo(() => materiais.filter(m => {
+    const souEditor = m.editor_id === userId;
+    const souDesigner = m.designer_id === userId;
+    if (m.status === 'revisao') return true;
+    if (m.status === 'ajustes' || m.status === 'em_edicao') {
+       if (souEditor && !souDesigner && m.video_entregue) return true;
+       if (souDesigner && !souEditor && m.design_entregue) return true;
+       if (souEditor && souDesigner && m.video_entregue && m.design_entregue) return true;
+    }
+    return false;
+  }), [materiais, userId]); 
+
+  const toggleClient = (id: string) => { setExpandedClients(prev => prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]) }
+  const toggleCiclo = (id: string) => { setExpandedCiclos(prev => prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]) }
+
+  const handleSendNewVersion = async () => {
+    if (!selectedMaterial) return
+    setIsSubmitting(true)
+    const souEditor = selectedMaterial.editor_id === userId;
+    const souDesigner = selectedMaterial.designer_id === userId;
+    const isVideoFilled = newDriveLink && newDriveLink.trim() !== '';
+    const isDesignFilled = newCapaLink && newCapaLink.trim() !== '';
+    const willVideoBeDone = souEditor ? isVideoFilled : selectedMaterial.video_entregue;
+    const willDesignBeDone = souDesigner ? isDesignFilled : selectedMaterial.design_entregue;
+    const needsVideo = !!selectedMaterial.editor_id;
+    const needsDesign = !!selectedMaterial.designer_id;
+    const isGlobalComplete = (!needsVideo || willVideoBeDone) && (!needsDesign || willDesignBeDone);
+    const statusFinal = isGlobalComplete ? 'revisao' : selectedMaterial.status;
+
+    const { error } = await supabase.from('materiais').update({ 
+      link_drive: newDriveLink || selectedMaterial.link_drive, 
+      link_capa: newCapaLink || selectedMaterial.link_capa,
+      video_entregue: willVideoBeDone,
+      design_entregue: willDesignBeDone,
+      status: statusFinal 
+    }).eq('id', selectedMaterial.id)
+    
+    if (error) { toast.error("Erro ao enviar: " + error.message) } 
+    else {
+      if (isGlobalComplete && statusFinal === 'revisao') {
+        toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
+        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\nMaterial: ${selectedMaterial.titulo}\nEquipa: O pacote completo foi entregue!\nAcesse o Painel Admin na aba Materiais p/ Aprovação.`;
+        await notificarClickUpChat(msgAdmin);
+      } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
+      setIsVersionModalOpen(false)
+      loadData()
+    }
+    setIsSubmitting(false)
+  }
+
+  const handleReportIssue = async () => {
+    if (!selectedMaterial || !issueText) return toast.error("Por favor, descreva o problema!");
+    setIsSubmitting(true);
+    const { error } = await supabase.from('materiais').update({ status: issueType, feedback: issueText }).eq('id', selectedMaterial.id);
+    if (!error) {
+      toast.success("Problema reportado ao Admin!");
+      const msgErro = `⚠️ PROBLEMA NA PRODUÇÃO\n\n🎬 Material: ${selectedMaterial.titulo}\n🚨 Status: ${issueType === 'faltando_material' ? 'FALTANDO MATERIAL' : 'VERIFICAR MATERIAL'}\n💬 Motivo: ${issueText}`;
+      await notificarClickUpChat(msgErro);
+      setIsIssueModalOpen(false); 
+      loadData(); 
+    } else {
+      toast.error("Erro ao reportar problema.");
+    }
+    setIsSubmitting(false);
+  }
+
+  const renderPreviewContent = (url: string) => {
+    if (!url) return null;
+    if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return <img src={url} className="max-w-full max-h-[80vh] rounded-lg object-contain mx-auto" alt="Preview" />;
+    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    if (ytMatch) return <iframe src={`https://www.youtube.com/embed/${ytMatch[1]}`} className="w-full aspect-video rounded-xl" allowFullScreen />;
+    if (url.includes('drive.google.com')) {
+      let driveUrl = url;
+      const folderMatch = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+      if (folderMatch && folderMatch[1]) driveUrl = `https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`;
+      else {
+        driveUrl = url.replace('/view', '/preview').replace('open?id=', 'file/d/');
+        if (!driveUrl.includes('/preview')) driveUrl += '/preview';
+      }
+      return <iframe src={driveUrl} className="w-full h-[50vh] md:h-[75vh] rounded-xl border-0 bg-white" allowFullScreen />;
+    }
+    return (
+      <div className="text-center p-10"><ExternalLink size={48} className="mx-auto mb-4 opacity-20 text-white" /><p className="text-zinc-400 mb-4 font-medium">Este link não pode ser visualizado internamente.</p><a href={url} target="_blank" rel="noopener noreferrer" className="bg-[#A25431] px-6 py-3 rounded-xl text-white font-bold inline-flex items-center gap-2 hover:bg-[#8a4729]">Abrir numa nova aba</a></div>
+    );
+  };
+
+  const roleLabel = userProfile?.role === 'designer' ? 'Designer' : userProfile?.role === 'planner' ? 'Decupador' : 'Editor';
+  const firstName = userProfile?.nome?.split(' ')[0] || '';
+
+  return (
+    <div className={`flex h-screen ${bgPrincipal} font-sans ${textPrincipal} overflow-hidden ${theme}`}>
+      <Toaster position="top-right" richColors theme={theme} />
+      
+      {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
+      <div className={`md:hidden flex items-center justify-between p-5 pt-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-40 shadow-lg border-b`}>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">ED</div>
+          <div>
+            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Olá, {firstName}!</p>
+            <h1 className="text-sm font-black uppercase tracking-wide">Painel Editor</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={toggleTheme} className="p-2.5 bg-white/10 rounded-full border border-white/20 active:scale-95 transition-transform">
+            {theme === 'dark' ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} className="text-white" />}
+          </button>
+          <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-white/10 rounded-full border border-white/20 active:scale-95 transition-transform">
+            <Menu size={22} />
+          </button>
+        </div>
+      </div>
+
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+
+      {/* SIDEBAR COM BOTÃO DARK/LIGHT NA BASE */}
+      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-[#212013] text-white border-r border-[#212013] flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+        <div className="pt-8 pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
+          <img src="/logo-light.png" alt="Everton" className="h-32 md:h-36 w-auto object-contain transition-transform duration-300" style={{ marginBottom: '-10px' }} />
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden absolute right-4 top-4 p-2 text-zinc-400 hover:text-white bg-white/10 rounded-full"><X size={18} /></button>
+        </div>
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto mt-4 custom-scrollbar">
+           <button onClick={() => { setActiveTab('ajustes'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition-all ${activeTab === 'ajustes' ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+            <PenTool size={20}/> Minhas Tarefas
+          </button>
+          <button onClick={() => { setActiveTab('revisao'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition-all ${activeTab === 'revisao' ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+            <Search size={20}/> Meus Entregues
+          </button>
+        </nav>
+
+        <div className="p-4 border-t border-white/5 flex flex-col gap-2 bg-[#1a190f]">
+          <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-3 text-yellow-500 font-bold hover:bg-white/5 rounded-xl transition-all text-sm">
+            {theme === 'dark' ? <><Sun size={20} /> Modo Claro</> : <><Moon size={20} /> Modo Escuro</>}
+          </button>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="w-full flex items-center gap-3 p-3 text-red-400 font-bold hover:bg-white/5 rounded-xl transition-all text-sm"><LogOut size={20}/> Sair</button>
+        </div>
+      </aside>
+
+      <main className={`flex-1 pt-28 md:pt-10 pb-10 px-4 md:px-10 overflow-y-auto ${bgPrincipal}`}>
+        
+        {/* ABA DE EDIÇÃO / DESIGN */}
+        {activeTab === 'ajustes' && (
+          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+            <header>
+              <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal}`}>Tarefas Pendentes</h2>
+              <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Sua fila de produção de Vídeos e Designs.</p>
+            </header>
+
+            {loading ? (
+              <div className={`${textSecundario} animate-pulse font-bold flex items-center gap-2`}>
+                <Loader2 size={20} className="animate-spin"/> A buscar tarefas...
+              </div>
+            ) : minhaFilaProducao.length === 0 ? (
+              <div className={`p-10 md:p-20 text-center border border-dashed ${borderSecundario} rounded-[32px] ${bgSecundario}`}>
+                <CheckCircle size={48} className={`mx-auto ${textSecundario} opacity-50 mb-4`} />
+                <h3 className={`text-xl font-black uppercase tracking-tight ${textSecundario}`}>Mesa Limpa, {firstName}!</h3>
+                <p className={`${textSecundario} mt-2 text-sm font-medium`}>Tudo entregue da sua parte.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {Object.entries(ajustesAgrupadosPorCliente).map(([clienteId, grupo]) => {
+                  const isExpanded = expandedClients.includes(clienteId);
+                  const totalTarefasCliente = Object.values(grupo.tarefasMae).reduce((acc, curr) => acc + curr.itens.length, 0);
+
+                  return (
+                  <div key={clienteId} className={`${bgSecundario} border transition-all duration-300 overflow-hidden ${isExpanded ? `border-[#A25431]/50 shadow-xl` : `${borderSecundario} hover:border-[#A25431]/30 cursor-pointer`} rounded-[24px] md:rounded-[32px]`}>
+                    
+                    <div onClick={() => !isExpanded && toggleClient(clienteId)} className={`p-5 md:p-6 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50/50'} flex flex-col md:flex-row md:items-center justify-between gap-4 border-b ${borderSecundario}`}>
+                      <div className="flex items-center gap-4 flex-1">
+                        <button onClick={(e) => { e.stopPropagation(); toggleClient(clienteId); }} className={`${textSecundario} hover:${textPrincipal} transition-colors`}>
+                          <ChevronRight size={24} className={`transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
+                        </button>
+                        <div className="p-3 bg-[#A25431]/10 text-[#A25431] border border-[#A25431]/20 rounded-xl shrink-0"><Folder size={20} /></div>
+                        <h3 className={`text-xl md:text-2xl font-black tracking-tight ${textPrincipal} uppercase truncate`}>{grupo.clienteNome}</h3>
+                      </div>
+                      <span className={`w-full md:w-auto text-center ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-white text-zinc-600'} text-xs px-4 py-2 rounded-xl font-black uppercase tracking-widest border ${borderSecundario}`}>
+                        {totalTarefasCliente} Subtarefa(s)
+                      </span>
+                    </div>
+
+                    {isExpanded && (
+                      <div className={`p-4 md:p-6 grid gap-4 md:gap-6 ${bgSecundario} min-w-0`}>
+                        {Object.entries(grupo.tarefasMae).map(([cicloLabel, mae]) => {
+                          const maeId = `${clienteId}-${cicloLabel}`;
+                          const isCicloExpanded = expandedCiclos.includes(maeId);
+
+                          return (
+                            <div key={maeId} className={`${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl md:rounded-[24px] overflow-hidden shadow-sm min-w-0`}>
+                              
+                              <div onClick={() => toggleCiclo(maeId)} className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-zinc-900/50 hover:bg-zinc-900' : 'bg-white hover:bg-zinc-50'} transition-colors cursor-pointer flex flex-col xl:flex-row xl:items-center justify-between gap-4`}>
+                                <div className="flex items-center gap-3">
+                                  <ChevronRight size={18} className={`${textSecundario} transition-transform ${isCicloExpanded ? 'rotate-90' : ''}`} />
+                                  <ListTree size={18} className="text-[#A25431] hidden md:block" />
+                                  <h4 className={`font-black text-sm ${textPrincipal} uppercase tracking-widest`}>{cicloLabel}</h4>
+                                </div>
+                              </div>
+
+                              {isCicloExpanded && (
+                                <div className={`p-4 md:p-5 grid gap-4 border-t ${borderSecundario} ${bgPrincipal} min-w-0`}>
+                                  {mae.itens.map(m => {
+                                    // 🔥 VARIÁVEL PARA SABER SE A TAREFA ESTÁ COM PROBLEMA REPORTADO
+                                    const isReported = m.status === 'faltando_material' || m.status === 'verificar_material';
+
+                                    return (
+                                    <div key={m.id} className={`${bgSecundario} border ${borderSecundario} rounded-2xl p-5 flex flex-col xl:flex-row justify-between gap-6 items-start md:items-center shadow-sm min-w-0 transition-colors`}>
+                                      <div className="space-y-4 flex-1 min-w-0">
+                                        <div>
+                                          <div className="flex items-center gap-2 flex-wrap mb-3">
+                                            {m.status === 'em_edicao' && <span className={`text-blue-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-blue-900/30 border-blue-900/50' : 'bg-blue-100 border-blue-200'} px-3 py-1 rounded-full border`}>Produção Inicial</span>}
+                                            {m.status === 'ajustes' && <span className={`text-orange-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-orange-900/30 border-orange-900/50' : 'bg-orange-100 border-orange-200'} px-3 py-1 rounded-full border`}>Ajuste Solicitado</span>}
+                                            {isReported && <span className={`text-red-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-red-900/30 border-red-900/50' : 'bg-red-100 border-red-200'} px-3 py-1 rounded-full border flex items-center gap-1`}><AlertCircle size={10}/> Em Análise (Admin)</span>}
+                                            
+                                            {m.data_limite && (
+                                              <span className={`text-zinc-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-100 border-zinc-200'} px-3 py-1 rounded-full border flex items-center gap-1.5`}>
+                                                <Calendar size={12} /> Prazo: {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <h5 className={`text-lg font-black tracking-tight ${textPrincipal} uppercase truncate ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
+                                        </div>
+                                        
+                                        <div className="flex flex-wrap gap-2 md:gap-3">
+                                          {m.link_organizado && (
+                                            <a href={m.link_organizado} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                              <Folder size={14}/> Drive (Brutos)
+                                            </a>
+                                          )}
+                                          
+                                          {m.roteiro && (
+                                            <button onClick={() => setPreviewRoteiro(m)} className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                              <FileText size={14}/> Ler Roteiro
+                                            </button>
+                                          )}
+
+                                          <button onClick={() => { setSelectedMaterial(m); setIssueType('verificar_material'); setIssueText(''); setIsIssueModalOpen(true); }} disabled={isReported} className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                            <AlertCircle size={14}/> {isReported ? 'Problema Reportado' : 'Relatar Problema'}
+                                          </button>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                          {m.feedback_admin && (
+                                            <div className={`${theme === 'dark' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-blue-50 border-blue-100'} p-4 rounded-xl border overflow-hidden shadow-sm`}>
+                                              <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mb-2 flex items-center gap-2`}><MessageSquare size={12}/> Instrução Admin:</p>
+                                              <p className={`${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{m.feedback_admin}</p>
+                                            </div>
+                                          )}
+                                          
+                                          {m.feedback && (
+                                            <div className={`${theme === 'dark' ? 'bg-red-950/40 border-red-900/50' : 'bg-red-50 border-red-100'} p-4 rounded-xl border overflow-hidden min-w-0 shadow-sm`}>
+                                              <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} mb-2 flex items-center gap-2`}><AlertCircle size={12}/> {m.status === 'ajustes' ? 'Cliente Pediu Ajuste:' : 'Detalhe do Problema:'}</p>
+                                              {(() => {
+                                                const fbs = m.feedback.split('\n\n').filter(Boolean);
+                                                const isFbExpanded = expandedFeedbacks.includes(m.id);
+                                                return (
+                                                  <div className="min-w-0">
+                                                    <p className={`${theme === 'dark' ? 'text-red-100' : 'text-red-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{fbs[0]}</p>
+                                                    
+                                                    {fbs.length > 1 && (
+                                                      <div className="mt-3">
+                                                        <button onClick={() => toggleFeedback(m.id)} className={`flex items-center gap-1.5 text-[10px] ${theme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-800'} font-bold uppercase tracking-widest transition-colors`}>
+                                                          <ChevronDown size={14} className={`transition-transform duration-300 ${isFbExpanded ? 'rotate-180' : ''}`}/>
+                                                          {isFbExpanded ? 'Ocultar Histórico' : `Ver Histórico Antigo (${fbs.length - 1})`}
+                                                        </button>
+                                                        
+                                                        {isFbExpanded && (
+                                                          <div className={`mt-3 pt-3 border-t ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} space-y-2 animate-in fade-in duration-300 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar`}>
+                                                            {fbs.slice(1).map((hist, idx) => (
+                                                              <div key={idx} className={`p-2.5 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900/30 text-red-200/70' : 'bg-white border border-red-100 text-red-800'} text-xs font-medium whitespace-pre-wrap break-words break-all`}>
+                                                                {hist}
+                                                              </div>
+                                                            ))}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })()}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex flex-col gap-3 w-full xl:w-[220px] shrink-0">
+                                        <div className={`flex items-center justify-between ${bgPrincipal} border ${borderSecundario} p-3 rounded-xl mb-1 shadow-sm`}>
+                                          {m.editor_id && <FileVideo size={16} className={m.video_entregue ? "text-green-500" : textSecundario} />}
+                                          {m.designer_id && <ImageIcon size={16} className={m.design_entregue ? "text-green-500" : textSecundario} />}
+                                        </div>
+
+                                        {/* 🔥 BOTÃO DE ENTREGAR BLOQUEADO SE HOUVER PROBLEMA */}
+                                        <button onClick={() => { 
+                                          if(!isReported) {
+                                            setSelectedMaterial(m); 
+                                            setNewDriveLink(m.link_drive || ''); 
+                                            setNewCapaLink(m.link_capa || '');
+                                            setIsVersionModalOpen(true); 
+                                          }
+                                        }} 
+                                        disabled={isReported}
+                                        className={`w-full flex flex-col items-center justify-center gap-1 py-5 ${isReported ? 'bg-zinc-500 cursor-not-allowed' : 'bg-[#A25431] hover:bg-[#8a4729] active:scale-95'} text-white rounded-xl md:rounded-2xl transition-all shadow-lg`}>
+                                          <span className="font-black uppercase tracking-widest text-[11px] flex items-center gap-2">
+                                            {isReported ? <><Loader2 size={16} className="animate-spin" /> Aguardando Admin</> : <><PenTool size={16}/> Entregar Minha Parte</>}
+                                          </span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )})}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                      </div>
+                    )}
+                  </div>
+                )})}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA DE REVISÃO (MEUS ENTREGUES) */}
+        {activeTab === 'revisao' && (
+          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+            <header>
+              <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal} flex items-center gap-3`}>
+                <Search className="text-purple-500" size={28}/> Meus Entregues
+              </h2>
+              <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Materiais que você já entregou. Aguardando o resto da equipa ou a validação.</p>
+            </header>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              {minhaFilaRevisao.map(m => (
+                <div key={m.id} className={`${bgSecundario} border ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-200'} rounded-[20px] md:rounded-[24px] p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm`}>
+                  <div className="min-w-0">
+                    <h3 className={`font-black text-base md:text-lg ${textPrincipal} tracking-tight uppercase truncate`}>{m.titulo}</h3>
+                    <p className={`${textSecundario} font-bold text-xs mt-1 truncate`}>{m.cliente?.nome}</p>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-3 ${bgPrincipal} ${textSecundario} ${hoverSecundario} rounded-xl transition-colors shrink-0`} title="Ver Vídeo"><FileVideo size={16}/></button>}
+                    {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-3 ${bgPrincipal} ${textSecundario} ${hoverSecundario} rounded-xl transition-colors shrink-0`} title="Ver Capa"><ImageIcon size={16}/></button>}
+                    <div className={`w-full sm:w-auto text-center ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} font-black text-[10px] uppercase px-4 py-3 sm:py-2 rounded-xl border`}>Entregue</div>
+                  </div>
+                </div>
+              ))}
+              {minhaFilaRevisao.length === 0 && !loading && (
+                <div className={`${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border-2 border-dashed rounded-[24px] p-10 text-center col-span-1 md:col-span-2`}>
+                  <p className={`${textSecundario} font-bold text-sm`}>Nenhuma entrega no momento.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* MODAL DE ENTREGA DO MATERIAL */}
+      {isVersionModalOpen && selectedMaterial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-lg max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
+            <div className="flex justify-between items-center">
+              <div className="min-w-0 pr-4">
+                <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} tracking-tighter`}>Entregar Material</h3>
+                <p className={`${textSecundario} font-medium text-[10px] uppercase tracking-widest mt-1 truncate`}>{selectedMaterial.titulo}</p>
+              </div>
+              <button onClick={() => setIsVersionModalOpen(false)} className={`p-2 ${textSecundario} ${hoverSecundario} rounded-full transition-all shrink-0`}><X size={18}/></button>
+            </div>
+            
+            <div className={`${theme === 'dark' ? 'bg-orange-900/20 border-orange-900/50' : 'bg-orange-50 border-orange-200'} p-4 rounded-xl border`}>
+              <p className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'} text-[11px] md:text-xs font-medium flex gap-2`}>
+                <AlertCircle size={16} className="shrink-0"/>
+                {selectedMaterial.editor_id && selectedMaterial.designer_id && selectedMaterial.editor_id !== selectedMaterial.designer_id 
+                  ? "Preencha a sua parte e envie. A tarefa só sairá da mesa da equipa quando ambos entregarem." 
+                  : "Coloque o seu link abaixo para enviar a tarefa para aprovação."}
+              </p>
+            </div>
+            
+            <div className="space-y-5">
+              {(selectedMaterial.editor_id === userId && !selectedMaterial.video_entregue) && (
+                <div className="space-y-2">
+                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest flex items-center gap-2 ml-1`}>
+                    <FileVideo size={14} className="text-blue-500"/> Link do Vídeo (Google Drive)
+                  </label>
+                  <input 
+                    className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-blue-500 transition-colors text-sm`} 
+                    placeholder="Drive, YouTube, Vimeo..." 
+                    value={newDriveLink} 
+                    onChange={e => setNewDriveLink(e.target.value)} 
+                  />
+                </div>
+              )}
+
+              {(selectedMaterial.designer_id === userId && !selectedMaterial.design_entregue) && (
+                <div className="space-y-2">
+                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest flex items-center gap-2 ml-1`}>
+                    <ImageIcon size={14} className="text-pink-500"/> Link do Design (Capa ou Carrossel)
+                  </label>
+                  <input 
+                    className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-pink-500 transition-colors text-sm`} 
+                    placeholder="Link do Google Drive..." 
+                    value={newCapaLink} 
+                    onChange={e => setNewCapaLink(e.target.value)} 
+                  />
+                </div>
+              )}
+            </div>
+            
+            <button onClick={handleSendNewVersion} disabled={isSubmitting || (!newDriveLink && !newCapaLink)} className={`w-full py-4 md:py-5 ${theme === 'dark' ? 'bg-white hover:bg-zinc-200 text-black' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2`}>
+              {isSubmitting ? <Loader2 size={16} className="animate-spin inline-block"/> : null}
+              {isSubmitting ? "A salvar..." : "Entregar Minha Parte"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA RELATAR PROBLEMA */}
+      {isIssueModalOpen && selectedMaterial && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-6 md:p-10 shadow-2xl space-y-6 text-left`}>
+            <div className="flex justify-between items-center">
+              <h3 className={`text-xl md:text-2xl font-black uppercase text-red-500 tracking-tighter flex items-center gap-2`}><AlertCircle size={24}/> Problema</h3>
+              <button onClick={() => setIsIssueModalOpen(false)} className={`p-2 ${textSecundario} hover:${textPrincipal} transition-all`}><X size={20}/></button>
+            </div>
+            
+            <p className={`${textSecundario} text-xs md:text-sm font-medium`}>Explique ao Admin o que está errado com o material bruto recebido.</p>
+            
+            <div className="space-y-4">
+              <select className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-red-500 transition-colors text-sm shadow-sm`} value={issueType} onChange={e => setIssueType(e.target.value as any)}>
+                <option value="verificar_material">Erro no Material / Dúvida</option>
+                <option value="faltando_material">Falta Material na Pasta</option>
+              </select>
+              
+              <textarea 
+                className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-medium outline-none focus:border-red-500 transition-colors min-h-[120px] text-sm resize-none shadow-sm`} 
+                placeholder="Ex: O link da pasta está quebrado, ou falta uma foto para o carrossel..." 
+                value={issueText} 
+                onChange={e => setIssueText(e.target.value)} 
+              />
+            </div>
+            
+            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-4 md:py-5 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-red-500 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
+              {isSubmitting ? "A enviar..." : "Devolver para o Admin"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ROTEIRO BLINDADO */}
+      {previewRoteiro && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+           <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-3xl max-h-[85vh] rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left min-w-0`}>
+              <div className={`p-5 md:p-8 border-b ${borderSecundario} flex justify-between items-center ${bgPrincipal} shrink-0`}>
+                 <div className="min-w-0 pr-4">
+                    <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} truncate`}>{previewRoteiro.titulo}</h3>
+                    <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mt-1 flex items-center gap-1.5"><FileText size={12}/> Roteiro Base</p>
+                 </div>
+                 <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${bgSecundario} hover:${bgPrincipal} ${textSecundario} hover:${textPrincipal} rounded-full shrink-0 transition-colors`}><X size={20}/></button>
+              </div>
+              <div className="p-5 md:p-8 overflow-y-auto">
+                 <div className={`prose prose-sm max-w-none ${textPrincipal} whitespace-pre-wrap font-medium leading-relaxed break-words break-all`}>
+                    {previewRoteiro.roteiro || "Roteiro não preenchido."}
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* PLAYER TELA CHEIA */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-[1000] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-500">
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-[1100]">
+             <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all border border-white/10"><ExternalLink size={18} /></a>
+             <button onClick={() => setPreviewUrl(null)} className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all border border-white/10"><X size={20} /></button>
+          </div>
+          <div className="w-full h-full max-w-5xl mx-auto flex items-center justify-center">
+             {renderPreviewContent(previewUrl)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
