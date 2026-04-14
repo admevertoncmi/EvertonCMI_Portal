@@ -13,6 +13,9 @@ export default function NovaSenha() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Imagem artística para o fundo (mesma da página de login)
+  const imgFundo = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop";
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -35,55 +38,78 @@ export default function NovaSenha() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 font-sans text-zinc-900 p-4">
+    <div className="min-h-screen flex items-center justify-center font-sans text-white p-4 relative overflow-hidden bg-[#212013]">
       <Toaster position="top-right" richColors />
       
-      <div className="w-full max-w-md bg-white border border-zinc-200 rounded-[40px] p-10 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner border border-green-100">
-            <ShieldCheck size={32} />
-          </div>
-          <h1 className="text-2xl font-black      uppercase tracking-tighter text-zinc-800">Nova Senha</h1>
-          <p className="text-sm font-medium text-zinc-500 mt-2">Crie uma nova senha segura para a sua conta.</p>
+      {/* Fundo com imagem e gradiente */}
+      <div className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity" style={{ backgroundImage: `url(${imgFundo})` }}></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#212013] via-[#212013]/80 to-[#212013]/95"></div>
+
+      {/* Efeito Glow */}
+      <div className="absolute -top-[15%] -left-[10%] w-[400px] h-[400px] bg-[#A25431]/30 blur-[120px] rounded-full mix-blend-screen pointer-events-none"></div>
+      <div className="absolute -bottom-[10%] -right-[10%] w-[300px] h-[300px] bg-[#A25431]/20 blur-[100px] rounded-full mix-blend-screen pointer-events-none"></div>
+
+      <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        {/* Logo */}
+        <div className="flex justify-center mb-10">
+          <img src="/logo-light.png" alt="Logo Everton CMI" className="w-56 h-auto object-contain drop-shadow-xl" />
         </div>
 
-        <form onSubmit={handleUpdate} className="space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-2">Nova Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
-                <input 
-                  type="password" 
-                  className="w-full p-4 pl-12 bg-zinc-50 border border-zinc-200 rounded-2xl font-bold outline-none focus:border-green-500 transition-colors text-sm" 
-                  placeholder="Mínimo 6 caracteres" 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)} 
-                  required 
-                />
-              </div>
+        {/* Card Principal */}
+        <div className="bg-white/[0.07] backdrop-blur-xl border border-white/10 rounded-[40px] p-10 shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-[#A25431]/20 text-[#A25431] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#A25431]/30">
+              <ShieldCheck size={32} />
             </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest ml-2">Confirmar Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
-                <input 
-                  type="password" 
-                  className="w-full p-4 pl-12 bg-zinc-50 border border-zinc-200 rounded-2xl font-bold outline-none focus:border-green-500 transition-colors text-sm" 
-                  placeholder="Repita a senha" 
-                  value={confirmPassword} 
-                  onChange={e => setConfirmPassword(e.target.value)} 
-                  required 
-                />
-              </div>
-            </div>
+            <h1 className="text-2xl font-black uppercase tracking-tighter text-white">Nova Senha</h1>
+            <p className="text-sm font-medium text-zinc-400 mt-2">Crie uma nova senha segura para a sua conta.</p>
           </div>
 
-          <button disabled={loading} className="w-full py-5 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-zinc-800 hover:scale-[1.02] transition-all disabled:opacity-50 mt-2">
-            {loading ? "A guardar..." : "Guardar Nova Senha"}
-          </button>
-        </form>
+          <form onSubmit={handleUpdate} className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-2">Nova Senha</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                  <input 
+                    type="password" 
+                    className="w-full p-4 pl-12 bg-white/5 border border-white/10 rounded-2xl font-bold outline-none focus:border-[#A25431]/50 focus:ring-4 focus:ring-[#A25431]/10 transition-all text-sm text-white placeholder-zinc-500" 
+                    placeholder="Mínimo 6 caracteres" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest ml-2">Confirmar Senha</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={20} />
+                  <input 
+                    type="password" 
+                    className="w-full p-4 pl-12 bg-white/5 border border-white/10 rounded-2xl font-bold outline-none focus:border-[#A25431]/50 focus:ring-4 focus:ring-[#A25431]/10 transition-all text-sm text-white placeholder-zinc-500" 
+                    placeholder="Repita a senha" 
+                    value={confirmPassword} 
+                    onChange={e => setConfirmPassword(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button disabled={loading} className="w-full py-5 bg-[#A25431] hover:bg-[#b5623e] text-white rounded-full font-black uppercase tracking-widest text-[10px] shadow-lg shadow-[#A25431]/30 hover:scale-[1.02] transition-all disabled:opacity-50 mt-2 flex items-center justify-center gap-2">
+              {loading ? "A guardar..." : "Guardar Nova Senha"}
+            </button>
+          </form>
+        </div>
+
+        {/* Rodapé */}
+        <div className="mt-8 flex items-center justify-center gap-4 text-white/30 text-[10px] font-black uppercase tracking-widest">
+          <span>Everton CMI</span>
+          <div className="w-1 h-1 bg-[#A25431] rounded-full"></div>
+          <span>All rights reserved 2026</span>
+        </div>
       </div>
     </div>
   )
