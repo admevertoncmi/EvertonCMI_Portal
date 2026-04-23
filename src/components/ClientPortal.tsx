@@ -25,6 +25,22 @@ const getEmbedUrl = (url: string) => {
   } catch (error) { return null; }
 }
 
+const renderTextWithLinks = (text: string) => {
+  if (!text) return text;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export default function PortalCliente({ params }: { params: Promise<{ token_magico: string }> }) {
   const resolvedParams = use(params)
   const token = resolvedParams.token_magico
@@ -47,8 +63,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
 
-  const [minutoAjuste, setMinutoAjuste] = useState('')
   const [segundoAjuste, setSegundoAjuste] = useState('')
+
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
+  const [materialToApprove, setMaterialToApprove] = useState<any>(null)
 
   const materiaisVisualizados = useRef<Set<string>>(new Set());
 
@@ -147,6 +165,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     return groups
   }, [currentList])
 
+  const postsPendentesCount = useMemo(() => {
+    return videosList.filter(m => m.status === 'pendente').length;
+  }, [videosList]);
+
   const metricasCiclo = useMemo(() => {
     if (todosMateriais.length === 0) return { ciclo: 1, total: 0, aprovados: 0, percentual: 0 };
 
@@ -169,35 +191,46 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     return todosMateriais.filter(m => ['pendente', 'roteiro_pendente'].includes(m.status)).length;
   }, [todosMateriais])
 
-  const handleAprovarVideo = async (id: string) => {
-    if (!selectedMaterial) return;
+  const openApproveModal = (material: any) => {
+    setMaterialToApprove(material);
+    setIsApprovalModalOpen(true);
+  };
+
+  const handleAprovarVideo = async (id: string | undefined) => {
+    const mat = materialToApprove || selectedMaterial;
+    if (!mat) return;
+    const finalId = id || mat.id;
     setActionLoading(true);
-    const updated = { ...selectedMaterial, status: 'post_aprovado', feedback: null };
-    setTodosMateriais(prev => prev.map(m => m.id === id ? updated : m));
+    const updated = { ...mat, status: 'post_aprovado', feedback: null };
+    setTodosMateriais(prev => prev.map(m => m.id === finalId ? updated : m));
     setSelectedMaterial(updated);
 
-    await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', id)
-    await registrarLogAcesso(id, `✅ POST Aprovado`);
+    await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', finalId)
+    await registrarLogAcesso(finalId, `✅ POST Aprovado`);
 
-    const msg = `✅ POST APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${selectedMaterial.titulo}\nA edição final foi aprovada pelo cliente.`;
+    const msg = `✅ POST APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${mat.titulo}\nA edição final foi aprovada pelo cliente.`;
     await notificarClickUpChat(msg);
     toast.success("Post aprovado com sucesso!");
+    setIsApprovalModalOpen(false);
     setActionLoading(false);
   }
 
-  const handleAprovarRoteiro = async (id: string) => {
-    if (!selectedMaterial) return;
+  const handleAprovarRoteiro = async (id: string | undefined) => {
+    const mat = materialToApprove || selectedMaterial;
+    if (!mat) return;
+    const finalId = id || mat.id;
     setActionLoading(true);
-    const updated = { ...selectedMaterial, status: 'roteiro_aprovado', feedback: null };
-    setTodosMateriais(prev => prev.map(m => m.id === id ? updated : m));
+    const updated = { ...mat, status: 'roteiro_aprovado', feedback: null };
+    setTodosMateriais(prev => prev.map(m => m.id === finalId ? updated : m));
     setSelectedMaterial(updated);
 
-    await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', id)
-    await registrarLogAcesso(id, `✅ Roteiro Aprovado`);
+    await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', finalId)
+    await registrarLogAcesso(finalId, `✅ Roteiro Aprovado`);
 
-    const msg = `📝✅ ROTEIRO APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${selectedMaterial.titulo}\nO Roteiro foi aprovado.`;
+    const msg = `📝✅ ROTEIRO APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${mat.titulo}\nO Roteiro foi aprovado.`;
     await notificarClickUpChat(msg);
     toast.success("Roteiro aprovado! A equipe de produção foi notificada.");
+    setIsApprovalModalOpen(false);
     setActionLoading(false);
   }
 
@@ -379,8 +412,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
 
           <div className="hidden md:flex bg-white p-1.5 rounded-[20px] shadow-sm border border-zinc-200 w-full md:w-64 h-fit self-center flex-row-reverse">
-            <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'videos' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+            <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all relative ${activeTab === 'videos' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
               <PlayCircle size={14} /> Posts
+              {postsPendentesCount > 0 && activeTab !== 'videos' && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>}
             </button>
             <button onClick={() => { setActiveTab('roteiros'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'roteiros' ? 'bg-purple-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
               <FileText size={14} /> Roteiros
@@ -412,7 +446,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                       let isItemAprovado = false;
                       if (isRoteiro) {
-                        isItemAprovado = (m.status === 'roteiro_aprovado' || m.status === 'aprovado');
+                        isItemAprovado = (m.status === 'roteiro_aprovado' || m.status === 'aprovado' || ['revisao', 'pendente', 'ajustes', 'post_aprovado'].includes(m.status.toLowerCase()));
                       } else {
                         isItemAprovado = ['aprovado', 'post_aprovado'].includes(m.status) && !!(m.link_drive || m.link_capa);
                       }
@@ -491,9 +525,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                   {isRoteiro ? (
                     <div className="bg-zinc-50 border border-zinc-200 rounded-[16px] p-5 min-h-[200px] mb-5 overflow-hidden">
-                      <p className="text-zinc-700 font-medium whitespace-pre-wrap break-words break-all leading-relaxed text-xs md:text-sm">
-                        {selectedMaterial.roteiro || "Nenhum Roteiro registado nesta tarefa."}
-                      </p>
+                      <div className="text-zinc-700 font-medium whitespace-pre-wrap break-words break-all leading-relaxed text-xs md:text-sm">
+                        {selectedMaterial.roteiro ? renderTextWithLinks(selectedMaterial.roteiro) : "Nenhum Roteiro registado nesta tarefa."}
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -626,7 +660,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                           <AlertCircle size={16} /> Solicitar {isRoteiro ? 'Alteração' : 'Ajuste'}
                         </button>
 
-                        <button onClick={() => isRoteiro ? handleAprovarRoteiro(selectedMaterial.id) : handleAprovarVideo(selectedMaterial.id)} disabled={actionLoading} className={`w-full sm:flex-1 py-4 text-white rounded-[16px] font-black uppercase text-[10px] tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}>
+                        <button onClick={() => openApproveModal(selectedMaterial)} disabled={actionLoading} className={`w-full sm:flex-1 py-4 text-white rounded-[16px] font-black uppercase text-[10px] tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}>
                           {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           {isRoteiro ? "Aprovar Roteiro" : "Aprovar Post"}
                         </button>
@@ -733,9 +767,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           {activeTab === 'roteiros' && <div className="w-1 h-1 bg-purple-600 rounded-full mt-0.5"></div>}
         </button>
 
-        <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null); }} className={`flex flex-col items-center gap-1 p-2 w-20 transition-all ${activeTab === 'videos' ? 'text-blue-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
+        <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null); }} className={`flex flex-col items-center gap-1 p-2 w-20 transition-all relative ${activeTab === 'videos' ? 'text-blue-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
           <PlayCircle size={20} className={activeTab === 'videos' ? 'fill-blue-50' : ''} />
           <span className="text-[9px] font-black uppercase tracking-widest">Posts</span>
+          {postsPendentesCount > 0 && activeTab !== 'videos' && <span className="absolute top-1 right-5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>}
           {activeTab === 'videos' && <div className="w-1 h-1 bg-blue-600 rounded-full mt-0.5"></div>}
         </button>
       </div>
@@ -756,6 +791,41 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
         </div>
       )}
+      {/* MODAL DE APROVAÇÃO PERSONALIZADO */}
+      {isApprovalModalOpen && materialToApprove && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 text-center">
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${isRoteiro ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
+                {isRoteiro ? <FileText size={40} /> : <CheckCircle2 size={40} />}
+              </div>
+              <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 mb-2">Tudo Certo?</h3>
+              <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-8">
+                {isRoteiro 
+                  ? "Ao aprovar o roteiro, a nossa equipe de produção será notificada para iniciar a gravação e edição."
+                  : "O material será marcado como aprovado e pronto para ser postado nas suas redes sociais!"}
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => isRoteiro ? handleAprovarRoteiro(materialToApprove.id) : handleAprovarVideo(materialToApprove.id)} 
+                  disabled={actionLoading}
+                  className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}
+                >
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
+                  Confirmar Aprovação
+                </button>
+                <button 
+                  onClick={() => { setIsApprovalModalOpen(false); setMaterialToApprove(null); }}
+                  className="w-full py-4 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-zinc-600 transition-colors"
+                >
+                  Voltar e Revisar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+}

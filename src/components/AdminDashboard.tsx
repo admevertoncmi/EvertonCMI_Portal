@@ -80,7 +80,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [editingMembro, setEditingMembro] = useState<MembroComNome | null>(null);
-  const [activeTab, setActiveTab] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados'>('planejamento')
+  const [activeTab, setActiveTab] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios'>('planejamento')
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
@@ -130,6 +130,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [logsAtuais, setLogsAtuais] = useState<any[]>([]);
   const [nomeMaterialLog, setNomeMaterialLog] = useState('');
   const [incompleteApprovalData, setIncompleteApprovalData] = useState<{ material: Material, missingVideo: boolean | null | undefined, missingDesign: boolean | null | undefined } | null>(null);
+  const [isApproveConfirmModalOpen, setIsApproveConfirmModalOpen] = useState(false);
+  const [materialToApproveFinal, setMaterialToApproveFinal] = useState<Material | null>(null);
+
   const {
     clientes, setClientes,
     materiais, setMateriais,
@@ -178,6 +181,37 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const groupedAjustes = useMemo(() => groupItems(notificacoesAjustes), [notificacoesAjustes, groupItems]);
   const groupedMateriaisAprovados = useMemo(() => groupItems(filaMateriaisAprovados), [filaMateriaisAprovados, groupItems]);
 
+  const relatorioData = useMemo(() => {
+    // Rendimento por membro
+    const performance: Record<string, { nome: string, total: number, entregas: number, atrasos: number }> = {};
+    membros.forEach(m => performance[m.id] = { nome: m.nome || m.email, total: 0, entregas: 0, atrasos: 0 });
+
+    materiais.forEach(m => {
+      if (m.editor_id && performance[m.editor_id]) {
+        performance[m.editor_id].total++;
+        if (m.video_entregue) performance[m.editor_id].entregas++;
+      }
+      if (m.designer_id && performance[m.designer_id]) {
+        performance[m.designer_id].total++;
+        if (m.design_entregue) performance[m.designer_id].entregas++;
+      }
+      if (m.planner_id && performance[m.planner_id]) {
+        performance[m.planner_id].total++;
+        if (m.status !== 'planejamento') performance[m.planner_id].entregas++;
+      }
+    });
+
+    // Top Clientes
+    const topClientes = Object.entries(groupItems(materiais)).map(([id, group]: [string, any]) => ({
+      nome: group.cliente.nome,
+      total: group.total,
+      aprovados: group.aprovados,
+      percentual: group.total > 0 ? (group.aprovados / group.total) * 100 : 0
+    })).sort((a, b) => b.total - a.total).slice(0, 5);
+
+    return { performance: Object.values(performance), topClientes };
+  }, [materiais, membros, groupItems]);
+
   const abrirLogsDoMaterial = async (materialId: string, titulo: string) => {
     setNomeMaterialLog(titulo);
     const { data, error } = await supabase.from('logs_acesso').select('*').eq('material_id', materialId).order('created_at', { ascending: false });
@@ -191,16 +225,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
     if (material) {
       if (newStatus === 'faltando_material' || newStatus === 'verificar_material') {
-        await notificarClickUpChat(`⚠️ PROBLEMA REPORTADO NA PRODUÇÃO\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n🚨 A equipe sinalizou que falta material na pasta ou há erro nos ficheiros!`, '2');
+        const p = membros.find(m => m.id === material.planner_id);
+        await notificarClickUpChat(`⚠️ PROBLEMA REPORTADO NA PRODUÇÃO\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n🚨 A equipe sinalizou que falta material na pasta ou há erro nos ficheiros!`, (p as any)?.telegram_thread_id);
       }
       else if (newStatus === 'revisao') {
-        await notificarClickUpChat(`👀 EDIÇÃO PRONTA PARA APROVAÇÃO\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n✅ A equipe de design/edição concluiu o material. Aguardando a sua análise.`, '2');
+        await notificarClickUpChat(`👀 EDIÇÃO PRONTA PARA APROVAÇÃO\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n✅ A equipe de design/edição concluiu o material. Aguardando a sua análise.`);
       }
       else if (newStatus === 'organizado') {
-        await notificarClickUpChat(`📁 PASTA ORGANIZADA\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n✅ O Decupador terminou. A pasta está pronta para ser delegada ao Editor/Designer!`, '2');
+        await notificarClickUpChat(`📁 PASTA ORGANIZADA\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n✅ O Decupador terminou. A pasta está pronta para ser delegada ao Editor/Designer!`);
       }
       else if (newStatus === 'aprovado' || newStatus === 'roteiro_aprovado' || newStatus === 'post_aprovado') {
-        await notificarClickUpChat(`✅ APROVADO E FINALIZADO (ADMIN)\n\n👤 Cliente: ${material.cliente?.nome}\n🎬 Material: ${material.titulo}`, '2');
+        await notificarClickUpChat(`✅ APROVADO E FINALIZADO (ADMIN)\n\n👤 Cliente: ${material.cliente?.nome}\n🎬 Material: ${material.titulo}`);
       }
     }
 
@@ -208,19 +243,35 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setActionLoading(null);
   }
 
+  const [resolveType, setResolveType] = useState<'planner' | 'editor'>('planner');
+
   const handleResolveIssue = async () => {
-    if (!selectedMaterial || !resolveText) return toast.error("Escreva a instrução/resolução para o Decupador!");
+    if (!selectedMaterial || !resolveText) return toast.error("Escreva a instrução/resolução!");
     setLoading(true);
-    const { error } = await supabase.from('materiais').update({ status: 'planejamento', feedback_admin: resolveText, link_bruto: resolveLinkBruto, feedback: null }).eq('id', selectedMaterial.id);
+    
+    const newStatus = resolveType === 'planner' ? 'planejamento' : 'em_edicao';
+    const { error } = await supabase.from('materiais').update({ 
+      status: newStatus, 
+      feedback_admin: resolveText, 
+      link_bruto: resolveLinkBruto, 
+      feedback: null,
+      video_entregue: resolveType === 'editor' ? false : selectedMaterial.video_entregue,
+      design_entregue: resolveType === 'editor' ? false : selectedMaterial.design_entregue
+    }).eq('id', selectedMaterial.id);
+
     if (!error) {
-      toast.success("Devolvido ao Decupador com sucesso!");
-      const msgResolvido = `✅ PROBLEMA RESOLVIDO (ADMIN)\n\n🎬 Material: ${selectedMaterial.titulo}\n💬 Resposta: ${resolveText}\n🚀 Os materiais foram atualizados, pode continuar a decupagem!`;
-      await notificarClickUpChat(msgResolvido, '4');
+      toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado ao Editor!");
+      const targetMemberId = resolveType === 'planner' ? selectedMaterial.planner_id : selectedMaterial.editor_id;
+      const m = membros.find(x => x.id === targetMemberId);
+      
+      const msgResolvido = `✅ PROBLEMA RESOLVIDO (ADMIN)\n\n🎬 Material: ${selectedMaterial.titulo}\n💬 Resposta: ${resolveText}\n🚀 O Admin resolveu o problema. Pode continuar o trabalho!`;
+      await notificarClickUpChat(msgResolvido, (m as any)?.telegram_thread_id);
+      
       setIsResolveIssueModalOpen(false);
       setResolveText('');
       loadData();
     }
-    else { toast.error("Erro ao devolver."); } setLoading(false);
+    else { toast.error("Erro ao processar resolução."); } setLoading(false);
   }
 
   const handleSaveRoteiro = async () => {
@@ -327,7 +378,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         missingDesign: missingDesign
       });
     } else {
-      handleAprovarParaCliente(m.id);
+      setMaterialToApproveFinal(m);
+      setIsApproveConfirmModalOpen(true);
     }
   };
 
@@ -571,6 +623,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             {navItem('geral', 'Visão Geral', <LayoutDashboard size={20} />)}
             {navItem('cadastro-clientes', 'Cadastro do Cliente', <Users size={20} />)}
             {navItem('equipe', 'Equipe', <ShieldCheck size={20} />)}
+            {navItem('relatorios', 'Relatórios', <Activity size={20} />)}
           </div>
         </nav>
 
@@ -606,6 +659,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           <button onClick={() => { setActiveTab('materiais-aprovados'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovados' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
             <CheckCircle2 size={20} />
             <span className="text-[9px] font-bold tracking-wide">Prontos</span>
+          </button>
+          <button onClick={() => { setActiveTab('relatorios'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'relatorios' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
+            <Activity size={20} />
+            <span className="text-[9px] font-bold tracking-wide">Relat.</span>
           </button>
           <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
             <Menu size={20} />
@@ -753,9 +810,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
             )}
 
-            {/* PASTAS ORGANIZADAS */}
+            {/* MATERIAL DECUPADO (ANTIGAS PASTAS PRONTAS) */}
             <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
-              <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><Folder className="text-indigo-600" size={28} /> Pastas Prontas</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>O Decupador organizou. Delegue para o Editor e/ou Designer.</p></header>
+              <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><Folder className="text-indigo-600" size={28} /> Material Decupado</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>O Decupador organizou. Delegue para o Editor e/ou Designer.</p></header>
               {Object.keys(groupedProducao).length === 0 ? (
                 <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhuma pasta organizada pendente.</p></div>
               ) : (
@@ -1492,6 +1549,104 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
           </div>
         )}
+        {/* ABA: RELATÓRIOS */}
+        {activeTab === 'relatorios' && (
+          <div className="max-w-6xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <h2 className="text-3xl font-black uppercase tracking-tight">Painel de Relatórios</h2>
+                <p className={`${tc.textMuted} font-medium mt-1`}>Análise de produtividade da equipe e engajamento dos clientes.</p>
+              </div>
+              <button onClick={() => window.print()} className={`flex items-center gap-2 px-6 py-3 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl text-xs font-black uppercase hover:shadow-md transition-all`}>
+                <Download size={18} /> Exportar PDF
+              </button>
+            </header>
+
+            {/* CARDS DE RESUMO */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
+                <div className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-500/20"><Activity size={24} /></div>
+                <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Total de Materiais</p>
+                <h3 className="text-4xl font-black mt-2">{materiais.length}</h3>
+                <p className="text-xs text-blue-500 font-bold mt-4 flex items-center gap-1">Histórico completo</p>
+              </div>
+              <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
+                <div className="w-12 h-12 bg-green-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-green-500/20"><CheckCircle2 size={24} /></div>
+                <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Taxa de Aprovação</p>
+                <h3 className="text-4xl font-black mt-2">{metrics.eficiencia}%</h3>
+                <div className="mt-4 w-full bg-zinc-100 rounded-full h-2">
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: `${metrics.eficiencia}%` }}></div>
+                </div>
+              </div>
+              <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
+                <div className="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-red-500/20"><MessageSquare size={24} /></div>
+                <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Ajustes Pendentes</p>
+                <h3 className="text-4xl font-black mt-2">{metrics.ajustes}</h3>
+                <p className="text-xs text-red-500 font-bold mt-4 flex items-center gap-1">Necessitam atenção</p>
+              </div>
+              <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
+                <div className="w-12 h-12 bg-purple-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/20"><Clock size={24} /></div>
+                <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Gargalo Atual</p>
+                <h3 className="text-xl font-black mt-3 leading-tight">{gargalo.name || 'Nenhum'}</h3>
+                <p className="text-xs text-purple-500 font-bold mt-3">{gargalo.count} itens aguardando</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* DESEMPENHO DA EQUIPE */}
+              <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
+                <header className="p-6 md:p-8 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black uppercase text-sm">Produtividade da Equipe</h3>
+                    <p className="text-xs text-zinc-400 font-medium mt-1">Materiais entregues por membro.</p>
+                  </div>
+                  <Users size={20} className="text-[#A25431]" />
+                </header>
+                <div className="p-6 md:p-8 space-y-6">
+                  {relatorioData.performance.map((m, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="flex justify-between items-end">
+                        <span className="text-sm font-black uppercase">{m.nome}</span>
+                        <span className="text-xs font-bold text-zinc-400">{m.entregas} / {m.total}</span>
+                      </div>
+                      <div className="w-full bg-zinc-100 rounded-full h-3">
+                        <div className="bg-[#A25431] h-3 rounded-full transition-all duration-1000" style={{ width: `${m.total > 0 ? (m.entregas / m.total) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* MAIS ATIVOS */}
+              <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
+                <header className="p-6 md:p-8 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black uppercase text-sm">Engajamento de Clientes</h3>
+                    <p className="text-xs text-zinc-400 font-medium mt-1">Clientes com maior volume de produção.</p>
+                  </div>
+                  <TrendingUp size={20} className="text-blue-500" />
+                </header>
+                <div className="p-6 md:p-8 space-y-4">
+                  {relatorioData.topClientes.map((c, i) => (
+                    <div key={i} className={`flex items-center justify-between p-4 rounded-2xl ${tc.bgHighlight} border ${tc.borderStrong}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black">{i + 1}</div>
+                        <div>
+                          <p className="font-black uppercase text-xs truncate max-w-[120px] sm:max-w-none">{c.nome}</p>
+                          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{c.total} materiais totais</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-green-500 text-sm">{Math.round(c.percentual)}%</p>
+                        <p className="text-[9px] text-zinc-400 font-bold uppercase">Aprovação</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* MODAIS RESPONSIVOS */}
@@ -1594,14 +1749,28 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       {isResolveIssueModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
-            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
-            <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}><p className="text-[10px] font-black uppercase text-red-500 mb-1">Motivo:</p><p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-pre-wrap break-words`}>"{selectedMaterial.feedback}"</p></div>
+            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
+            <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}><p className="text-[10px] font-black uppercase text-red-500 mb-1">Motivo do Problema:</p><p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-pre-wrap break-words`}>"{selectedMaterial.feedback}"</p></div>
+            
             <div className="space-y-4">
-              <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Link Bruto (Opcional)</label><input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-red-500 text-sm transition-colors`} placeholder="Atualizar link..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} /></div>
-              <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Mensagem p/ Decupador</label><textarea className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-red-500 min-h-[100px] text-sm resize-none transition-colors`} placeholder="O que você fez..." value={resolveText} onChange={e => setResolveText(e.target.value)} /></div>
+              <div className="space-y-1">
+                <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Destino da Resolução</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setResolveType('planner')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'planner' ? 'bg-red-600 text-white border-red-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Decupador</button>
+                  <button onClick={() => setResolveType('editor')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'editor' ? 'bg-blue-600 text-white border-blue-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Editor/Designer</button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Link Bruto (Opcional)</label>
+                <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Instrução de Resolução</label>
+                <textarea className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-red-500 min-h-[100px] text-sm resize-none transition-colors`} placeholder="Explique o que foi feito ou o que fazer agora..." value={resolveText} onChange={e => setResolveText(e.target.value)} />
+              </div>
             </div>
-            <button onClick={handleResolveIssue} disabled={loading || !resolveText} className="w-full py-4 md:py-5 bg-red-600 text-white rounded-2xl font-black uppercase text-[10px] hover:bg-red-700 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
-              {loading ? <Loader2 size={16} className="animate-spin" /> : null} Devolver p/ Decupador
+            <button onClick={handleResolveIssue} disabled={loading || !resolveText} className={`w-full py-4 md:py-5 ${resolveType === 'planner' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
+              {loading ? <Loader2 size={16} className="animate-spin" /> : null} {resolveType === 'planner' ? 'Devolver p/ Decupador' : 'Reenviar p/ Editor'}
             </button>
           </div>
         </div>
@@ -1819,6 +1988,41 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </div>
           <div className="w-full h-[85vh] max-w-[400px] md:max-w-5xl mx-auto flex items-center justify-center overflow-hidden">
             {renderPreviewContent(previewUrl)}
+          </div>
+        </div>
+      )}
+
+      {isApproveConfirmModalOpen && materialToApproveFinal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl text-left space-y-6`}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl md:text-2xl font-black uppercase text-green-500 flex items-center gap-2">
+                <CheckCircle2 size={24} /> Aprovar p/ Cliente
+              </h3>
+              <button onClick={() => setIsApproveConfirmModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className={`${tc.textMuted} text-sm md:text-base font-medium leading-relaxed`}>
+                Tem certeza que deseja enviar o material <strong className={`${tc.textMain} uppercase`}>{materialToApproveFinal.titulo}</strong> para o portal do cliente?
+              </p>
+
+              <div className={`${theme === 'dark' ? 'bg-green-900/20 border-green-900/30' : 'bg-green-50 border-green-100'} border p-4 rounded-2xl`}>
+                <p className={`text-green-600 text-[10px] md:text-xs font-bold flex gap-2`}>
+                  <Send size={16} className="shrink-0" />
+                  Isso irá notificar o cliente via WhatsApp e disponibilizar o material para aprovação final.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <button onClick={() => setIsApproveConfirmModalOpen(false)} disabled={actionLoading === materialToApproveFinal.id} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors`}>Cancelar</button>
+              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-1 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
+                {actionLoading === materialToApproveFinal.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Confirmar & Enviar</>}
+              </button>
+            </div>
           </div>
         </div>
       )}

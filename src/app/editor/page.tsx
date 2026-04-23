@@ -151,7 +151,7 @@ export default function EditorDashboard() {
     else {
       if (isGlobalComplete && statusFinal === 'revisao') {
         toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
-        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\nMaterial: ${selectedMaterial.titulo}\nEquipa: O pacote completo foi entregue!\nAcesse o Painel Admin na aba Materiais p/ Aprovação.`;
+        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\nMaterial: ${selectedMaterial.titulo}\nEquipe: O pacote completo foi entregue!\nAcesse o Painel Admin na aba Materiais p/ Aprovação.`;
         await notificarClickUpChat(msgAdmin);
       } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
       setIsVersionModalOpen(false)
@@ -438,7 +438,7 @@ export default function EditorDashboard() {
               <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal} flex items-center gap-3`}>
                 <Search className="text-purple-500" size={28}/> Meus Entregues
               </h2>
-              <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Materiais que você já entregou. Aguardando o resto da equipa ou a validação.</p>
+              <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Materiais que você já entregou. Aguardando o resto da equipe ou a validação.</p>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {minhaFilaRevisao.map(m => (
@@ -480,7 +480,7 @@ export default function EditorDashboard() {
               <p className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'} text-[11px] md:text-xs font-medium flex gap-2`}>
                 <AlertCircle size={16} className="shrink-0"/>
                 {selectedMaterial.editor_id && selectedMaterial.designer_id && selectedMaterial.editor_id !== selectedMaterial.designer_id 
-                  ? "Preencha a sua parte e envie. A tarefa só sairá da mesa da equipa quando ambos entregarem." 
+                  ? "Preencha a sua parte e envie. A tarefa só sairá da mesa da equipe quando ambos entregarem." 
                   : "Coloque o seu link abaixo para enviar a tarefa para aprovação."}
               </p>
             </div>
