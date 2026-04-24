@@ -6,6 +6,7 @@ import { Toaster, toast } from 'sonner'
 import { criarMembroEquipe, atualizarMembroEquipe } from '@/actions/equipe'
 import { cadastrarClienteCompleto } from '@/actions/clientes'
 import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from '@/actions/clickup'
+import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
@@ -18,7 +19,7 @@ import {
   FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon
 } from 'lucide-react'
 
-export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; }
+export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
 export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
@@ -57,6 +58,22 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('adminTheme', newTheme);
+  };
+
+  const renderTextWithLinks = (text: string) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
   };
 
   const tc = {
@@ -132,6 +149,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [incompleteApprovalData, setIncompleteApprovalData] = useState<{ material: Material, missingVideo: boolean | null | undefined, missingDesign: boolean | null | undefined } | null>(null);
   const [isApproveConfirmModalOpen, setIsApproveConfirmModalOpen] = useState(false);
   const [materialToApproveFinal, setMaterialToApproveFinal] = useState<Material | null>(null);
+  
+  const [isGruposModalOpen, setIsGruposModalOpen] = useState(false);
+  const [listagemGrupos, setListagemGrupos] = useState<any[]>([]);
+  const [carregandoGrupos, setCarregandoGrupos] = useState(false);
+  const [buscaGrupo, setBuscaGrupo] = useState('');
+  const [wppGroupId, setWppGroupId] = useState('');
 
   const {
     clientes, setClientes,
@@ -390,17 +413,30 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
         const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}`;
         const textoMensagem = `Olá! Novas edições/designs foram concluídos e estão disponíveis para a sua avaliação. 🎉\n\nAcesse o seu portal aqui: ${linkPortal}`;
-        window.open(`https://wa.me/${primeiroItem.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+        
+        const groupId = primeiroItem.cliente.whatsapp_group_id;
+        if (groupId) {
+          toast.info("Enviando aviso automático para o grupo...");
+          notificarWhatsApp(textoMensagem, groupId);
+        } else {
+          window.open(`https://wa.me/${primeiroItem.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+        }
       }
       loadData();
     } else { toast.error("Erro ao aprovar lote."); } setLoading(false);
   }
 
-  const handleAvisarCicloWhatsApp = (telefone?: string, token?: string, cicloLabel?: string) => {
-    if (!telefone || !token) return toast.error("Faltam dados de contacto deste cliente.");
-    const linkPortal = `${window.location.origin}/portal/${token}`;
+  const handleAvisarCicloWhatsApp = (cliente?: Cliente, cicloLabel?: string) => {
+    if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
+    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
     const textoMensagem = `Olá! Temos atualizações nos seus materiais do ${cicloLabel}. 🚀\n\nAcesse seu portal para verificar: ${linkPortal}`;
-    window.open(`https://wa.me/${telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+    
+    if (cliente.whatsapp_group_id) {
+       toast.info("Avisando cliente via grupo...");
+       notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
+    } else {
+       window.open(`https://wa.me/${cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+    }
   };
 
   const handleAprovarParaCliente = async (id: string) => {
@@ -411,7 +447,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (material?.cliente?.telefone && material?.cliente?.token_magico) {
       const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
       const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui: ${linkPortal}`;
-      window.open(`https://wa.me/${material.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+      
+      const groupId = material.cliente.whatsapp_group_id;
+      if (groupId) {
+        toast.info("Enviando aviso automático para o grupo...");
+        notificarWhatsApp(textoMensagem, groupId);
+      } else {
+        window.open(`https://wa.me/${material.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+      }
     } else { toast.info("Faltam dados do cliente para o WhatsApp."); }
     loadData(); setActionLoading(null);
   }
@@ -1326,7 +1369,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <Archive size={14} className="sm:w-3 sm:h-3" /> Arquivar
                                         </button>
                                       )}
-                                      <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente?.telefone, group.cliente?.token_magico, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-sm`}>
+                                      <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-sm`}>
                                         <Send size={14} className="sm:w-3 sm:h-3" /> Avisar Cliente
                                       </button>
                                     </div>
@@ -1366,7 +1409,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               {actionLoading === m.id ? <Loader2 size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 animate-spin ${textSecundario}`} /> : <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${getStatusColor(m.status).split(' ')[1]}`} />}
                                             </div>
 
-                                            {m.feedback && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} p-3 rounded-lg break-words break-all whitespace-pre-wrap`}>💬 {m.feedback}</p>}
+                                            {m.feedback && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} p-3 rounded-lg break-words break-all whitespace-pre-wrap`}>💬 {renderTextWithLinks(m.feedback)}</p>}
                                           </div>
 
                                           <div className={`flex items-center gap-2 flex-wrap md:opacity-0 md:group-hover/item:opacity-100 transition-all pt-2 md:pt-0 border-t md:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 md:mt-0 w-full md:w-auto shrink-0`}>
@@ -1415,13 +1458,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 const wpp_suporte = f.get('wpp_suporte') as string;
                 const ciclos = parseInt(f.get('ciclos_contratados') as string) || 12;
                 const cor_marca = f.get('cor_marca') as string || '#1e3a5f';
+                const whatsapp_group_id = f.get('whatsapp_group_id') as string;
 
                 if (editingCliente) {
                   let logoUrl = editingCliente.logo_url;
                   const logoFile = f.get('logo') as File;
                   if (logoFile && logoFile.size > 0) { const fname = `${Math.random()}.${logoFile.name.split('.').pop()}`; await supabase.storage.from('logos').upload(fname, logoFile); logoUrl = supabase.storage.from('logos').getPublicUrl(fname).data.publicUrl; }
 
-                  await supabase.from('clientes').update({ nome, telefone, wpp_suporte, ciclos_contratados: ciclos, logo_url: logoUrl, cor_marca }).eq('id', editingCliente.id);
+                  await supabase.from('clientes').update({ nome, telefone, wpp_suporte, ciclos_contratados: ciclos, logo_url: logoUrl, cor_marca, whatsapp_group_id }).eq('id', editingCliente.id);
                   toast.success("Atualizado!"); setEditingCliente(null);
                 } else {
                   await cadastrarClienteCompleto(f);
@@ -1434,6 +1478,25 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>Empresa</label><input name="nome" className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-[#A25431] transition-colors`} defaultValue={editingCliente?.nome || ""} key={editingCliente?.id} required /></div>
               <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>WhatsApp Cliente</label><input name="telefone" className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-[#A25431] transition-colors`} defaultValue={editingCliente?.telefone || ""} key={editingCliente?.id + 'tel'} required /></div>
               <div className="space-y-1"><label className={`text-[10px] font-black ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'} uppercase ml-2`}>Wpp Agência (Suporte)</label><input name="wpp_suporte" placeholder="Ex: 5511999999999" className={`w-full p-4 ${theme === 'dark' ? 'bg-blue-900/10 border-blue-900/30 text-blue-100' : 'bg-blue-50 border-blue-100'} rounded-2xl outline-none font-bold text-sm focus:border-blue-400 transition-colors`} defaultValue={editingCliente?.wpp_suporte || ""} key={editingCliente?.id + 'wppsup'} /></div>
+               <div className="space-y-1">
+                 <label className={`text-[10px] font-black ${theme === 'dark' ? 'text-green-400' : 'text-green-500'} uppercase ml-2 flex justify-between items-center`}>
+                   ID do Grupo WhatsApp
+                   <button type="button" onClick={async () => {
+                     setCarregandoGrupos(true);
+                     const res = await buscarGruposWhatsApp();
+                     if (res.data) { setListagemGrupos(res.data); setIsGruposModalOpen(true); }
+                     else { toast.error(res.error || "Verifique as credenciais da Green API"); }
+                     setCarregandoGrupos(false);
+                   }} className="text-[8px] underline hover:no-underline">Listar Grupos</button>
+                 </label>
+                 <input 
+                    name="whatsapp_group_id" 
+                    placeholder="Ex: 123456789@g.us" 
+                    className={`w-full p-4 ${theme === 'dark' ? 'bg-green-900/10 border-green-900/30 text-green-100' : 'bg-green-50 border-green-100'} rounded-2xl outline-none font-bold text-sm focus:border-green-400 transition-colors`} 
+                    value={wppGroupId}
+                    onChange={e => setWppGroupId(e.target.value)}
+                  />
+               </div>
               <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>Ciclos</label><input name="ciclos_contratados" type="number" min="1" className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-[#A25431] transition-colors`} defaultValue={editingCliente?.ciclos_contratados || 12} key={editingCliente?.id + 'ciclo'} required /></div>
 
               <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>{editingCliente ? 'Trocar Logo' : 'Logo'}</label>
@@ -1480,7 +1543,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     <div className="min-w-0"><h3 className="font-black text-lg md:text-xl uppercase truncate">{c.nome}</h3><p className={`${tc.textMuted} font-bold text-xs truncate`}><Phone size={12} className="inline mr-1" /> {c.telefone}</p></div>
                   </div>
                   <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all justify-end">
-                    <button onClick={() => { setEditingCliente(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
+                    <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
                     <button onClick={() => { window.open(`https://wa.me/${c.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Portal: ${window.location.origin}/portal/${c.token_magico}`)}`, '_blank'); }} className={`p-3 ${theme === 'dark' ? 'bg-green-900/30 hover:bg-green-900/50 text-green-400' : 'bg-green-50 hover:bg-green-600 hover:text-white text-green-600'} rounded-xl transition-colors`} title="Avisar no WhatsApp"><Send size={18} /></button>
                     <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/portal/${c.token_magico}`); toast.success("Copiado!"); }} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
                     <button onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'bg-red-900/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-600 hover:text-white text-red-500'} rounded-xl transition-colors`} title="Excluir Cliente"><Trash2 size={18} /></button>
@@ -1913,7 +1976,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
-            <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}><p className="text-[10px] font-black uppercase text-red-500 mb-1">Motivo do Problema:</p><p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-pre-wrap break-words`}>"{selectedMaterial.feedback}"</p></div>
+            <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}><p className="text-[10px] font-black uppercase text-red-500 mb-1">Motivo do Problema:</p><p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-pre-wrap break-words`}>"{renderTextWithLinks(selectedMaterial.feedback || '')}"</p></div>
             
             <div className="space-y-4">
               <div className="space-y-1">
@@ -1995,7 +2058,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${tc.bgCard} ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className="p-5 md:p-8 overflow-y-auto">
-              <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap font-medium break-words break-all`}>{previewRoteiro.roteiro || "Vazio."}</div>
+              <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap font-medium break-words break-all`}>{renderTextWithLinks(previewRoteiro.roteiro || "Vazio.")}</div>
             </div>
           </div>
         </div>
@@ -2198,6 +2261,67 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 {actionLoading === materialToApproveFinal.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Confirmar & Enviar</>}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {isGruposModalOpen && (
+        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-lg rounded-[32px] md:rounded-[40px] p-6 md:p-8 shadow-2xl space-y-6 animate-in zoom-in-95`}>
+            <div className="flex justify-between items-center">
+               <div>
+                 <h3 className={`text-xl font-black uppercase ${tc.textMain}`}>Grupos do WhatsApp</h3>
+                 <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Pesquise e selecione o grupo para vincular ao cliente.</p>
+               </div>
+               <button onClick={() => setIsGruposModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full`}><X size={20} /></button>
+            </div>
+
+            <div className="relative">
+                 <Search className={`absolute left-4 top-1/2 -translate-y-1/2 ${tc.textMuted}`} size={18} />
+                 <input 
+                    type="text" 
+                    placeholder="Pesquisar grupo por nome..." 
+                    className={`w-full pl-12 pr-4 py-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-green-500 transition-colors`}
+                    value={buscaGrupo}
+                    onChange={e => setBuscaGrupo(e.target.value)}
+                 />
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+              {(() => {
+                const filtrados = listagemGrupos.filter(g => 
+                  g.name?.toLowerCase().includes(buscaGrupo.toLowerCase()) || 
+                  g.id.toLowerCase().includes(buscaGrupo.toLowerCase())
+                );
+                
+                if (filtrados.length === 0) {
+                  return <div className="py-10 text-center opacity-30 font-bold">Nenhum grupo encontrado.</div>;
+                }
+
+                return filtrados.map((g, i) => (
+                  <button 
+                    key={i} 
+                    type="button"
+                    onClick={() => { 
+                      setWppGroupId(g.id); 
+                      setIsGruposModalOpen(false);
+                      setBuscaGrupo('');
+                      toast.success(`Grupo selecionado: ${g.name}`);
+                    }}
+                    className={`w-full flex items-center justify-between p-4 ${tc.bgHover} border ${tc.borderStrong} rounded-2xl transition-all group`}
+                  >
+                    <div className="text-left">
+                      <p className="font-bold text-sm uppercase group-hover:text-green-500 transition-colors">{g.name || 'Grupo sem nome'}</p>
+                      <p className={`text-[10px] font-mono ${tc.textMuted}`}>{g.id}</p>
+                    </div>
+                    <div className={`p-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-lg group-hover:bg-green-500 group-hover:text-white transition-colors`}>
+                      <CheckCircle2 size={14} />
+                    </div>
+                  </button>
+                ));
+              })()}
+            </div>
+
+            <button onClick={() => setIsGruposModalOpen(false)} className="w-full py-4 font-black uppercase text-[10px] tracking-widest bg-zinc-100 dark:bg-zinc-800 rounded-2xl">Fechar</button>
           </div>
         </div>
       )}

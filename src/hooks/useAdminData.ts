@@ -23,7 +23,7 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
     try {
       setIsDataLoading(true)
       const { data: c } = await supabase.from('clientes').select('*').order('nome')
-      const { data: m } = await supabase.from('materiais').select(`*, cliente:clientes(nome, token_magico, telefone, ciclos_contratados)`).order('created_at', { ascending: false });
+      const { data: m } = await supabase.from('materiais').select(`*, cliente:clientes(nome, token_magico, telefone, ciclos_contratados, whatsapp_group_id)`).order('created_at', { ascending: false });
       const { data: team } = await supabase.from('perfis_equipe').select('*').order('created_at');
 
       if (c) {

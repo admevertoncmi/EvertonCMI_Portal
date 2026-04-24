@@ -22,6 +22,22 @@ interface Material {
   cliente?: { nome: string; };
 }
 
+const renderTextWithLinks = (text: string | null | undefined) => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export default function DecupadorDashboard() {
   const router = useRouter()
   const supabase = createClient()
@@ -352,8 +368,8 @@ export default function DecupadorDashboard() {
                                         <div className={`w-full ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'} p-4 md:p-5 rounded-2xl border mb-6 overflow-hidden min-w-0`}>
                                           <p className={`text-[10px] font-black uppercase tracking-widest ${textSecundario} mb-3 flex items-center gap-2`}><FileText size={14}/> Instrução / Roteiro:</p>
                                           <p className={`${textPrincipal} font-medium whitespace-pre-wrap break-words break-all text-xs md:text-sm leading-relaxed`}>
-                                            {m.feedback_admin && <span className="text-blue-500 font-bold block mb-2">[ADMIN]: {m.feedback_admin}</span>}
-                                            {m.roteiro || 'Nenhum roteiro fornecido.'}
+                                            {m.feedback_admin && <span className="text-blue-500 font-bold block mb-2">[ADMIN]: {renderTextWithLinks(m.feedback_admin)}</span>}
+                                            {m.roteiro ? renderTextWithLinks(m.roteiro) : 'Nenhum roteiro fornecido.'}
                                           </p>
                                         </div>
 

@@ -20,6 +20,22 @@ interface Material {
   cliente?: { nome: string; };
 }
 
+const renderTextWithLinks = (text: string) => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 export default function EditorDashboard() {
   const router = useRouter()
   const supabase = createClient()
@@ -352,7 +368,7 @@ export default function EditorDashboard() {
                                           {m.feedback_admin && (
                                             <div className={`${theme === 'dark' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-blue-50 border-blue-100'} p-4 rounded-xl border overflow-hidden shadow-sm`}>
                                               <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mb-2 flex items-center gap-2`}><MessageSquare size={12}/> Instrução Admin:</p>
-                                              <p className={`${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{m.feedback_admin}</p>
+                                              <p className={`${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{renderTextWithLinks(m.feedback_admin)}</p>
                                             </div>
                                           )}
                                           
@@ -364,7 +380,7 @@ export default function EditorDashboard() {
                                                 const isFbExpanded = expandedFeedbacks.includes(m.id);
                                                 return (
                                                   <div className="min-w-0">
-                                                    <p className={`${theme === 'dark' ? 'text-red-100' : 'text-red-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{fbs[0]}</p>
+                                                    <p className={`${theme === 'dark' ? 'text-red-100' : 'text-red-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{renderTextWithLinks(fbs[0])}</p>
                                                     
                                                     {fbs.length > 1 && (
                                                       <div className="mt-3">
@@ -377,7 +393,7 @@ export default function EditorDashboard() {
                                                           <div className={`mt-3 pt-3 border-t ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} space-y-2 animate-in fade-in duration-300 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar`}>
                                                             {fbs.slice(1).map((hist, idx) => (
                                                               <div key={idx} className={`p-2.5 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900/30 text-red-200/70' : 'bg-white border border-red-100 text-red-800'} text-xs font-medium whitespace-pre-wrap break-words break-all`}>
-                                                                {hist}
+                                                                {renderTextWithLinks(hist)}
                                                               </div>
                                                             ))}
                                                           </div>
@@ -569,7 +585,7 @@ export default function EditorDashboard() {
               </div>
               <div className="p-5 md:p-8 overflow-y-auto">
                  <div className={`prose prose-sm max-w-none ${textPrincipal} whitespace-pre-wrap font-medium leading-relaxed break-words break-all`}>
-                    {previewRoteiro.roteiro || "Roteiro não preenchido."}
+                    {renderTextWithLinks(previewRoteiro.roteiro || "Roteiro não preenchido.")}
                  </div>
               </div>
            </div>

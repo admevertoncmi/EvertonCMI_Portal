@@ -47,8 +47,8 @@ export async function cadastrarClienteComLogo(formData: FormData) {
   return { success: true }
 }
 
-// 👇 Atualiza para aceitar a cor
-export async function editarCliente(id: string, dados: { nome: string, telefone: string, wpp_suporte?: string, cor_marca?: string }) {
+// 👇 Atualiza para aceitar a cor e id do whatsapp
+export async function editarCliente(id: string, dados: { nome: string, telefone: string, wpp_suporte?: string, cor_marca?: string, whatsapp_group_id?: string }) {
   const { error } = await supabaseAdmin.from('clientes').update(dados).eq('id', id)
   if (error) throw error
 }
@@ -57,7 +57,8 @@ export async function cadastrarClienteCompleto(formData: FormData) {
   const nome = formData.get('nome') as string
   const telefone = formData.get('telefone') as string
   const wpp_suporte = formData.get('wpp_suporte') as string
-  const cor_marca = formData.get('cor_marca') as string || '#1e3a5f' // 👈 Captura a Cor
+  const cor_marca = formData.get('cor_marca') as string || '#1e3a5f'
+  const whatsapp_group_id = formData.get('whatsapp_group_id') as string
   const logoFile = formData.get('logo') as File
   
   let logoUrl = null
@@ -76,7 +77,7 @@ export async function cadastrarClienteCompleto(formData: FormData) {
   }
 
   const { error } = await supabaseAdmin.from('clientes').insert([
-    { nome, telefone, wpp_suporte, cor_marca, logo_url: logoUrl, token_magico: crypto.randomUUID() } // 👈 Insere no banco
+    { nome, telefone, wpp_suporte, cor_marca, whatsapp_group_id, logo_url: logoUrl, token_magico: crypto.randomUUID() } 
   ])
 
   if (error) throw error

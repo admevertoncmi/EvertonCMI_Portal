@@ -674,7 +674,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                             <div>
                               <div className="bg-white border border-orange-200 p-4 rounded-[16px] shadow-sm">
                                 <span className="text-[9px] font-black tracking-widest text-orange-400 uppercase block mb-1">Ajuste Pendente</span>
-                                <p className="text-zinc-800 font-medium text-sm leading-relaxed whitespace-pre-wrap break-words break-all">{currentFeedback}</p>
+                                <p className="text-zinc-800 font-medium text-sm leading-relaxed whitespace-pre-wrap break-words break-all">{renderTextWithLinks(currentFeedback)}</p>
                               </div>
 
                               {historicalFeedbacks.length > 0 && (
@@ -688,7 +688,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                     <div className="mt-3 space-y-2 animate-in fade-in duration-300 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                                       {historicalFeedbacks.map((fbd: string, idx: number) => (
                                         <div key={idx} className="bg-orange-50/50 border border-orange-100 p-3 rounded-[12px]">
-                                          <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-pre-wrap break-words break-all opacity-80">{fbd}</p>
+                                          <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-pre-wrap break-words break-all opacity-80">{renderTextWithLinks(fbd)}</p>
                                         </div>
                                       ))}
                                     </div>
