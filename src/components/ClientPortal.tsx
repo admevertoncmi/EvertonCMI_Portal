@@ -60,9 +60,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const [alvoAjuste, setAlvoAjuste] = useState<'video' | 'capa' | 'ambos'>('video')
+  const [currentSlide, setCurrentSlide] = useState(0)
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
 
+  const [minutoAjuste, setMinutoAjuste] = useState('')
   const [segundoAjuste, setSegundoAjuste] = useState('')
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
@@ -129,6 +131,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     }
     setMinutoAjuste('')
     setSegundoAjuste('')
+    setCurrentSlide(0)
   }, [selectedMaterial])
 
   const registrarLogAcesso = useCallback(async (materialId: string, eventoTexto: string) => {
@@ -566,19 +569,68 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                             </div>
                           )
                         ) : (
-                          capaEmbedUrl ? (
-                            <iframe title="Capa" src={capaEmbedUrl} className="w-full h-full border-0 absolute top-0 left-0" allowFullScreen></iframe>
-                          ) : selectedMaterial.link_capa?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-                            <img src={selectedMaterial.link_capa} className="w-full h-full object-contain p-2" alt="Capa" />
-                          ) : (
-                            <div className="text-center p-4 z-10">
-                              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto border border-white/20 mb-3">
-                                <ImageIcon className="text-white" size={20} />
+                          (() => {
+                            const links = selectedMaterial.link_capa ? selectedMaterial.link_capa.split(/[\n,;]+/).map((l: string) => l.trim()).filter(Boolean) : [];
+                            const currentLink = links[currentSlide] || '';
+                            const isDirectImage = currentLink.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i);
+                            const embed = getEmbedUrl(currentLink);
+
+                            if (links.length > 1) {
+                              return (
+                                <div className="w-full h-full relative group">
+                                  {isDirectImage ? (
+                                    <img src={currentLink} className="w-full h-full object-contain animate-in fade-in duration-500" alt={`Slide ${currentSlide + 1}`} />
+                                  ) : (
+                                    <iframe title={`Slide ${currentSlide + 1}`} src={embed || currentLink} className="w-full h-full border-0 absolute top-0 left-0" allowFullScreen></iframe>
+                                  )}
+                                  
+                                  {/* Navegação de Slides */}
+                                  <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between items-center z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => (prev > 0 ? prev - 1 : links.length - 1)); }}
+                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10"
+                                    >
+                                      <ChevronDown className="rotate-90" size={24} />
+                                    </button>
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => (prev < links.length - 1 ? prev + 1 : 0)); }}
+                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10"
+                                    >
+                                      <ChevronDown className="-rotate-90" size={24} />
+                                    </button>
+                                  </div>
+
+                                  {/* Contador e Bolinhas */}
+                                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 z-20">
+                                    <div className="flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10">
+                                      {links.map((_: any, idx: number) => (
+                                        <button 
+                                          key={idx} 
+                                          onClick={() => setCurrentSlide(idx)}
+                                          className={`w-2 h-2 rounded-full transition-all ${idx === currentSlide ? 'bg-white scale-125' : 'bg-white/30 hover:bg-white/50'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                    <span className="text-[10px] font-black text-white bg-black/50 px-3 py-1 rounded-full uppercase tracking-widest">{currentSlide + 1} / {links.length}</span>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return capaEmbedUrl ? (
+                              <iframe title="Capa" src={capaEmbedUrl} className="w-full h-full border-0 absolute top-0 left-0" allowFullScreen></iframe>
+                            ) : isDirectImage ? (
+                              <img src={currentLink} className="w-full h-full object-contain p-2" alt="Capa" />
+                            ) : (
+                              <div className="text-center p-4 z-10">
+                                <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto border border-white/20 mb-3">
+                                  <ImageIcon className="text-white" size={20} />
+                                </div>
+                                <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Este link precisa ser aberto no navegador.</p>
+                                <a href={currentLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Imagens <ExternalLink size={12} /></a>
                               </div>
-                              <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Este link precisa ser aberto no navegador.</p>
-                              <a href={selectedMaterial.link_capa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Imagens <ExternalLink size={12} /></a>
-                            </div>
-                          )
+                            );
+                          })()
                         )}
                       </div>
 

@@ -493,7 +493,7 @@ export default function EditorDashboard() {
                   </label>
                   <input 
                     className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-blue-500 transition-colors text-sm`} 
-                    placeholder="Drive, YouTube, Vimeo..." 
+                    placeholder="Link do Google Drive..." 
                     value={newDriveLink} 
                     onChange={e => setNewDriveLink(e.target.value)} 
                   />

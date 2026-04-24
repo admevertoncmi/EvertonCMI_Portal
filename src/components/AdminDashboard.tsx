@@ -182,34 +182,63 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const groupedMateriaisAprovados = useMemo(() => groupItems(filaMateriaisAprovados), [filaMateriaisAprovados, groupItems]);
 
   const relatorioData = useMemo(() => {
-    // Rendimento por membro
-    const performance: Record<string, { nome: string, total: number, entregas: number, atrasos: number }> = {};
-    membros.forEach(m => performance[m.id] = { nome: m.nome || m.email, total: 0, entregas: 0, atrasos: 0 });
+    // 2. Performance por Membro (Ajustes e Atrasos)
+    const performance: Record<string, { nome: string, role: string, total: number, entregas: number, ajustes: number, ajustesHistoricos: number, atrasos: number }> = {};
+    membros.forEach(m => performance[m.id] = { nome: m.nome || m.email, role: m.role, total: 0, entregas: 0, ajustes: 0, ajustesHistoricos: 0, atrasos: 0 });
+
+    // 3. Métricas por Cliente (Ajustes)
+    const clienteStats: Record<string, { nome: string, total: number, aprovados: number, ajustes: number }> = {};
+
+    const hoje = new Date();
 
     materiais.forEach(m => {
+      // Stats de Cliente
+      if (m.cliente_id) {
+        if (!clienteStats[m.cliente_id]) clienteStats[m.cliente_id] = { nome: m.cliente?.nome || 'S/N', total: 0, aprovados: 0, ajustes: 0 };
+        clienteStats[m.cliente_id].total++;
+        if (['aprovado', 'post_aprovado'].includes(m.status)) clienteStats[m.cliente_id].aprovados++;
+        if (m.status === 'ajustes') clienteStats[m.cliente_id].ajustes++;
+      }
+
+      const isAtrasado = m.data_limite && new Date(m.data_limite) < hoje && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status);
+
       if (m.editor_id && performance[m.editor_id]) {
         performance[m.editor_id].total++;
         if (m.video_entregue) performance[m.editor_id].entregas++;
+        if (m.status === 'ajustes') performance[m.editor_id].ajustes++;
+        if (isAtrasado) performance[m.editor_id].atrasos++;
+        // Histórico de ajustes baseados no feedback acumulado
+        const count = m.feedback ? m.feedback.split('\n\n').length : 0;
+        performance[m.editor_id].ajustesHistoricos += count;
       }
       if (m.designer_id && performance[m.designer_id]) {
         performance[m.designer_id].total++;
         if (m.design_entregue) performance[m.designer_id].entregas++;
+        if (m.status === 'ajustes') performance[m.designer_id].ajustes++;
+        if (isAtrasado) performance[m.designer_id].atrasos++;
+        // Histórico de ajustes baseados no feedback acumulado
+        const count = m.feedback ? m.feedback.split('\n\n').length : 0;
+        performance[m.designer_id].ajustesHistoricos += count;
       }
       if (m.planner_id && performance[m.planner_id]) {
         performance[m.planner_id].total++;
-        if (m.status !== 'planejamento') performance[m.planner_id].entregas++;
+        if (!['planejamento', 'em_organizacao'].includes(m.status)) performance[m.planner_id].entregas++;
+        if (isAtrasado) performance[m.planner_id].atrasos++;
       }
     });
 
-    // Top Clientes
-    const topClientes = Object.entries(groupItems(materiais)).map(([id, group]: [string, any]) => ({
-      nome: group.cliente.nome,
-      total: group.total,
-      aprovados: group.aprovados,
-      percentual: group.total > 0 ? (group.aprovados / group.total) * 100 : 0
-    })).sort((a, b) => b.total - a.total).slice(0, 5);
+    const topAjustesClientes = Object.values(clienteStats).sort((a, b) => b.ajustes - a.ajustes).slice(0, 5);
+    const topPerformance = Object.values(performance).sort((a, b) => b.entregas - a.entregas);
+    const topAjustesEquipe = Object.values(performance).filter(p => p.role !== 'admin' && p.ajustesHistoricos > 0).sort((a, b) => b.ajustesHistoricos - a.ajustesHistoricos);
+    const totalAtrasos = Object.values(performance).reduce((acc, p) => acc + p.atrasos, 0);
 
-    return { performance: Object.values(performance), topClientes };
+    return { 
+      performance: topPerformance, 
+      topClientes: Object.values(clienteStats).sort((a, b) => b.total - a.total).slice(0, 5),
+      topAjustesClientes,
+      topAjustesEquipe,
+      totalAtrasos
+    };
   }, [materiais, membros, groupItems]);
 
   const abrirLogsDoMaterial = async (materialId: string, titulo: string) => {
@@ -245,27 +274,48 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const [resolveType, setResolveType] = useState<'planner' | 'editor'>('planner');
 
+  const [notifyTarget, setNotifyTarget] = useState<'both' | 'editor' | 'designer'>('both');
+
   const handleResolveIssue = async () => {
     if (!selectedMaterial || !resolveText) return toast.error("Escreva a instrução/resolução!");
     setLoading(true);
     
     const newStatus = resolveType === 'planner' ? 'planejamento' : 'em_edicao';
-    const { error } = await supabase.from('materiais').update({ 
-      status: newStatus, 
-      feedback_admin: resolveText, 
-      link_bruto: resolveLinkBruto, 
-      feedback: null,
-      video_entregue: resolveType === 'editor' ? false : selectedMaterial.video_entregue,
-      design_entregue: resolveType === 'editor' ? false : selectedMaterial.design_entregue
-    }).eq('id', selectedMaterial.id);
+    
+    // Se for devolver pra produção, reseta proporcionalmente ao que foi escolhido
+    const updatePayload: any = {
+      status: newStatus,
+      feedback_admin: resolveText,
+      link_bruto: resolveLinkBruto,
+      feedback: null
+    };
+
+    if (resolveType === 'editor') {
+      if (notifyTarget === 'editor' || notifyTarget === 'both') updatePayload.video_entregue = false;
+      if (notifyTarget === 'designer' || notifyTarget === 'both') updatePayload.design_entregue = false;
+    }
+
+    const { error } = await supabase.from('materiais').update(updatePayload).eq('id', selectedMaterial.id);
 
     if (!error) {
-      toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado ao Editor!");
-      const targetMemberId = resolveType === 'planner' ? selectedMaterial.planner_id : selectedMaterial.editor_id;
-      const m = membros.find(x => x.id === targetMemberId);
+      toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
       
       const msgResolvido = `✅ PROBLEMA RESOLVIDO (ADMIN)\n\n🎬 Material: ${selectedMaterial.titulo}\n💬 Resposta: ${resolveText}\n🚀 O Admin resolveu o problema. Pode continuar o trabalho!`;
-      await notificarClickUpChat(msgResolvido, (m as any)?.telegram_thread_id);
+
+      if (resolveType === 'planner') {
+        const p = membros.find(x => x.id === selectedMaterial.planner_id);
+        await notificarClickUpChat(msgResolvido, (p as any)?.telegram_thread_id);
+      } else {
+        // Notifica apenas quem foi selecionado
+        if ((notifyTarget === 'editor' || notifyTarget === 'both') && selectedMaterial.editor_id) {
+          const e = membros.find(x => x.id === selectedMaterial.editor_id);
+          await notificarClickUpChat(msgResolvido, (e as any)?.telegram_thread_id);
+        }
+        if ((notifyTarget === 'designer' || notifyTarget === 'both') && selectedMaterial.designer_id && selectedMaterial.designer_id !== selectedMaterial.editor_id) {
+          const d = membros.find(x => x.id === selectedMaterial.designer_id);
+          await notificarClickUpChat(msgResolvido, (d as any)?.telegram_thread_id);
+        }
+      }
       
       setIsResolveIssueModalOpen(false);
       setResolveText('');
@@ -710,7 +760,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors`}>
-                                    <div className="flex-1 w-full"><span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Análise Admin</span><h5 className="font-bold text-sm">{m.titulo}</h5></div>
+                                    <div className="flex-1 w-full text-left">
+                                      <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Análise Admin</span>
+                                      {m.data_limite && new Date(m.data_limite) < new Date() && (
+                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                      )}
+                                      <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                    </div>
                                     <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
                                       <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className="px-3 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Cliente</button>
@@ -751,7 +807,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors`}>
-                                    <div className="flex-1 w-full"><span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Aprovado</span><h5 className="font-bold text-sm">{m.titulo}</h5></div>
+                                    <div className="flex-1 w-full text-left">
+                                      <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Aprovado</span>
+                                      {m.data_limite && new Date(m.data_limite) < new Date() && (
+                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                      )}
+                                      <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                    </div>
                                     <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto">
                                       <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${m.link_bruto ? (theme === 'dark' ? 'bg-zinc-800 border-zinc-800' : 'bg-zinc-800 border-zinc-800') : 'bg-blue-600 border-blue-600 hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Link OK' : 'Inserir Link'}</button>
@@ -790,6 +852,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
                                     <div className="flex-1 w-full">
                                       <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
+                                      {m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
+                                        <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                      )}
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
                                       <div className={`mt-3 p-4 ${tc.bgCard} rounded-xl border ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'}`}><p className="text-[10px] font-black uppercase text-red-400 tracking-widest mb-1">Motivo:</p><p className={`${tc.textMuted} font-medium text-sm whitespace-pre-wrap break-words break-all`}>"{m.feedback}"</p></div>
                                     </div>
@@ -833,7 +898,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-indigo-900/50' : 'hover:border-indigo-200'} transition-colors`}>
-                                    <div className="flex-1 w-full"><span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span><h5 className="font-bold text-sm">{m.titulo}</h5></div>
+                                    <div className="flex-1 w-full text-left">
+                                      <span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span>
+                                      {m.data_limite && new Date(m.data_limite) < new Date() && (
+                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                      )}
+                                      <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                    </div>
                                     <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
                                       <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`}><FileText size={18} /></button>
                                       <button onClick={() => setPreviewUrl(m.link_organizado)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Eye size={14} /> Ver Pasta</button>
@@ -924,6 +995,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isPartial ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
                                         {isPartial ? 'Entrega Parcial' : 'Edição Pronta'}
                                       </span>
+                                      {m.data_limite && new Date(m.data_limite) < new Date() && (
+                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                      )}
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
 
                                       {/* Indicadores Dinâmicos */}
@@ -979,91 +1053,63 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             ) : (
               <div className="space-y-4">
                 {Object.entries(groupedAjustes).map(([clienteId, group]) => (
-                  <div key={`notif-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} shadow-sm overflow-hidden`}>
+                  <div key={`notif-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border {theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} shadow-sm overflow-hidden`}>
                     <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-red-900/10 hover:bg-red-900/20' : 'bg-red-50/50 hover:bg-red-50'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`notif-${clienteId}`)}>
                       <div className="flex items-center gap-3"><ChevronRight className={`text-red-600 transition-transform ${expandedClients.includes(`notif-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-red-500 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
                     </div>
                     {expandedClients.includes(`notif-${clienteId}`) && (
                       <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                        {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                        {Object.entries(group.ciclos).map(([cicloLabel, data]) => (
                           <div key={`notif-ciclo-${cicloLabel}`} className="space-y-3">
                             <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                             <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} md:ml-1`}>
-                              {data.itens.map((m: Material) => {
-                                const isAjustePlanner = !m.link_drive && !m.link_capa;
-                                const feedbacks = m.feedback ? m.feedback.split('\n\n').filter(Boolean) : [];
-                                const currentFeedback = feedbacks[0];
-                                const historicalFeedbacks = feedbacks.slice(1);
-                                const isFeedbackExpanded = expandedFeedbacks.includes(m.id);
-
-                                return (
-                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 ${isAjustePlanner ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
-                                    <div className="flex-1 min-w-0 w-full">
-                                      <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isAjustePlanner ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
-                                        {isAjustePlanner ? '⚠️ Ajuste Planeamento' : '🎬 Ajuste Produção'}
-                                      </span>
-                                      <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
-
-                                      <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${isAjustePlanner ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
-                                        <div className="flex justify-between items-start gap-3">
-                                          <p className={`text-xs font-bold whitespace-pre-wrap break-words break-all ${isAjustePlanner ? (theme === 'dark' ? 'text-orange-400' : 'text-orange-700') : (theme === 'dark' ? 'text-red-400' : 'text-red-700')}`}>
-                                            <span className="text-[9px] uppercase tracking-widest opacity-60 block mb-1">Ajuste Atual:</span>
-                                            {currentFeedback || "Nenhum detalhe informado."}
-                                          </p>
-
-                                          {historicalFeedbacks.length > 0 && (
-                                            <button
-                                              onClick={() => toggleFeedback(m.id)}
-                                              className={`p-1.5 rounded-md shrink-0 transition-all ${isAjustePlanner ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-600 hover:bg-orange-200') : (theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-200')}`}
-                                              title="Ver histórico de ajustes"
-                                            >
-                                              <ChevronDown size={14} className={`transition-transform duration-300 ${isFeedbackExpanded ? 'rotate-180' : ''}`} />
-                                            </button>
-                                          )}
-                                        </div>
-
-                                        {isFeedbackExpanded && historicalFeedbacks.length > 0 && (
-                                          <div className={`mt-3 pt-3 border-t space-y-2 animate-in fade-in duration-300 ${isAjustePlanner ? (theme === 'dark' ? 'border-orange-900/20' : 'border-orange-50') : (theme === 'dark' ? 'border-red-900/20' : 'border-red-50')}`}>
-                                            <p className={`text-[9px] uppercase tracking-widest font-black ${isAjustePlanner ? (theme === 'dark' ? 'text-orange-500' : 'text-orange-400') : (theme === 'dark' ? 'text-red-500' : 'text-red-400')}`}>Histórico Anterior:</p>
-                                            {historicalFeedbacks.map((hist, idx) => (
-                                              <div key={idx} className={`p-2.5 rounded-lg text-xs font-medium whitespace-pre-wrap break-words break-all opacity-80 ${isAjustePlanner ? (theme === 'dark' ? 'bg-orange-900/10 text-orange-300' : 'bg-orange-50/50 text-orange-800') : (theme === 'dark' ? 'bg-red-900/10 text-red-300' : 'bg-red-50/50 text-red-800')}`}>
-                                                {hist}
-                                              </div>
-                                            ))}
-                                          </div>
+                              {data.itens.map((m) => (
+                                <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
+                                  <div className="flex-1 min-w-0 w-full text-left">
+                                    <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
+                                      {(!m.link_drive && !m.link_capa) ? '⚠️ Ajuste Planeamento' : '🎬 Ajuste Produção'}
+                                    </span>
+                                    {m.data_limite && new Date(m.data_limite) < new Date() && (
+                                      <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                    )}
+                                    <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                    <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
+                                      <div className="flex justify-between items-start gap-3">
+                                        <p className={`text-xs font-bold whitespace-pre-wrap break-words break-all ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-400' : 'text-orange-700') : (theme === 'dark' ? 'text-red-400' : 'text-red-700')}`}>
+                                          <span className="text-[9px] uppercase tracking-widest opacity-60 block mb-1">Ajuste Atual:</span>
+                                          {m.feedback?.split('\n\n')[0] || "Nenhum detalhe informado."}
+                                        </p>
+                                        {(m.feedback?.split('\n\n').length || 0) > 1 && (
+                                          <button onClick={() => toggleFeedback(m.id)} className={`p-1.5 rounded-md shrink-0 transition-all ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-600 hover:bg-orange-200') : (theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-200')}`}><ChevronDown size={14} className={`transition-transform duration-300 ${expandedFeedbacks.includes(m.id) ? 'rotate-180' : ''}`} /></button>
                                         )}
                                       </div>
-                                    </div>
-                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0">
-                                      <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}>
-                                        <FileText size={14} /> Roteiro
-                                      </button>
-
-                                      {isAjustePlanner ? (
-                                        <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                          <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}>
-                                            <Edit3 size={14} /> Editar Roteiro
-                                          </button>
-                                          <button onClick={() => handleReenviarRoteiroAjustado(m)} disabled={actionLoading === m.id} className="flex-1 sm:flex-none px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50">
-                                            {actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Reenviar Cliente
-                                          </button>
+                                      {expandedFeedbacks.includes(m.id) && (m.feedback?.split('\n\n').length || 0) > 1 && (
+                                        <div className={`mt-3 pt-3 border-t space-y-2 animate-in fade-in duration-300 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/20' : 'border-orange-50') : (theme === 'dark' ? 'border-red-900/20' : 'border-red-50')}`}>
+                                          <p className={`text-[9px] uppercase tracking-widest font-black ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-500' : 'text-orange-400') : (theme === 'dark' ? 'text-red-500' : 'text-red-400')}`}>Histórico Anterior:</p>
+                                          {m.feedback?.split('\n\n').slice(1).map((hist, idx) => (
+                                            <div key={idx} className={`p-2.5 rounded-lg text-xs font-medium whitespace-pre-wrap break-words break-all opacity-80 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/10 text-orange-300' : 'bg-orange-50/50 text-orange-800') : (theme === 'dark' ? 'bg-red-900/10 text-red-300' : 'bg-red-50/50 text-red-800')}`}>{hist}</div>
+                                          ))}
                                         </div>
-                                      ) : (
-                                        <>
-                                          {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
-                                          {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
-                                          <button
-                                            onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }}
-                                            className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
-                                          >
-                                            Delegar
-                                          </button>
-                                        </>
                                       )}
                                     </div>
                                   </div>
-                                )
-                              })}
+                                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0">
+                                    <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
+                                    {(!m.link_drive && !m.link_capa) ? (
+                                      <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                        <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
+                                        <button onClick={() => handleReenviarRoteiroAjustado(m)} disabled={actionLoading === m.id} className="flex-1 sm:flex-none px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Reenviar Cliente</button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
+                                        {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
+                                        <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         ))}
@@ -1551,15 +1597,35 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         )}
         {/* ABA: RELATÓRIOS */}
         {activeTab === 'relatorios' && (
-          <div className="max-w-6xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="max-w-6xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500 print:m-0 print:max-w-none">
+            <style>{`
+              @media print {
+                @page { size: landscape; margin: 10mm; }
+                .no-print, button, nav, aside { display: none !important; }
+                body { background: white !important; color: black !important; padding: 0 !important; }
+                .grid { display: grid !important; gap: 20px !important; }
+                .grid-cols-1 { grid-template-columns: 1fr 1fr !important; }
+                .card-report { border: 1px solid #eee !important; margin-bottom: 20px; break-inside: avoid; }
+                .card-report header { background: #f5f5f5 !important; }
+                .print-header { display: flex !important; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; margin-bottom: 30px; }
+                h1, h2, h3, p, span { color: black !important; }
+              }
+            `}</style>
+
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
+              <div className="hidden print:flex print-header w-full">
+                <div>
+                  <h1 className="text-2xl font-black uppercase">Relatório de Produtividade</h1>
+                  <p className="text-sm font-bold text-zinc-500">EvertonCMI Portal • Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black uppercase">Filtro: Todos os Materiais</p>
+                </div>
+              </div>
+              <div className="print:hidden">
                 <h2 className="text-3xl font-black uppercase tracking-tight">Painel de Relatórios</h2>
                 <p className={`${tc.textMuted} font-medium mt-1`}>Análise de produtividade da equipe e engajamento dos clientes.</p>
               </div>
-              <button onClick={() => window.print()} className={`flex items-center gap-2 px-6 py-3 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl text-xs font-black uppercase hover:shadow-md transition-all`}>
-                <Download size={18} /> Exportar PDF
-              </button>
             </header>
 
             {/* CARDS DE RESUMO */}
@@ -1579,10 +1645,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
               </div>
               <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
-                <div className="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-red-500/20"><MessageSquare size={24} /></div>
-                <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Ajustes Pendentes</p>
-                <h3 className="text-4xl font-black mt-2">{metrics.ajustes}</h3>
-                <p className="text-xs text-red-500 font-bold mt-4 flex items-center gap-1">Necessitam atenção</p>
+                <div className="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-red-500/20"><AlertCircle size={24} /></div>
+                <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Total em Atraso</p>
+                <h3 className="text-4xl font-black mt-2">{relatorioData.totalAtrasos}</h3>
+                <p className="text-xs text-red-500 font-bold mt-4 flex items-center gap-1">Atenção aos prazos</p>
               </div>
               <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
                 <div className="w-12 h-12 bg-purple-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/20"><Clock size={24} /></div>
@@ -1595,56 +1661,153 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* DESEMPENHO DA EQUIPE */}
               <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
-                <header className="p-6 md:p-8 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                   <div>
-                    <h3 className="font-black uppercase text-sm">Produtividade da Equipe</h3>
-                    <p className="text-xs text-zinc-400 font-medium mt-1">Materiais entregues por membro.</p>
+                    <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Rendimento e Atrasos</h3>
+                    <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Produtividade vs. Cumprimento de Prazos.</p>
                   </div>
-                  <Users size={20} className="text-[#A25431]" />
+                  <Users size={20} className={theme === 'dark' ? 'text-zinc-400' : 'text-[#A25431]'} />
                 </header>
                 <div className="p-6 md:p-8 space-y-6">
                   {relatorioData.performance.map((m, i) => (
-                    <div key={i} className="space-y-2">
+                    <div key={i} className="space-y-3">
                       <div className="flex justify-between items-end">
-                        <span className="text-sm font-black uppercase">{m.nome}</span>
-                        <span className="text-xs font-bold text-zinc-400">{m.entregas} / {m.total}</span>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black uppercase">{m.nome}</span>
+                          <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">{m.role}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-zinc-400 block">{m.entregas} entregas</span>
+                          {m.atrasos > 0 && <span className="text-[9px] font-black text-red-500 uppercase">🔥 {m.atrasos} em atraso</span>}
+                        </div>
                       </div>
-                      <div className="w-full bg-zinc-100 rounded-full h-3">
-                        <div className="bg-[#A25431] h-3 rounded-full transition-all duration-1000" style={{ width: `${m.total > 0 ? (m.entregas / m.total) * 100 : 0}%` }}></div>
+                      <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden flex">
+                        <div className="bg-[#A25431] h-3 transition-all duration-1000" style={{ width: `${m.total > 0 ? (m.entregas / m.total) * 100 : 0}%` }}></div>
+                        {m.atrasos > 0 && <div className="bg-red-500 h-3" style={{ width: `${(m.atrasos / m.total) * 100}%` }}></div>}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* MAIS ATIVOS */}
               <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
-                <header className="p-6 md:p-8 border-b border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+                <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                   <div>
-                    <h3 className="font-black uppercase text-sm">Engajamento de Clientes</h3>
-                    <p className="text-xs text-zinc-400 font-medium mt-1">Clientes com maior volume de produção.</p>
+                    <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Ajustes por Equipe</h3>
+                    <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Ranking de quem recebe mais correções.</p>
                   </div>
-                  <TrendingUp size={20} className="text-blue-500" />
+                  <PenTool size={20} className="text-pink-500" />
                 </header>
-                <div className="p-6 md:p-8 space-y-4">
-                  {relatorioData.topClientes.map((c, i) => (
-                    <div key={i} className={`flex items-center justify-between p-4 rounded-2xl ${tc.bgHighlight} border ${tc.borderStrong}`}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center font-black">{i + 1}</div>
-                        <div>
-                          <p className="font-black uppercase text-xs truncate max-w-[120px] sm:max-w-none">{c.nome}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{c.total} materiais totais</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-green-500 text-sm">{Math.round(c.percentual)}%</p>
-                        <p className="text-[9px] text-zinc-400 font-bold uppercase">Aprovação</p>
-                      </div>
+                <div className="p-6 md:p-8 space-y-6">
+                  {relatorioData.topAjustesEquipe.length === 0 ? (
+                    <div className="py-10 text-center opacity-30 font-bold">Nenhum ajuste registrado.</div>
+                  ) : relatorioData.topAjustesEquipe.map((p, i) => (
+                    <div key={p.nome} className="space-y-2">
+                       <div className="flex justify-between items-end">
+                         <div>
+                            <span className={`text-[10px] font-black uppercase ${tc.textMuted}`}>{p.role}</span>
+                            <p className="font-bold text-sm uppercase">{p.nome}</p>
+                         </div>
+                         <span className="text-xs font-black text-pink-500">{p.ajustesHistoricos} ajustes</span>
+                       </div>
+                       <div className="w-full bg-zinc-100 dark:bg-zinc-950 rounded-full h-1.5 overflow-hidden">
+                         <div 
+                           className="bg-pink-500 h-1.5 rounded-full" 
+                           style={{ width: `${Math.min((p.ajustesHistoricos / (relatorioData.topAjustesEquipe[0]?.ajustesHistoricos || 1)) * 100, 100)}%` }}
+                         ></div>
+                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* RANKING DE AJUSTES (CLIENTES) */}
+              <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
+                <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
+                  <div>
+                    <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Nível de Ajustes p/ Cliente</h3>
+                    <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Clientes que mais solicitam alterações.</p>
+                  </div>
+                  <MessageSquare size={20} className="text-orange-500" />
+                </header>
+                <div className="p-6 md:p-8 space-y-4">
+                  {relatorioData.topAjustesClientes.map((c, i) => (
+                    <div key={i} className={`flex items-center justify-between p-4 rounded-2xl ${tc.bgHighlight} border ${tc.borderStrong}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center font-black">{i + 1}</div>
+                        <div>
+                          <p className="font-black uppercase text-xs truncate max-w-[150px]">{c.nome}</p>
+                          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{c.total} materiais</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-black text-lg ${c.ajustes > 5 ? 'text-red-500' : 'text-orange-500'}`}>{c.ajustes}</p>
+                        <p className="text-[9px] text-zinc-400 font-bold uppercase">Ajustes ativos</p>
+                      </div>
+                    </div>
+                  ))}
+                  {relatorioData.topAjustesClientes.length === 0 && (
+                    <p className="text-center py-10 text-zinc-400 font-bold text-xs">Nenhum ajuste pendente no momento.</p>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {/* TAREFAS CRÍTICAS (EM ATRASO) */}
+            <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm card-report`}>
+              <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-red-900/10' : 'bg-red-50/50'} flex items-center justify-between`}>
+                <div>
+                  <h3 className="font-black uppercase text-sm text-red-600">Tarefas Críticas (Em Atraso)</h3>
+                  <p className="text-xs text-red-400 font-medium mt-1">Materiais que ultrapassaram a data limite estipulada.</p>
+                </div>
+                <AlertCircle size={20} className="text-red-500" />
+              </header>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className={`border-b ${tc.borderStrong} text-[9px] font-black uppercase tracking-widest ${tc.textMuted}`}>
+                      <th className="p-6">Material</th>
+                      <th className="p-6">Cliente</th>
+                      <th className="p-6">Prazo Original</th>
+                      <th className="p-6">Equipe Responsável</th>
+                      <th className="p-6">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {materiais.filter(m => m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).map(m => (
+                      <tr key={m.id} className="hover:bg-zinc-50/50 transition-colors group">
+                        <td className="p-6">
+                          <p className="font-black text-xs uppercase">{m.titulo}</p>
+                        </td>
+                        <td className="p-6">
+                           <span className="text-[10px] font-bold text-zinc-500 uppercase">{m.cliente?.nome}</span>
+                        </td>
+                        <td className="p-6 text-red-500 font-black text-xs">
+                          {new Date(m.data_limite!).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="p-6">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            {membros.find(mb => mb.id === m.editor_id)?.nome || membros.find(mb => mb.id === m.designer_id)?.nome || 'Não atribuído'}
+                          </span>
+                        </td>
+                        <td className="p-6">
+                           <span className="text-[8px] font-black uppercase px-2 py-1 bg-red-100 text-red-600 rounded-md">Em Atraso</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {materiais.filter(m => m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).length === 0 && (
+                  <div className="py-20 text-center space-y-4">
+                    <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto border border-green-100 shadow-sm">
+                       <CheckCircle2 size={32} />
+                    </div>
+                    <p className="text-zinc-400 font-black text-[10px] uppercase tracking-[0.2em]">Sem atrasos. Tudo sob controle!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
         )}
       </main>
@@ -1757,9 +1920,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Destino da Resolução</label>
                 <div className="flex gap-2">
                   <button onClick={() => setResolveType('planner')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'planner' ? 'bg-red-600 text-white border-red-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Decupador</button>
-                  <button onClick={() => setResolveType('editor')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'editor' ? 'bg-blue-600 text-white border-blue-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Editor/Designer</button>
+                  <button onClick={() => setResolveType('editor')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'editor' ? 'bg-blue-600 text-white border-blue-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Produção (Edição/Design)</button>
                 </div>
               </div>
+
+              {resolveType === 'editor' && (
+                <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Quem Notificar?</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setNotifyTarget('both')} className={`flex-1 py-2 px-3 rounded-lg text-[9px] font-black uppercase border transition-all ${notifyTarget === 'both' ? 'bg-zinc-800 text-white border-zinc-800' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Ambos</button>
+                    <button onClick={() => setNotifyTarget('editor')} className={`flex-1 py-2 px-3 rounded-lg text-[9px] font-black uppercase border transition-all ${notifyTarget === 'editor' ? 'bg-blue-500 text-white border-blue-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Editor</button>
+                    <button onClick={() => setNotifyTarget('designer')} className={`flex-1 py-2 px-3 rounded-lg text-[9px] font-black uppercase border transition-all ${notifyTarget === 'designer' ? 'bg-pink-500 text-white border-pink-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Designer</button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Link Bruto (Opcional)</label>
                 <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
@@ -1770,7 +1945,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
             </div>
             <button onClick={handleResolveIssue} disabled={loading || !resolveText} className={`w-full py-4 md:py-5 ${resolveType === 'planner' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
-              {loading ? <Loader2 size={16} className="animate-spin" /> : null} {resolveType === 'planner' ? 'Devolver p/ Decupador' : 'Reenviar p/ Editor'}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : null} {resolveType === 'planner' ? 'Confirmar & Devolver' : 'Confirmar & Reenviar'}
             </button>
           </div>
         </div>
