@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronRight, AlertCircle, Clock, CheckCircle2, Eye, ExternalLink, Menu, Calendar,
   Sun, Moon
 } from 'lucide-react'
+import GoogleDrivePicker from './GoogleDrivePicker'
 
 interface Cliente { id: string; nome: string; }
 interface Material {
@@ -430,9 +431,14 @@ export default function DecupadorDashboard() {
             <div className="flex justify-between items-center"><h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} tracking-tighter`}>Entregar Pasta</h3><button onClick={() => setIsSubmitModalOpen(false)} className={`p-2 ${textSecundario} hover:${textPrincipal} transition-all`}><X size={20}/></button></div>
             <div className={`${tc.bgInput} p-4 rounded-2xl border ${borderSecundario} mb-2`}><p className={`text-[10px] font-black uppercase ${textSecundario} mb-1`}>Tarefa:</p><p className={`font-bold ${textPrincipal} text-sm truncate`}>{selectedMaterial.titulo}</p></div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link da Pasta Organizada</label>
-              <input className={`w-full p-4 md:p-5 ${tc.bgInput} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-zinc-500 transition-colors text-sm`} placeholder="Link da pasta final no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+              <div className="flex flex-col gap-3">
+                <input className={`w-full p-4 md:p-5 ${tc.bgInput} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-zinc-500 transition-colors text-sm`} placeholder="Link da pasta final no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+                <div className="flex justify-center">
+                  <GoogleDrivePicker onSelect={(url) => setNewDriveLink(url)} type="folder" label="Selecionar Pasta no Google Drive" />
+                </div>
+              </div>
             </div>
             <button onClick={handleDeliverOrganization} disabled={!newDriveLink || isSubmitting} className={`w-full py-4 md:py-5 ${theme === 'dark' ? 'bg-white text-zinc-950 hover:bg-zinc-200' : 'bg-[#1A1A1A] text-white hover:bg-black'} rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all mt-2 disabled:opacity-50`}>
               {isSubmitting ? "A enviar..." : "Concluir e Avisar Admin"}

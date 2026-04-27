@@ -9,6 +9,7 @@ import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from 
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import GoogleDrivePicker from '@/components/GoogleDrivePicker'
 import {
   LayoutDashboard, Users, Plus, LogOut, Phone, Link, Send,
   Trash2, ExternalLink, RotateCcw, X, MessageSquare,
@@ -1963,7 +1964,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Link Bruto</h3><button onClick={() => setIsLinkBrutoModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm font-medium`}>Insira o link da pasta com os materiais brutos gravados para esta tarefa.</p>
-              <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} placeholder="https://drive.google.com/..." value={newLinkBruto} onChange={e => setNewLinkBruto(e.target.value)} />
+              <div className="flex flex-col gap-3">
+                <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} placeholder="https://drive.google.com/..." value={newLinkBruto} onChange={e => setNewLinkBruto(e.target.value)} />
+                <div className="flex justify-center">
+                  <GoogleDrivePicker onSelect={(url) => setNewLinkBruto(url)} type="folder" label="Selecionar Pasta no Google Drive" />
+                </div>
+              </div>
             </div>
             <button onClick={handleUpdateLinkBruto} disabled={loading || !newLinkBruto} className="w-full py-4 md:py-5 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[10px] hover:bg-[#8a4729] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Salvar Link
@@ -2000,7 +2006,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               <div className="space-y-1">
                 <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Link Bruto (Opcional)</label>
-                <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
+                <div className="flex flex-col gap-2">
+                  <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
+                  <div className="flex justify-center">
+                    <GoogleDrivePicker onSelect={(url) => setResolveLinkBruto(url)} type="folder" label="Selecionar no Drive" />
+                  </div>
+                </div>
               </div>
               <div className="space-y-1">
                 <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Instrução de Resolução</label>

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 import { Toaster, toast } from 'sonner'
+import GoogleDrivePicker from '@/components/GoogleDrivePicker'
 import { notificarClickUpChat } from '@/actions/clickup'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { 
@@ -334,7 +335,7 @@ export default function EditorDashboard() {
                                         <div>
                                           <div className="flex items-center gap-2 flex-wrap mb-3">
                                             {m.status === 'em_edicao' && <span className={`text-blue-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-blue-900/30 border-blue-900/50' : 'bg-blue-100 border-blue-200'} px-3 py-1 rounded-full border`}>Produção Inicial</span>}
-                                            {m.status === 'ajustes' && <span className={`text-orange-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-orange-900/30 border-orange-900/50' : 'bg-orange-100 border-orange-200'} px-3 py-1 rounded-full border`}>Ajuste Solicitado</span>}
+                                            {m.status === 'ajustes' && <span className={`text-orange-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-orange-900/30 border-orange-900/50' : 'bg-orange-100 border-blue-200'} px-3 py-1 rounded-full border`}>Ajuste Solicitado</span>}
                                             {isReported && <span className={`text-red-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-red-900/30 border-red-900/50' : 'bg-red-100 border-red-200'} px-3 py-1 rounded-full border flex items-center gap-1`}><AlertCircle size={10}/> Em Análise (Admin)</span>}
                                             
                                             {m.data_limite && (
@@ -501,32 +502,28 @@ export default function EditorDashboard() {
               </p>
             </div>
             
-            <div className="space-y-5">
+            <div className="space-y-4">
               {(selectedMaterial.editor_id === userId && !selectedMaterial.video_entregue) && (
                 <div className="space-y-2">
-                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest flex items-center gap-2 ml-1`}>
-                    <FileVideo size={14} className="text-blue-500"/> Link do Vídeo (Google Drive)
-                  </label>
-                  <input 
-                    className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-blue-500 transition-colors text-sm`} 
-                    placeholder="Link do Google Drive..." 
-                    value={newDriveLink} 
-                    onChange={e => setNewDriveLink(e.target.value)} 
-                  />
+                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link do Vídeo Final (Drive)</label>
+                  <div className="flex flex-col gap-3">
+                    <input className={`w-full p-4 md:p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do vídeo no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+                    <div className="flex justify-center">
+                      <GoogleDrivePicker onSelect={(url) => setNewDriveLink(url)} type="file" label="Selecionar Vídeo no Drive" />
+                    </div>
+                  </div>
                 </div>
               )}
 
               {(selectedMaterial.designer_id === userId && !selectedMaterial.design_entregue) && (
                 <div className="space-y-2">
-                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest flex items-center gap-2 ml-1`}>
-                    <ImageIcon size={14} className="text-pink-500"/> Link do Design (Capa ou Carrossel)
-                  </label>
-                  <input 
-                    className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-pink-500 transition-colors text-sm`} 
-                    placeholder="Link do Google Drive..." 
-                    value={newCapaLink} 
-                    onChange={e => setNewCapaLink(e.target.value)} 
-                  />
+                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link da Capa (Google Drive)</label>
+                  <div className="flex flex-col gap-3">
+                    <input className={`w-full p-4 md:p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do design no Drive..." value={newCapaLink} onChange={e => setNewCapaLink(e.target.value)} />
+                    <div className="flex justify-center">
+                      <GoogleDrivePicker onSelect={(url) => setNewCapaLink(url)} type="file" label="Selecionar Capa no Drive" />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
