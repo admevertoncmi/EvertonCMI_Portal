@@ -185,7 +185,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const [formE, setFormE] = useState({ nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '' })
   const [loteForm, setLoteForm] = useState({ cliente_id: '', ciclo: '1', link_bruto: '' })
-  const [loteItens, setLoteItens] = useState([{ id: Date.now(), titulo: '', roteiro: '' }])
+  const [loteItens, setLoteItens] = useState([{ id: 1, titulo: '', roteiro: '' }])
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [plannerTaskId, setPlannerTaskId] = useState('')
   const [importClienteId, setImportClienteId] = useState('')
