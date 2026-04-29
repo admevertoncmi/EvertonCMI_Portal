@@ -8,6 +8,7 @@ import {
   AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
+import useEmblaCarousel from 'embla-carousel-react'
 
 const getEmbedUrl = (url: string) => {
   if (!url) return null;
@@ -69,8 +70,18 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const [materialToApprove, setMaterialToApprove] = useState<any>(null)
-
   const materiaisVisualizados = useRef<Set<string>>(new Set());
+
+  // 🔥 Hook do Embla Carousel movido para o topo para respeitar as regras do React
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, skipSnaps: false });
+
+  // Sincronizar slide atual com o Embla
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setCurrentSlide(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
+  }, [emblaApi]);
 
   const loadPortal = useCallback(async () => {
     if (!token || token === 'undefined') return
@@ -180,7 +191,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     if (activeTab === 'roteiros') {
       const itemsInCycle = roteirosList.filter(m => (m.ciclo || 1) === activeCycle);
       const total = itemsInCycle.length || 1;
-      const aprovados = itemsInCycle.filter(m => m.status === 'roteiro_aprovado' || m.status === 'aprovado' || !(m.status === 'roteiro_pendente' || (m.status === 'ajustes' && !m.link_drive))).length;
+      const aprovados = itemsInCycle.filter(m => {
+        const s = m.status?.toLowerCase();
+        return ['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(s) || (s === 'ajustes' && !!(m.link_drive || m.link_capa));
+      }).length;
       return { ciclo: activeCycle, total, aprovados, percentual: Math.round((aprovados / total) * 100) };
     } else {
       const itemsInCycle = todosMateriais.filter(m => (m.ciclo || 1) === activeCycle);
@@ -211,7 +225,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', finalId)
     await registrarLogAcesso(finalId, `✅ POST Aprovado`);
 
-    const msg = `✅ POST APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${mat.titulo}\nA edição final foi aprovada pelo cliente.`;
+    const msg = `✅ POST APROVADO\n\nCLIENTE: ${cliente.nome.toUpperCase()}\nMATERIAL: ${mat.titulo.toUpperCase()}`;
     await notificarClickUpChat(msg);
     toast.success("Post aprovado com sucesso!");
     setIsApprovalModalOpen(false);
@@ -230,7 +244,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', finalId)
     await registrarLogAcesso(finalId, `✅ Roteiro Aprovado`);
 
-    const msg = `📝✅ ROTEIRO APROVADO!\n\nCliente: ${cliente.nome}\nMaterial: ${mat.titulo}\nO Roteiro foi aprovado.`;
+    const msg = `📝✅ ROTEIRO APROVADO\n\nCLIENTE: ${cliente.nome.toUpperCase()}\nMATERIAL: ${mat.titulo.toUpperCase()}`;
     await notificarClickUpChat(msg);
     toast.success("Roteiro aprovado! A equipe de produção foi notificada.");
     setIsApprovalModalOpen(false);
@@ -286,7 +300,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
     await registrarLogAcesso(id, `⚠️ Pedido de Ajuste`);
 
-    const msg = `⚠️ SOLICITAÇÃO DE AJUSTE\n\nCliente: ${cliente.nome}\nMaterial: ${selectedMaterial.titulo}\nNovo Ajuste: ${textoBase}`;
+    const msg = `⚠️ SOLICITAÇÃO DE AJUSTE\n\nCLIENTE: ${cliente.nome.toUpperCase()}\nMATERIAL: ${selectedMaterial.titulo.toUpperCase()}\n💬 INSTRUÇÃO: ${textoBase.toUpperCase()}`;
     await notificarClickUpChat(msg);
 
     setFeedbackText('');
@@ -339,8 +353,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const isItemSelectedAprovado = selectedMaterial ? (
     isRoteiro
-      ? (selectedMaterial.status === 'roteiro_aprovado' || selectedMaterial.status === 'aprovado')
-      : (['aprovado', 'post_aprovado'].includes(selectedMaterial.status) && !!(selectedMaterial.link_drive || selectedMaterial.link_capa))
+      ? ['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(selectedMaterial.status?.toLowerCase()) || (selectedMaterial.status?.toLowerCase() === 'ajustes' && !!(selectedMaterial.link_drive || selectedMaterial.link_capa))
+      : ['aprovado', 'post_aprovado', 'concluido'].includes(selectedMaterial.status?.toLowerCase()) && !!(selectedMaterial.link_drive || selectedMaterial.link_capa)
   ) : false;
 
   return (
@@ -448,10 +462,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       const isSelected = selectedMaterial?.id === m.id
 
                       let isItemAprovado = false;
+                      const s = m.status?.toLowerCase();
                       if (isRoteiro) {
-                        isItemAprovado = (m.status === 'roteiro_aprovado' || m.status === 'aprovado' || ['revisao', 'pendente', 'ajustes', 'post_aprovado'].includes(m.status.toLowerCase()));
+                        isItemAprovado = ['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(s) || (s === 'ajustes' && !!(m.link_drive || m.link_capa));
                       } else {
-                        isItemAprovado = ['aprovado', 'post_aprovado'].includes(m.status) && !!(m.link_drive || m.link_capa);
+                        isItemAprovado = ['aprovado', 'post_aprovado', 'concluido'].includes(s) && !!(m.link_drive || m.link_capa);
                       }
 
                       let badgeClass = 'bg-zinc-100 text-zinc-500';
@@ -462,13 +477,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         badgeText = 'Aprovado';
                       } else if (isSelected) {
                         badgeClass = 'bg-white/20 text-white';
-                        badgeText = isRoteiro ? 'Analisar' : 'Em Aprovação';
-                      } else if (m.status.toLowerCase() === 'ajustes') {
+                        if (isRoteiro) {
+                          badgeText = ['planejamento', 'em_edicao', 'em_organizacao', 'organizado', 'revisao'].includes(s) ? 'Em Produção' : 'Analisar';
+                        } else {
+                          badgeText = 'Em Aprovação';
+                        }
+                      } else if (s === 'ajustes') {
                         badgeClass = 'bg-orange-100 text-orange-600';
                         badgeText = 'Em Ajuste';
                       } else if (isRoteiro) {
                         badgeClass = 'bg-purple-100 text-purple-600';
-                        badgeText = 'Analisar';
+                        badgeText = ['planejamento', 'em_edicao', 'em_organizacao', 'organizado', 'revisao'].includes(s) ? 'Em Produção' : 'Analisar';
                       }
 
                       let buttonClass = 'bg-white border-zinc-200 text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm';
@@ -555,7 +574,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       )}
 
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
-                      <div className="w-full mx-auto aspect-[9/16] max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center overflow-hidden relative shadow-2xl mb-5 border border-zinc-200">
+                      <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center overflow-hidden relative shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
                           embedUrl ? (
                             <iframe title="Vídeo" src={embedUrl} className="w-full h-full border-0 absolute top-0 left-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
@@ -571,6 +590,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         ) : (
                           (() => {
                             const links = selectedMaterial.link_capa ? selectedMaterial.link_capa.split(/[\n,;]+/).map((l: string) => l.trim()).filter(Boolean) : [];
+                            
                             const currentLink = links[currentSlide] || '';
                             const isDirectImage = currentLink.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i);
                             const embed = getEmbedUrl(currentLink);
@@ -578,35 +598,47 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                             if (links.length > 1) {
                               return (
                                 <div className="w-full h-full relative group">
-                                  {isDirectImage ? (
-                                    <img src={currentLink} className="w-full h-full object-contain animate-in fade-in duration-500" alt={`Slide ${currentSlide + 1}`} />
-                                  ) : (
-                                    <iframe title={`Slide ${currentSlide + 1}`} src={embed || currentLink} className="w-full h-full border-0 absolute top-0 left-0" allowFullScreen></iframe>
-                                  )}
+                                  <div className="w-full h-full overflow-hidden" ref={emblaRef}>
+                                    <div className="flex w-full h-full">
+                                      {links.map((link: string, idx: number) => {
+                                        const isImg = link.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i);
+                                        const emb = getEmbedUrl(link);
+                                        return (
+                                          <div key={idx} className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black">
+                                            {isImg ? (
+                                              <img src={link} className="w-full h-full object-contain select-none pointer-events-none" alt={`Slide ${idx + 1}`} />
+                                            ) : (
+                                              <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0" allowFullScreen></iframe>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
                                   
-                                  {/* Navegação de Slides */}
-                                  <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex justify-between items-center z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                  {/* Navegação de Slides (Desktop) */}
+                                  <div className="hidden md:flex absolute inset-x-4 top-1/2 -translate-y-1/2 justify-between items-center z-20 pointer-events-none">
                                     <button 
-                                      onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => (prev > 0 ? prev - 1 : links.length - 1)); }}
-                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10"
+                                      onClick={(e) => { e.stopPropagation(); emblaApi?.scrollPrev(); }}
+                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10 pointer-events-auto"
                                     >
                                       <ChevronDown className="rotate-90" size={24} />
                                     </button>
                                     <button 
-                                      onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => (prev < links.length - 1 ? prev + 1 : 0)); }}
-                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10"
+                                      onClick={(e) => { e.stopPropagation(); emblaApi?.scrollNext(); }}
+                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10 pointer-events-auto"
                                     >
                                       <ChevronDown className="-rotate-90" size={24} />
                                     </button>
                                   </div>
 
                                   {/* Contador e Bolinhas */}
-                                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 z-20">
-                                    <div className="flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10">
+                                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 z-20 pointer-events-none">
+                                    <div className="flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10 pointer-events-auto">
                                       {links.map((_: any, idx: number) => (
                                         <button 
                                           key={idx} 
-                                          onClick={() => setCurrentSlide(idx)}
+                                          onClick={() => emblaApi?.scrollTo(idx)}
                                           className={`w-2 h-2 rounded-full transition-all ${idx === currentSlide ? 'bg-white scale-125' : 'bg-white/30 hover:bg-white/50'}`}
                                         />
                                       ))}

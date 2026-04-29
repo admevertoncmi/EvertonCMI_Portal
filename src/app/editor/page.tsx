@@ -168,7 +168,7 @@ export default function EditorDashboard() {
     else {
       if (isGlobalComplete && statusFinal === 'revisao') {
         toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
-        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\nMaterial: ${selectedMaterial.titulo}\nEquipe: O pacote completo foi entregue!\nAcesse o Painel Admin na aba Materiais p/ Aprovação.`;
+        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\nCliente: ${selectedMaterial.cliente?.nome}\nMaterial: ${selectedMaterial.titulo}`;
         await notificarClickUpChat(msgAdmin);
       } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
       setIsVersionModalOpen(false)
@@ -180,10 +180,12 @@ export default function EditorDashboard() {
   const handleReportIssue = async () => {
     if (!selectedMaterial || !issueText) return toast.error("Por favor, descreva o problema!");
     setIsSubmitting(true);
-    const { error } = await supabase.from('materiais').update({ status: issueType, feedback: issueText }).eq('id', selectedMaterial.id);
+    const feedbackComAutor = `[ID:${userId}] ${issueText}`;
+    const { error } = await supabase.from('materiais').update({ status: issueType, feedback: feedbackComAutor }).eq('id', selectedMaterial.id);
     if (!error) {
       toast.success("Problema reportado ao Admin!");
-      const msgErro = `⚠️ PROBLEMA NA PRODUÇÃO\n\n🎬 Material: ${selectedMaterial.titulo}\n🚨 Status: ${issueType === 'faltando_material' ? 'FALTANDO MATERIAL' : 'VERIFICAR MATERIAL'}\n💬 Motivo: ${issueText}`;
+      const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
+      const msgErro = `⚠️ PROBLEMA NA PRODUÇÃO\n\nDE: ${roleTag} (${userProfile?.nome || 'Equipe'})\nCliente: ${selectedMaterial.cliente?.nome}\nMaterial: ${selectedMaterial.titulo}\nMotivo: ${issueText}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false); 
       loadData(); 
@@ -363,6 +365,23 @@ export default function EditorDashboard() {
                                           <button onClick={() => { setSelectedMaterial(m); setIssueType('verificar_material'); setIssueText(''); setIsIssueModalOpen(true); }} disabled={isReported} className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
                                             <AlertCircle size={14}/> {isReported ? 'Problema Reportado' : 'Relatar Problema'}
                                           </button>
+
+                                          {/* 🔥 VER VERSÃO ANTERIOR (O QUE O CLIENTE VIU) */}
+                                          {(m.link_drive || m.link_capa) && m.status === 'ajustes' && (
+                                            <div className={`w-full flex flex-wrap gap-2 pt-3 mt-1 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>
+                                              <span className={`w-full text-[9px] font-bold uppercase ${textSecundario} mb-1 flex items-center gap-2`}><Eye size={12}/> Versão que o Cliente viu:</span>
+                                              {m.link_drive && (
+                                                <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`flex items-center gap-2 px-3 py-2 ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-600 border-blue-100'} rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all`}>
+                                                  <FileVideo size={12}/> Ver Vídeo
+                                                </button>
+                                              )}
+                                              {m.link_capa && (
+                                                <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`flex items-center gap-2 px-3 py-2 ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/40' : 'bg-pink-50 text-pink-600 border-pink-100'} rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all`}>
+                                                  <ImageIcon size={12}/> Ver Capa
+                                                </button>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
                                         
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

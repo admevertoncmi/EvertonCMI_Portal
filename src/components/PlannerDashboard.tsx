@@ -160,14 +160,14 @@ export default function DecupadorDashboard() {
   const handleReportIssue = async () => {
     if (!selectedMaterial || !issueText) return toast.error("Por favor, descreva o problema!");
     setIsSubmitting(true);
-    const { error } = await supabase.from('materiais').update({ status: issueType, feedback: issueText }).eq('id', selectedMaterial.id);
+    const feedbackComAutor = `[ID:${userId}] ${issueText}`;
+    const { error } = await supabase.from('materiais').update({ status: issueType, feedback: feedbackComAutor }).eq('id', selectedMaterial.id);
     
     if (error) { toast.error("Erro: " + error.message); } 
     else {
       toast.success("Problema reportado ao Admin!");
       
-      // 🔥 NOTIFICAÇÃO CLICKUP LIMPA
-      const msgErro = `⚠️ PROBLEMA NA DECUPAGEM\n\n🎬 Material: ${selectedMaterial.titulo}\n🚨 Status: ${issueType.replace('_', ' ').toUpperCase()}\n💬 Motivo: ${issueText}`;
+      const msgErro = `⚠️ PROBLEMA NA DECUPAGEM\n\nDE: DECUPADOR\nCLIENTE: ${selectedMaterial.cliente?.nome?.toUpperCase()}\nMATERIAL: ${selectedMaterial.titulo.toUpperCase()}\n💬 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
 
       setIsIssueModalOpen(false); 
@@ -185,8 +185,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Pasta entregue!");
       
-      // 🔥 NOTIFICAÇÃO CLICKUP LIMPA
-      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n🎬 Material: ${selectedMaterial.titulo}\n✅ O Decupador organizou os brutos. A tarefa já pode ser delegada ao Editor no Painel Admin.`;
+      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\nCLIENTE: ${selectedMaterial.cliente?.nome?.toUpperCase()}\nMATERIAL: ${selectedMaterial.titulo.toUpperCase()}`;
       await notificarClickUpChat(msgSucesso);
 
       setIsSubmitModalOpen(false); 
@@ -226,7 +225,7 @@ export default function DecupadorDashboard() {
           <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">PL</div>
           <div>
             <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Mão na massa!</p>
-            <h1 className="text-sm font-black uppercase tracking-wide">Painel Planner</h1>
+            <h1 className="text-sm font-black uppercase tracking-wide">PAINEL DECUPADOR</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -316,10 +315,12 @@ export default function DecupadorDashboard() {
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950 border-zinc-800/80' : 'bg-zinc-50 border-zinc-200'} border ${isExpanded ? (theme === 'dark' ? '!border-zinc-600' : '!border-zinc-400') : ''} rounded-[20px] transition-all min-w-0`}>
                                     
                                     {/* 🔥 CORREÇÃO: items-start md:items-center para os botões não esticarem */}
-                                    <div className="flex flex-col sm:flex-row sm:items-start md:items-center justify-between p-4 md:p-5 cursor-pointer group gap-3" onClick={() => toggleTask(m.id)}>
+                                    <div className="flex flex-col p-4 md:p-5 cursor-pointer group gap-4" onClick={() => toggleTask(m.id)}>
                                       
-                                      <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
-                                        {isExpanded ? <ChevronDown size={20} className={`${textSecundario} shrink-0`} /> : <ChevronRight size={20} className={`${textSecundario} transition-colors shrink-0`} />}
+                                      <div className="flex items-start gap-3 flex-1 min-w-0 w-full">
+                                        <div className="pt-0.5">
+                                          {isExpanded ? <ChevronDown size={20} className={`${textSecundario} shrink-0`} /> : <ChevronRight size={20} className={`${textSecundario} transition-colors shrink-0`} />}
+                                        </div>
                                         
                                         {/* TAG DE PRAZO SE HOUVER */}
                                         {m.data_limite && (

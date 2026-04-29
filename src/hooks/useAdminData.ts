@@ -13,8 +13,8 @@ interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id
 
 export function useAdminData(initialMaterials: Material[], initialClientes: Cliente[]) {
   const supabase = createClient()
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [materiais, setMateriais] = useState<Material[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>(initialClientes)
+  const [materiais, setMateriais] = useState<Material[]>(initialMaterials)
   const [membros, setMembros] = useState<MembroComNome[]>([])
   const [isDataLoading, setIsDataLoading] = useState(true)
   const prevMateriaisRef = useRef<Material[]>([]);
@@ -26,23 +26,16 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
       const { data: m } = await supabase.from('materiais').select(`*, cliente:clientes(nome, token_magico, telefone, ciclos_contratados, whatsapp_group_id)`).order('created_at', { ascending: false });
       const { data: team } = await supabase.from('perfis_equipe').select('*').order('created_at');
 
-      if (c) {
-        const uniqueClientes = new Map();
-        [...initialClientes, ...c].forEach(cliente => uniqueClientes.set(cliente.id, cliente as any));
-        setClientes(Array.from(uniqueClientes.values()));
-      }
-
+      if (c) setClientes(c as Cliente[]);
       if (m) {
-        const uniqueMateriais = new Map();
-        [...initialMaterials, ...m as Material[]].forEach(mat => uniqueMateriais.set(mat.id, mat));
-        const novosMateriais = Array.from(uniqueMateriais.values());
+        const novosMateriais = m as Material[];
 
         if (prevMateriaisRef.current.length > 0) {
           novosMateriais.forEach(newMat => {
             const oldMat = prevMateriaisRef.current.find(x => x.id === newMat.id);
             if (oldMat && oldMat.status === 'ajustes' && (newMat.status === 'pendente' || newMat.status === 'roteiro_pendente')) {
               toast.info(`⚠️ ATENÇÃO: O cliente cancelou a solicitação de ajuste do material: "${newMat.titulo}"`, { duration: 6000, style: { background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' } });
-              notificarClickUpChat(`⚠️ ALERTA DE CANCELAMENTO DE AJUSTE\n\n🎬 Material: ${newMat.titulo}\n🚨 O cliente cancelou a solicitação de ajuste no portal. A tarefa voltou para a fila de pendentes.`, '2');
+              notificarClickUpChat(`⚠️ ALERTA: CANCELAMENTO DE AJUSTE\n\nCLIENTE: ${newMat.cliente?.nome?.toUpperCase()}\nMATERIAL: ${newMat.titulo.toUpperCase()}\n🚨 O CLIENTE CANCELOU A SOLICITAÇÃO DE AJUSTE NO PORTAL.`, '2');
             }
           });
         }

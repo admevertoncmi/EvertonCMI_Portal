@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 import { Toaster, toast } from 'sonner'
-import { criarMembroEquipe, atualizarMembroEquipe } from '@/actions/equipe'
+import { criarMembroEquipe, atualizarMembroEquipe, excluirMembro } from '@/actions/equipe'
 import { cadastrarClienteCompleto } from '@/actions/clientes'
 import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from '@/actions/clickup'
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
@@ -16,8 +16,8 @@ import {
   TrendingUp, CheckCircle, Clock, RefreshCw, Download,
   ChevronRight, Calendar, Search, Folder, ShieldCheck,
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
-  ListTodo, FileText, LayoutList, Archive, Edit3, AlertCircle, Menu, Loader2, Activity,
-  FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon
+  ListTodo, FileText, LayoutList, Archive, Edit3, AlertCircle, Menu, Loader2, Activity, Settings,
+  FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle
 } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
@@ -25,6 +25,33 @@ export interface EquipeMember { id: string; email: string; nome?: string; role: 
 export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
 interface Props { materials: Material[]; initialClientes?: Cliente[] }
+
+const copyToClipboard = (text: string) => {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success("Copiado!");
+    }).catch(() => {
+      toast.error("Erro ao copiar.");
+    });
+  } else {
+    // Fallback para navegadores antigos ou contextos não-seguros
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      toast.success("Copiado!");
+    } catch (err) {
+      toast.error("Erro ao copiar.");
+    }
+    document.body.removeChild(textArea);
+  }
+};
 
 const getEmbedUrl = (url: string) => {
   if (!url) return null;
@@ -61,10 +88,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     localStorage.setItem('adminTheme', newTheme);
   };
 
+  const getCleanText = (text: string | null | undefined) => {
+    if (!text) return "";
+    return text.replace(/\[ID:[^\]]+\]\s*/g, '');
+  };
+
+  const getAuthorInfo = (text: string | null | undefined) => {
+    if (!text) return null;
+    const match = text.match(/\[ID:([^\]]+)\]/);
+    if (!match) return null;
+    const authorId = match[1];
+    const member = membros.find(m => m.id === authorId);
+    if (!member) return null;
+    return {
+      nome: member.nome,
+      role: member.role === 'designer' ? 'Designer' : member.role === 'planner' ? 'Decupador' : 'Editor'
+    };
+  };
+
   const renderTextWithLinks = (text: string) => {
     if (!text) return null;
+    const cleanText = getCleanText(text);
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    const parts = cleanText.split(urlRegex);
     return parts.map((part, i) => {
       if (part.match(urlRegex)) {
         return (
@@ -103,7 +149,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
-  const [search, setSearch] = useState('')
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedClients, setExpandedClients] = useState<string[]>([])
@@ -120,6 +165,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [selectedCicloDelegation, setSelectedCicloDelegation] = useState<{ clienteId: string, ciclo: string, itens: Material[], clienteNome: string } | null>(null)
   const [selectedItemsToDelegate, setSelectedItemsToDelegate] = useState<string[]>([])
   const [formM, setFormM] = useState({ cliente_id: '', titulo: '', link_drive: '', ciclo: '1' })
+  const [searchTerm, setSearchTerm] = useState('')
+  const [activeFilter, setActiveFilter] = useState('todos') // todos, urgentes, ajustes, pendentes
+  const [hasMounted, setHasMounted] = useState(false)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
+  const [confirmConfig, setConfirmConfig] = useState<{ title: string; text: string; onConfirm: () => void; type: 'danger' | 'warning' }>({
+    title: '', text: '', onConfirm: () => {}, type: 'warning'
+  })
+
+  const openConfirm = (title: string, text: string, onConfirm: () => void, type: 'danger' | 'warning' = 'warning') => {
+    setConfirmConfig({ title, text, onConfirm, type })
+    setIsConfirmModalOpen(true)
+  }
+
   const [formE, setFormE] = useState({ nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '' })
   const [loteForm, setLoteForm] = useState({ cliente_id: '', ciclo: '1', link_bruto: '' })
   const [loteItens, setLoteItens] = useState([{ id: Date.now(), titulo: '', roteiro: '' }])
@@ -178,9 +241,41 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     planners
   } = useAdminData(initialMaterials, initialClientes);
 
+  const renderDeadline = (date: string | null) => {
+    if (!date || !hasMounted) return null;
+    const now = new Date();
+    const d = new Date(date);
+    const diff = d.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    if (days < 0) return <span className="text-[8px] font-black text-red-500 uppercase flex items-center gap-1 animate-pulse"><Flame size={8} /> Atrasado há {Math.abs(days)}d</span>;
+    if (days === 0) return <span className="text-[8px] font-black text-orange-500 uppercase flex items-center gap-1"><Clock size={8} /> Entrega Hoje</span>;
+    if (days <= 2) return <span className="text-[8px] font-black text-amber-500 uppercase flex items-center gap-1"><Clock size={8} /> Entrega em {days}d</span>;
+    return <span className="text-[8px] font-black text-zinc-400 uppercase flex items-center gap-1"><Calendar size={8} /> {days}d restantes</span>;
+  };
+
+  const applyFilters = useCallback((list: Material[]) => {
+    return list.filter(m => {
+      const matchSearch = !searchTerm || 
+        m.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        m.cliente?.nome?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      let matchFilter = true;
+      if (activeFilter === 'urgentes') {
+        matchFilter = !!m.data_limite && new Date(m.data_limite) < new Date();
+      } else if (activeFilter === 'ajustes') {
+        matchFilter = m.status === 'ajustes';
+      } else if (activeFilter === 'pendentes') {
+        matchFilter = m.status === 'pendente' || m.status === 'roteiro_pendente' || m.status === 'revisao';
+      }
+      
+      return matchSearch && matchFilter;
+    });
+  }, [searchTerm, activeFilter]);
+
   const groupItems = useCallback((list: Material[]) => {
     const groups: Record<string, any> = {}
-    list.forEach(m => {
+    applyFilters(list).forEach(m => {
       if (!m.cliente_id) return;
       if (!groups[m.cliente_id]) groups[m.cliente_id] = { cliente: m.cliente || { nome: 'S/N' }, ciclos: {} }
       const cicloLabel = `CICLO ${m.ciclo || 1}`
@@ -190,12 +285,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (m.status === 'aprovado' || m.status === 'roteiro_aprovado' || m.status === 'post_aprovado') groups[m.cliente_id].ciclos[cicloLabel].aprovados++
     })
     return groups
-  }, [])
+  }, [applyFilters])
 
   const groupedVisaoGeral = useMemo(() => {
-    const filtered = materiais.filter(m => showArchived ? m.status === 'concluido' : m.status !== 'concluido').filter(m => m.titulo.toLowerCase().includes(search.toLowerCase()) || m.cliente?.nome.toLowerCase().includes(search.toLowerCase()))
+    const filtered = materiais.filter(m => showArchived ? m.status === 'concluido' : m.status !== 'concluido')
     return groupItems(filtered)
-  }, [materiais, showArchived, search, groupItems])
+  }, [materiais, showArchived, groupItems])
 
   const groupedAnaliseRoteiro = useMemo(() => groupItems(filaAnaliseRoteiro), [filaAnaliseRoteiro, groupItems]);
   const groupedProblemasDecupagem = useMemo(() => groupItems(filaProblemasDecupagem), [filaProblemasDecupagem, groupItems]);
@@ -274,21 +369,36 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     setActionLoading(id);
     const material = materiais.find(m => m.id === id);
-    await supabase.from('materiais').update({ status: newStatus }).eq('id', id);
+    
+    let updatePayload: any = { status: newStatus };
+    
+    // Limpeza de responsáveis ao retroceder fluxos para evitar registros "travados"
+    if (newStatus === 'analise_roteiro' || newStatus === 'roteiro_pendente') {
+      updatePayload.planner_id = null;
+      updatePayload.editor_id = null;
+      updatePayload.designer_id = null;
+    } else if (newStatus === 'planejamento' || newStatus === 'em_organizacao') {
+      updatePayload.editor_id = null;
+      updatePayload.designer_id = null;
+    }
+
+    await supabase.from('materiais').update(updatePayload).eq('id', id);
 
     if (material) {
       if (newStatus === 'faltando_material' || newStatus === 'verificar_material') {
         const p = membros.find(m => m.id === material.planner_id);
-        await notificarClickUpChat(`⚠️ PROBLEMA REPORTADO NA PRODUÇÃO\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n🚨 A equipe sinalizou que falta material na pasta ou há erro nos ficheiros!`, (p as any)?.telegram_thread_id);
+        await notificarClickUpChat(`⚠️ PROBLEMA NA PRODUÇÃO\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}\n🚨 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
       }
       else if (newStatus === 'revisao') {
-        await notificarClickUpChat(`👀 EDIÇÃO PRONTA PARA APROVAÇÃO\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n✅ A equipe de design/edição concluiu o material. Aguardando a sua análise.`);
+        await notificarClickUpChat(`👀 EDIÇÃO PRONTA\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}\n🚀 AGUARDANDO ANÁLISE ADMIN`);
       }
       else if (newStatus === 'organizado') {
-        await notificarClickUpChat(`📁 PASTA ORGANIZADA\n\n🎬 Material: ${material.titulo}\n👤 Cliente: ${material.cliente?.nome}\n✅ O Decupador terminou. A pasta está pronta para ser delegada ao Editor/Designer!`);
+        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}`);
       }
-      else if (newStatus === 'aprovado' || newStatus === 'roteiro_aprovado' || newStatus === 'post_aprovado') {
-        await notificarClickUpChat(`✅ APROVADO E FINALIZADO (ADMIN)\n\n👤 Cliente: ${material.cliente?.nome}\n🎬 Material: ${material.titulo}`);
+      else if (['aprovado', 'roteiro_aprovado', 'post_aprovado'].includes(newStatus)) {
+        const label = newStatus === 'roteiro_aprovado' ? 'ROTEIRO APROVADO' : 'POST APROVADO';
+        const icon = newStatus === 'roteiro_aprovado' ? '📝✅' : '✅';
+        await notificarClickUpChat(`${icon} ${label}\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}`);
       }
     }
 
@@ -297,8 +407,43 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   }
 
   const [resolveType, setResolveType] = useState<'planner' | 'editor'>('planner');
-
   const [notifyTarget, setNotifyTarget] = useState<'both' | 'editor' | 'designer'>('both');
+
+  const openResolveModal = (m: Material, defaultType?: 'planner' | 'editor') => {
+    setSelectedMaterial(m);
+    setResolveLinkBruto(m.link_bruto || '');
+    setResolveText('');
+    
+    // Automação: tenta extrair o ID do autor do feedback para saber para quem devolver
+    const match = m.feedback?.match(/\[ID:([^\]]+)\]/);
+    if (match && match[1]) {
+      const authorId = match[1];
+      if (authorId === m.planner_id) {
+        setResolveType('planner');
+      } else if (authorId === m.editor_id) {
+        setResolveType('editor');
+        setNotifyTarget('editor');
+      } else if (authorId === m.designer_id) {
+        setResolveType('editor');
+        setNotifyTarget('designer');
+      } else {
+        // Se não for nenhum dos IDs específicos, usa o default ou tenta inferir pelo role
+        const autor = membros.find(x => x.id === authorId);
+        if (autor?.role === 'planner') setResolveType('planner');
+        else if (autor?.role === 'editor' || autor?.role === 'designer') {
+          setResolveType('editor');
+          setNotifyTarget(autor.role as any);
+        }
+      }
+    } else if (defaultType) {
+      setResolveType(defaultType);
+    } else {
+      // Fallback baseado no status atual
+      if (m.status === 'faltando_material' || m.status === 'verificar_material') setResolveType('planner');
+    }
+    
+    setIsResolveIssueModalOpen(true);
+  };
 
   const handleResolveIssue = async () => {
     if (!selectedMaterial || !resolveText) return toast.error("Escreva a instrução/resolução!");
@@ -306,13 +451,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     
     const newStatus = resolveType === 'planner' ? 'planejamento' : 'em_edicao';
     
-    // Se for devolver pra produção, reseta proporcionalmente ao que foi escolhido
     const updatePayload: any = {
       status: newStatus,
       feedback_admin: resolveText,
       link_bruto: resolveLinkBruto,
       feedback: null
     };
+
+    if (resolveType === 'planner') {
+      updatePayload.link_organizado = null;
+    }
 
     if (resolveType === 'editor') {
       if (notifyTarget === 'editor' || notifyTarget === 'both') updatePayload.video_entregue = false;
@@ -324,7 +472,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
       
-      const msgResolvido = `✅ PROBLEMA RESOLVIDO (ADMIN)\n\n🎬 Material: ${selectedMaterial.titulo}\n💬 Resposta: ${resolveText}\n🚀 O Admin resolveu o problema. Pode continuar o trabalho!`;
+      const msgResolvido = `✅ PROBLEMA RESOLVIDO\n\nCLIENTE: ${selectedMaterial.cliente?.nome}\nMATERIAL: ${selectedMaterial.titulo}\n💬 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
 
       if (resolveType === 'planner') {
         const p = membros.find(x => x.id === selectedMaterial.planner_id);
@@ -506,19 +654,22 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     } else {
       toast.success(`Delegado com sucesso! (${selectedItemsToDelegate.length} materiais)`);
 
+      const firstItem = materiais.find(m => selectedItemsToDelegate.includes(m.id));
+      const clienteNome = firstItem?.cliente?.nome || 'CLIENTE NÃO IDENTIFICADO';
+
       if (delegationType === 'planner') {
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
-        const msgPlanner = `🔔 NOVA TAREFA DE DECUPAGEM\n\nPara: Decupador (${mPlanner?.nome || mPlanner?.email})\nQuantidade: ${selectedItemsToDelegate.length} material(ais)\nInstruções: ${adminFeedback || 'Sem instruções adicionais.'}`;
+        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\nCLIENTE: ${clienteNome}\nMATERIAL: ${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
         await notificarClickUpChat(msgPlanner, (mPlanner as any)?.telegram_thread_id);
       } else {
         if (selectedEditorId) {
           const mEditor = membros.find(m => m.id === selectedEditorId);
-          const msgEditor = `🎬 NOVA TAREFA DE EDIÇÃO\n\nPara: Editor (${mEditor?.nome || mEditor?.email})\nQuantidade: ${selectedItemsToDelegate.length} material(ais)\nInstruções: ${adminFeedback || 'Sem instruções adicionais.'}`;
+          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\nCLIENTE: ${clienteNome}\nMATERIAL: ${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
           await notificarClickUpChat(msgEditor, (mEditor as any)?.telegram_thread_id);
         }
         if (selectedDesignerId) {
           const mDesigner = membros.find(m => m.id === selectedDesignerId);
-          const msgDesigner = `🎨 NOVA TAREFA DE DESIGN\n\nPara: Designer (${mDesigner?.nome || mDesigner?.email})\nQuantidade: ${selectedItemsToDelegate.length} material(ais)\nInstruções: ${adminFeedback || 'Sem instruções adicionais.'}`;
+          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\nCLIENTE: ${clienteNome}\nMATERIAL: ${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
           await notificarClickUpChat(msgDesigner, (mDesigner as any)?.telegram_thread_id);
         }
       }
@@ -575,7 +726,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         cliente_id: importClienteId,
         titulo: sub.name,
         roteiro: sub.text_content || sub.description || 'Sem roteiro inserido no ClickUp.',
-        status: 'analise_roteiro',
+        status: 'planejamento',
         clickup_task_id: sub.id,
         ciclo: parseInt(importCiclo) || 1,
         created_at: new Date().toISOString()
@@ -592,7 +743,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!selectedMaterial || !newDriveLink) return
     setLoading(true)
     await supabase.from('materiais').update({ link_drive: newDriveLink, status: 'pendente', feedback: null }).eq('id', selectedMaterial.id)
-    await notificarClickUpChat(`🔄 REEDIÇÃO\n\n👤 Cliente: ${selectedMaterial.cliente?.nome}\n🎬 Material: ${selectedMaterial.titulo}`);
+    await notificarClickUpChat(`🔄 REEDIÇÃO\n\nCLIENTE: ${selectedMaterial.cliente?.nome}\nMATERIAL: ${selectedMaterial.titulo}`);
     setIsVersionModalOpen(false); setNewDriveLink(''); loadData(); setLoading(false); toast.success("Versão atualizada!");
   }
 
@@ -642,32 +793,40 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   );
 
   return (
-    <div className={`flex h-screen ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`}>
+    <div className={`flex h-screen ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`} suppressHydrationWarning>
       <Toaster position="top-right" richColors theme={theme} />
 
-      {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
-      <div className={`md:hidden flex items-center justify-between p-5 pt-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-40 shadow-lg border-b`}>
+      {/* CABEÇALHO MOBILE MINIMALISTA (GLASSMORPISM) */}
+      <div className={`md:hidden fixed top-0 left-0 w-full z-40 px-6 py-4 flex items-center justify-between backdrop-blur-md border-b ${theme === 'dark' ? 'bg-zinc-950/80 border-white/5' : 'bg-white/80 border-zinc-200'} shadow-sm transition-all duration-300`}>
         <div className="flex items-center gap-3">
-          {/* Logo Maior no Mobile */}
-          <img src="/logo-light.png" alt="Everton" className="h-14 md:h-16 object-contain" />
-          <div className="hidden sm:block">
-            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Painel</p>
-            <h1 className="text-sm font-black uppercase">Admin</h1>
+          <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-10 w-auto object-contain" />
+        </div>
+        
+        <div className="flex-1 max-w-[140px] mx-4">
+          <div className={`relative flex items-center ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-zinc-100 border-zinc-200'} border rounded-xl px-3 py-1.5`}>
+            <Search size={14} className="text-zinc-500 shrink-0" />
+            <input 
+              type="text" 
+              placeholder="BUSCAR..." 
+              className="bg-transparent border-none outline-none text-[10px] font-black uppercase w-full ml-2 placeholder:text-zinc-500"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
+        
         <div className="flex items-center gap-2">
-          {/* Botão de Tema (Sol/Lua) */}
-          <button onClick={toggleTheme} className="p-2.5 bg-white/10 rounded-full border border-white/20 active:scale-95 transition-transform">
-            {theme === 'dark' ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} className="text-white" />}
+          {/* Botão de Tema Rápido */}
+          <button onClick={toggleTheme} className={`p-2 rounded-full border ${theme === 'dark' ? 'bg-white/5 border-white/10 text-yellow-500' : 'bg-zinc-100 border-zinc-200 text-zinc-600'} active:scale-90 transition-all`}>
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          {/* Botão de Notificações */}
-          <button onClick={() => { setActiveTab('solicitacao-ajustes'); setIsMobileMenuOpen(false); }} className="relative p-2.5 bg-white/10 rounded-full border border-white/20 active:scale-95 transition-transform">
-            <Bell size={20} />
-            {notificacoesAjustes.length > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#212013]"></span>}
-          </button>
-          {/* Botão de Menu Lateral (Hambúrguer) */}
-          <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-white/10 rounded-full border border-white/20 active:scale-95 transition-transform">
-            <Menu size={22} />
+          
+          {/* Sininho de Notificações */}
+          <button onClick={() => { setActiveTab('solicitacao-ajustes'); setIsMobileMenuOpen(false); }} className={`relative p-2 rounded-full border ${theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-600'} active:scale-90 transition-all`}>
+            <Bell size={18} />
+            {notificacoesAjustes.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+            )}
           </button>
         </div>
       </div>
@@ -754,10 +913,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <CheckCircle2 size={20} />
             <span className="text-[9px] font-bold tracking-wide">Prontos</span>
           </button>
-          <button onClick={() => { setActiveTab('relatorios'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'relatorios' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
-            <Activity size={20} />
-            <span className="text-[9px] font-bold tracking-wide">Relat.</span>
-          </button>
           <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
             <Menu size={20} />
             <span className="text-[9px] font-bold tracking-wide">Menu</span>
@@ -765,10 +920,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </div>
       </div>
 
-      <main className={`flex-1 pt-32 pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
+      <main className={`flex-1 pt-24 pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
         {/* ABA: PLANEJAMENTO */}
         {activeTab === 'planejamento' && (
           <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 text-left animate-in slide-in-from-bottom-4 duration-500">
+
             <div className={`flex flex-col md:flex-row md:justify-between items-start md:items-center gap-6 ${tc.bgCard} p-6 md:p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
               <div>
                 <h2 className="text-2xl font-black uppercase">Planejamento</h2>
@@ -846,7 +1002,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             <div key={`rot-ciclo-${cicloLabel}`} className="space-y-3">
                               <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} pb-3`}>
                                 <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-xs text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
+                                <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                               </div>
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
@@ -860,7 +1016,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     </div>
                                     <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto">
                                       <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
-                                      <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${m.link_bruto ? (theme === 'dark' ? 'bg-zinc-800 border-zinc-800' : 'bg-zinc-800 border-zinc-800') : 'bg-blue-600 border-blue-600 hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Link OK' : 'Inserir Link'}</button>
+                                      <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta OK' : 'Inserir Pasta'}</button>
                                     </div>
                                   </div>
                                 ))}
@@ -900,11 +1056,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
-                                      <div className={`mt-3 p-4 ${tc.bgCard} rounded-xl border ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'}`}><p className="text-[10px] font-black uppercase text-red-400 tracking-widest mb-1">Motivo:</p><p className={`${tc.textMuted} font-medium text-sm whitespace-pre-wrap break-words break-all`}>"{m.feedback}"</p></div>
+                                      {(() => {
+                                        const author = getAuthorInfo(m.feedback);
+                                        if (!author) return null;
+                                        return (
+                                          <div className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200'} border`}>
+                                            <Users size={12} className="opacity-60" />
+                                            <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span> ({author.role})</span>
+                                          </div>
+                                        );
+                                      })()}
+                                      <div className={`mt-3 p-4 ${tc.bgCard} rounded-xl border ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'}`}><p className="text-[10px] font-black uppercase text-red-400 tracking-widest mb-1">Motivo:</p><p className={`${tc.textMuted} font-medium text-sm whitespace-pre-wrap break-words break-all`}>"{renderTextWithLinks(m.feedback || '')}"</p></div>
                                     </div>
                                     <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-center items-center">
-                                      <button onClick={() => { setSelectedMaterial(m); setResolveLinkBruto(m.link_bruto || ''); setResolveText(''); setIsResolveIssueModalOpen(true); }} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
-                                      <button onClick={async () => { if (window.confirm('Arquivar esta tarefa?')) { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); } }} disabled={actionLoading === m.id} className={`px-4 py-4 ${tc.bgCard} border ${theme === 'dark' ? 'border-red-900/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'} rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />} Arquivar</button>
+                                      <button onClick={() => openResolveModal(m)} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
+                                      <button onClick={() => openConfirm('Arquivar Tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`px-4 py-4 ${tc.bgCard} border ${theme === 'dark' ? 'border-red-900/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'} rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />} Arquivar</button>
                                     </div>
                                   </div>
                                 ))}
@@ -949,9 +1115,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       )}
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
-                                      <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`}><FileText size={18} /></button>
-                                      <button onClick={() => setPreviewUrl(m.link_organizado)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Eye size={14} /> Ver Pasta</button>
+                                    <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
+                                      <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
+                                      <button onClick={() => setPreviewUrl(m.link_organizado)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Pasta (Organizada)"><Eye size={14} /> Ver Pasta</button>
+                                      
+                                      {/* NOVOS BOTÕES SOLICITADOS */}
+                                      <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-xl transition-colors`} title="Editar Link da Pasta (Decupagem)"><Link size={18} /></button>
+                                      <button onClick={() => openResolveModal(m, 'planner')} className={`p-3 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-xl transition-colors`} title="Devolver ao Decupador"><RotateCcw size={18} /></button>
                                     </div>
                                   </div>
                                 ))}
@@ -1103,7 +1273,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     </div>
                     {expandedClients.includes(`notif-${clienteId}`) && (
                       <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                        {Object.entries(group.ciclos).map(([cicloLabel, data]) => (
+                        {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                           <div key={`notif-ciclo-${cicloLabel}`} className="space-y-3">
                             <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                             <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} md:ml-1`}>
@@ -1117,11 +1287,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                     )}
                                     <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                    {(() => {
+                                      const author = getAuthorInfo(m.feedback);
+                                      if (!author) return null;
+                                      return (
+                                        <div className={`mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold ${theme === 'dark' ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-white text-zinc-500 border-zinc-200'} border`}>
+                                          <Users size={10} className="opacity-60" />
+                                          <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span></span>
+                                        </div>
+                                      );
+                                    })()}
                                     <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
                                       <div className="flex justify-between items-start gap-3">
                                         <p className={`text-xs font-bold whitespace-pre-wrap break-words break-all ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-400' : 'text-orange-700') : (theme === 'dark' ? 'text-red-400' : 'text-red-700')}`}>
                                           <span className="text-[9px] uppercase tracking-widest opacity-60 block mb-1">Ajuste Atual:</span>
-                                          {m.feedback?.split('\n\n')[0] || "Nenhum detalhe informado."}
+                                          {renderTextWithLinks(m.feedback?.split('\n\n')[0] || "Nenhum detalhe informado.")}
                                         </p>
                                         {(m.feedback?.split('\n\n').length || 0) > 1 && (
                                           <button onClick={() => toggleFeedback(m.id)} className={`p-1.5 rounded-md shrink-0 transition-all ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-600 hover:bg-orange-200') : (theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-200')}`}><ChevronDown size={14} className={`transition-transform duration-300 ${expandedFeedbacks.includes(m.id) ? 'rotate-180' : ''}`} /></button>
@@ -1131,11 +1311,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <div className={`mt-3 pt-3 border-t space-y-2 animate-in fade-in duration-300 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/20' : 'border-orange-50') : (theme === 'dark' ? 'border-red-900/20' : 'border-red-50')}`}>
                                           <p className={`text-[9px] uppercase tracking-widest font-black ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-500' : 'text-orange-400') : (theme === 'dark' ? 'text-red-500' : 'text-red-400')}`}>Histórico Anterior:</p>
                                           {m.feedback?.split('\n\n').slice(1).map((hist, idx) => (
-                                            <div key={idx} className={`p-2.5 rounded-lg text-xs font-medium whitespace-pre-wrap break-words break-all opacity-80 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/10 text-orange-300' : 'bg-orange-50/50 text-orange-800') : (theme === 'dark' ? 'bg-red-900/10 text-red-300' : 'bg-red-50/50 text-red-800')}`}>{hist}</div>
+                                            <div key={idx} className={`p-2.5 rounded-lg text-xs font-medium whitespace-pre-wrap break-words break-all opacity-80 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/10 text-orange-300' : 'bg-orange-50/50 text-orange-800') : (theme === 'dark' ? 'bg-red-900/10 text-red-300' : 'bg-red-50/50 text-red-800')}`}>{renderTextWithLinks(hist)}</div>
                                           ))}
                                         </div>
                                       )}
                                     </div>
+                                    {/* 🔥 BOTÕES DE VISUALIZAÇÃO DA VERSÃO ENVIADA */}
+                                    {(m.link_drive || m.link_capa) && (
+                                      <div className="flex flex-wrap gap-2 mt-3">
+                                        {m.link_drive && (
+                                          <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' : 'bg-blue-50 text-blue-600 border-blue-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest`}>
+                                            <FileVideo size={14}/> Ver Vídeo Enviado
+                                          </button>
+                                        )}
+                                        {m.link_capa && (
+                                          <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/30' : 'bg-pink-50 text-pink-600 border-pink-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest`}>
+                                            <ImageIcon size={14}/> Ver Capa Enviada
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0">
                                     <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
@@ -1194,7 +1389,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Ver Post</button>}
                                     {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa/Card"><ImageIcon size={14} /> Capa/Card</button>}
 
-                                    <button onClick={async () => { if (window.confirm('Marcar como postado e arquivar?')) { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); } }} disabled={actionLoading === m.id} className={`col-span-2 md:col-span-1 px-4 py-3 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-black'} rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Arquivar</button>
+                                    <button onClick={() => openConfirm('Arquivar e Finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`col-span-2 md:col-span-1 px-4 py-3 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-black'} rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Arquivar</button>
                                   </div>
                                 </div>
                               ))}
@@ -1300,7 +1495,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <button onClick={() => setShowArchived(!showArchived)} className={`flex-1 md:flex-none px-4 py-3 md:py-2 rounded-xl text-xs font-bold transition-colors ${showArchived ? (theme === 'dark' ? 'bg-white text-black' : 'bg-zinc-900 text-white') : (theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-500')}`}>{showArchived ? 'Ver Ativos' : 'Ver Arquivados'}</button>
                 </div>
               </div>
-              <div className="relative group"><Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-400" size={20} /><input type="text" placeholder="Procurar por cliente..." value={search} onChange={e => setSearch(e.target.value)} className={`w-full p-4 pl-14 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl font-bold shadow-sm outline-none focus:border-blue-400 transition-colors text-sm`} /></div>
+              {/* FILTROS RÁPIDOS GLOBAIS */}
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar sticky top-20 z-20 bg-inherit py-2">
+                {[
+                  { id: 'todos', label: 'TODOS', color: 'bg-zinc-500' },
+                  { id: 'urgentes', label: '🔥 ATRASADOS', color: 'bg-red-600' },
+                  { id: 'ajustes', label: '💬 AJUSTES', color: 'bg-orange-500' },
+                  { id: 'pendentes', label: '⏳ PENDENTES', color: 'bg-blue-500' }
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => setActiveFilter(f.id)}
+                    className={`px-4 py-2 rounded-full text-[9px] font-black uppercase transition-all shrink-0 border-2 ${activeFilter === f.id ? `${f.color} text-white border-transparent shadow-lg scale-105` : `${theme === 'dark' ? 'border-zinc-800 text-zinc-500 hover:border-zinc-600' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <div className="relative group"><Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-400" size={20} /><input type="text" placeholder="Procurar por cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full p-4 pl-14 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl font-bold shadow-sm outline-none focus:border-blue-400 transition-colors text-sm`} /></div>
 
               <div className={`${tc.bgCard} border rounded-[24px] overflow-hidden shadow-xl ${tc.borderStrong} transition-colors`}>
                 <div className={`divide-y ${theme === 'dark' ? 'divide-zinc-800' : 'divide-zinc-100'} text-left`}>
@@ -1387,6 +1599,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               {m.status === 'roteiro_aprovado' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado</span>)}
                                               {m.status === 'ajustes' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-red-400 bg-red-900/30 border-red-900/50' : 'text-red-700 bg-red-100 border-red-200'} px-1.5 py-0.5 rounded border`}>Ajuste</span>)}
                                               {m.status === 'em_edicao' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 border-blue-900/50' : 'text-blue-700 bg-blue-100 border-blue-200'} px-1.5 py-0.5 rounded border`}>Em Produção</span>)}
+                                              {m.link_bruto ? (
+                                                <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 border-indigo-900/50' : 'text-indigo-700 bg-indigo-100 border-indigo-200'} px-1.5 py-0.5 rounded border flex items-center gap-1`}><Link size={8} /> Pasta OK</span>
+                                              ) : (
+                                                <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 border-amber-900/50' : 'text-amber-700 bg-amber-100 border-amber-200'} px-1.5 py-0.5 rounded border flex items-center gap-1 animate-pulse`}><Link size={8} /> Sem Pasta</span>
+                                              )}
+                                              {renderDeadline(m.data_limite)}
                                             </div>
 
                                             <div className="relative inline-block w-full md:w-auto mt-3">
@@ -1416,6 +1634,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <div className={`flex items-center gap-2 flex-wrap md:opacity-0 md:group-hover/item:opacity-100 transition-all pt-2 md:pt-0 border-t md:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 md:mt-0 w-full md:w-auto shrink-0`}>
                                             {m.status === 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'pendente')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Restaurar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}</button>)}
                                             {m.status === 'revisao' && (<button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Aprovar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}</button>)}
+                                            {m.status === 'ajustes' && (<button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:bg-red-600 hover:text-white' : 'text-red-600 bg-red-50 hover:bg-red-600 hover:text-white'} rounded-lg transition-colors`} title="Resolver Problema / Devolver"><AlertCircle size={16} /></button>)}
+                                            {(m.status === 'organizado' || m.status === 'em_edicao') && (
+                                              <button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Devolver ao Decupador"><RotateCcw size={16} /></button>
+                                            )}
+                                            {m.status === 'analise_roteiro' && (<button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 hover:bg-purple-600 hover:text-white' : 'text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Enviar Roteiro para o Cliente">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>)}
                                             <button onClick={() => setPreviewRoteiro(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={16} /></button>
 
                                             {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-blue-900/30 hover:text-blue-400' : 'text-zinc-500 bg-zinc-50 hover:bg-blue-50 hover:text-blue-600'} rounded-lg transition-colors`} title="Ver Vídeo/Carrossel"><FileVideo size={16} /></button>}
@@ -1423,9 +1646,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                                             <button onClick={() => abrirLogsDoMaterial(m.id, m.titulo)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-teal-400 bg-teal-900/30 hover:bg-teal-500 hover:text-white' : 'text-teal-500 bg-teal-50 hover:bg-teal-500 hover:text-white'} rounded-lg transition-colors`} title="Ver Histórico de Visualizações"><Activity size={16} /></button>
 
-                                            <button onClick={() => { setSelectedMaterial(m); setIsVersionModalOpen(true); }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 hover:bg-blue-600 hover:text-white' : 'text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white'} rounded-lg transition-colors`} title="Atualizar Link"><UploadCloud size={16} /></button>
+                                            <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Editar Link da Pasta (Decupagem)"><Link size={16} /></button>
+                                            <button onClick={() => { setSelectedMaterial(m); setIsVersionModalOpen(true); }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 hover:bg-blue-600 hover:text-white' : 'text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white'} rounded-lg transition-colors`} title="Atualizar Link (Entrega Final)"><UploadCloud size={16} /></button>
                                             {m.status !== 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'concluido')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-500 bg-zinc-800 hover:text-amber-400 hover:bg-amber-900/30' : 'text-zinc-400 bg-zinc-50 hover:text-amber-600 hover:bg-amber-50'} rounded-lg disabled:opacity-50 transition-colors`} title="Arquivar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}</button>)}
-                                            <button onClick={() => { if (window.confirm('Excluir?')) { setActionLoading(m.id); supabase.from('materiais').delete().eq('id', m.id).then(() => { loadData(); setActionLoading(null); }) } }} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:text-red-300' : 'text-red-400 bg-red-50 hover:text-red-600'} rounded-lg ml-auto md:ml-0 disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button>
+                                            <button onClick={() => openConfirm('Excluir Tarefa', 'Esta ação é permanente. Deseja excluir?', () => { setActionLoading(m.id); supabase.from('materiais').delete().eq('id', m.id).then(() => { loadData(); setActionLoading(null); }) }, 'danger')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:text-red-300' : 'text-red-400 bg-red-50 hover:text-red-600'} rounded-lg ml-auto md:ml-0 disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button>
                                           </div>
                                         </div>
                                       ))}
@@ -1546,7 +1770,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all justify-end">
                     <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
                     <button onClick={() => { window.open(`https://wa.me/${c.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Portal: ${window.location.origin}/portal/${c.token_magico}`)}`, '_blank'); }} className={`p-3 ${theme === 'dark' ? 'bg-green-900/30 hover:bg-green-900/50 text-green-400' : 'bg-green-50 hover:bg-green-600 hover:text-white text-green-600'} rounded-xl transition-colors`} title="Avisar no WhatsApp"><Send size={18} /></button>
-                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/portal/${c.token_magico}`); toast.success("Copiado!"); }} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
+                    <button onClick={() => copyToClipboard(`${window.location.origin}/portal/${c.token_magico}`)} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
                     <button onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'bg-red-900/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-600 hover:text-white text-red-500'} rounded-xl transition-colors`} title="Excluir Cliente"><Trash2 size={18} /></button>
                   </div>
                 </div>
@@ -1648,7 +1872,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               }}
                               className={`${tc.textMuted} hover:text-blue-500 p-2 opacity-50 group-hover:opacity-100 transition-opacity`} title="Editar Perfil"
                             ><Edit3 size={18} /></button>
-                            <button onClick={async () => { if (window.confirm('Tem a certeza que deseja remover este membro da equipe?')) { await supabase.from('perfis_equipe').delete().eq('id', m.id); loadData(); } }} className={`${tc.textMuted} hover:text-red-500 p-2 opacity-50 group-hover:opacity-100 transition-opacity`} title="Remover"><Trash2 size={18} /></button>
+                            <button onClick={() => openConfirm('Remover Membro', 'Deseja realmente remover este membro da equipe?', async () => { await excluirMembro(m.id); loadData(); }, 'danger')} className={`${tc.textMuted} hover:text-red-500 p-2 opacity-50 group-hover:opacity-100 transition-opacity`} title="Remover"><Trash2 size={18} /></button>
                           </td>
                         </tr>
                       ))}
@@ -1909,14 +2133,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               )}
 
               {delegationType === 'planner' ? (
-                <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedPlannerId} onChange={e => setSelectedPlannerId(e.target.value)}>
-                  <option value="">Selecionar Decupador</option>
-                  {planners.map(m => (
-                    <option key={m.id} value={m.id}>{m.nome ? `${m.nome} (${m.role === 'admin' ? 'Gestor' : 'Decupador'})` : `${m.email} (${m.role === 'admin' ? 'Gestor' : 'Decupador'})`}</option>
-                  ))}
-                </select>
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Selecionar Decupador</label>
+                  <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedPlannerId} onChange={e => setSelectedPlannerId(e.target.value)}>
+                    <option value="">Nenhum</option>
+                    {planners.map(m => (
+                      <option key={m.id} value={m.id}>{m.nome ? `${m.nome} (${m.role === 'admin' ? 'Gestor' : 'Decupador'})` : `${m.email} (${m.role === 'admin' ? 'Gestor' : 'Decupador'})`}</option>
+                    ))}
+                  </select>
+                </div>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4">
                   <div className="space-y-1">
                     <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PlayCircle size={12} /> Editor (Vídeos/Reels)</label>
                     <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedEditorId} onChange={e => setSelectedEditorId(e.target.value)}>
@@ -1982,7 +2209,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
-            <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}><p className="text-[10px] font-black uppercase text-red-500 mb-1">Motivo do Problema:</p><p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-pre-wrap break-words`}>"{renderTextWithLinks(selectedMaterial.feedback || '')}"</p></div>
+            <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}>
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-[10px] font-black uppercase text-red-500">Motivo do Problema:</p>
+                {(() => {
+                  const author = getAuthorInfo(selectedMaterial.feedback);
+                  if (!author) return null;
+                  return <span className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">Reportado por: {author.nome}</span>;
+                })()}
+              </div>
+              <p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-pre-wrap break-words`}>"{renderTextWithLinks(selectedMaterial.feedback || '')}"</p>
+            </div>
             
             <div className="space-y-4">
               <div className="space-y-1">
@@ -2333,6 +2570,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <button onClick={() => setIsGruposModalOpen(false)} className="w-full py-4 font-black uppercase text-[10px] tracking-widest bg-zinc-100 dark:bg-zinc-800 rounded-2xl">Fechar</button>
+          </div>
+        </div>
+      )}
+      {/* MODAL DE CONFIRMAÇÃO PERSONALIZADO */}
+      {isConfirmModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} w-full max-w-sm rounded-[32px] p-8 shadow-2xl border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} text-center space-y-6`}>
+            <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${confirmConfig.type === 'danger' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
+              {confirmConfig.type === 'danger' ? <Trash2 size={32} /> : <AlertTriangle size={32} />}
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase">{confirmConfig.title}</h3>
+              <p className={`mt-2 text-sm ${tc.textMuted} font-medium`}>{confirmConfig.text}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setIsConfirmModalOpen(false)} className={`py-4 rounded-2xl font-black uppercase text-[10px] ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancelar</button>
+              <button 
+                onClick={() => { confirmConfig.onConfirm(); setIsConfirmModalOpen(false); }} 
+                className={`py-4 rounded-2xl font-black uppercase text-[10px] text-white ${confirmConfig.type === 'danger' ? 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20' : 'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-600/20'}`}
+              >
+                Confirmar
+              </button>
+            </div>
           </div>
         </div>
       )}
