@@ -27,6 +27,15 @@ const getEmbedUrl = (url: string) => {
   } catch (error) { return null; }
 }
 
+const getRawDriveUrl = (url: string) => {
+  if (!url) return null;
+  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch1?.[1]) return `https://drive.google.com/thumbnail?id=${driveMatch1[1]}&sz=w2500`;
+  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch2?.[1] && url.includes('drive.google.com')) return `https://drive.google.com/thumbnail?id=${driveMatch2[1]}&sz=w2500`;
+  return url;
+}
+
 const renderTextWithLinks = (text: string) => {
   if (!text) return text;
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -915,20 +924,16 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       {/* PLAYER TELA CHEIA MOBILE */}
       {previewUrl && (
         <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="absolute top-4 right-4 flex items-center gap-2 z-[10000]">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-              <ExternalLink size={18} />
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <ExternalLink size={18} /> Abrir Original
             </a>
-            <button onClick={() => setPreviewUrl(null)} className="p-2.5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-              <X size={20} />
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10">
-            {previewUrl.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i) ? (
-              <img src={previewUrl} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl shadow-white/5" alt="Preview" />
-            ) : (
-              <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
-            )}
+          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
+            <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
           </div>
         </div>
       )}
