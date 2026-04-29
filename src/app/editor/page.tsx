@@ -168,7 +168,7 @@ export default function EditorDashboard() {
     else {
       if (isGlobalComplete && statusFinal === 'revisao') {
         toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
-        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\nCliente: ${selectedMaterial.cliente?.nome}\nMaterial: ${selectedMaterial.titulo}`;
+        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}`;
         await notificarClickUpChat(msgAdmin);
       } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
       setIsVersionModalOpen(false)
@@ -185,7 +185,7 @@ export default function EditorDashboard() {
     if (!error) {
       toast.success("Problema reportado ao Admin!");
       const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
-      const msgErro = `⚠️ PROBLEMA NA PRODUÇÃO\n\nDE: ${roleTag} (${userProfile?.nome || 'Equipe'})\nCliente: ${selectedMaterial.cliente?.nome}\nMaterial: ${selectedMaterial.titulo}\nMotivo: ${issueText}`;
+      const msgErro = `⚠️ PROBLEMA NA PRODUÇÃO\n\nDE: ${roleTag} (${userProfile?.nome || 'Equipe'})\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}\nMotivo: ${issueText}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false); 
       loadData(); 

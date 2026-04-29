@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase-browser'
 import { useState, useEffect, useMemo, useCallback, useRef, use } from 'react'
 import { notificarClickUpChat } from '@/actions/clickup'
+import { getDriveFolderFiles } from '@/actions/google'
 import {
   CheckCircle2, ExternalLink, Calendar,
   AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown
@@ -71,6 +72,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const [materialToApprove, setMaterialToApprove] = useState<any>(null)
   const materiaisVisualizados = useRef<Set<string>>(new Set());
+
+  // 🔥 Estados para expansão de pastas do Drive
+  const [expandedCapaLinks, setExpandedCapaLinks] = useState<string[]>([]);
+  const [isExpandingFolder, setIsExpandingFolder] = useState(false);
 
   // 🔥 Hook do Embla Carousel movido para o topo para respeitar as regras do React
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, skipSnaps: false });
@@ -144,6 +149,41 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setSegundoAjuste('')
     setCurrentSlide(0)
   }, [selectedMaterial])
+
+  // 🔥 LÓGICA DE EXPANSÃO DE PASTA: Transforma link de pasta em lista de arquivos
+  useEffect(() => {
+    const expandFolder = async () => {
+      if (!selectedMaterial?.link_capa) {
+        setExpandedCapaLinks([]);
+        return;
+      }
+
+      // Regex para pegar ID de pasta do Drive
+      const folderMatch = /\/folders\/([a-zA-Z0-9_-]+)/.exec(selectedMaterial.link_capa);
+      
+      if (folderMatch?.[1]) {
+        setIsExpandingFolder(true);
+        try {
+          const files = await getDriveFolderFiles(folderMatch[1]);
+          if (files && files.length > 0) {
+            setExpandedCapaLinks(files);
+          } else {
+            setExpandedCapaLinks([selectedMaterial.link_capa]);
+          }
+        } catch (error) {
+          setExpandedCapaLinks([selectedMaterial.link_capa]);
+        } finally {
+          setIsExpandingFolder(false);
+        }
+      } else {
+        // Se não for pasta, usa a lógica padrão de quebra por linha/vírgula
+        const links = selectedMaterial.link_capa.split(/[\n,;]+/).map((l: string) => l.trim()).filter(Boolean);
+        setExpandedCapaLinks(links);
+      }
+    };
+
+    expandFolder();
+  }, [selectedMaterial?.id, selectedMaterial?.link_capa]);
 
   const registrarLogAcesso = useCallback(async (materialId: string, eventoTexto: string) => {
     await supabase.from('logs_acesso').insert([{ material_id: materialId, evento: eventoTexto }]);
@@ -589,8 +629,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                           )
                         ) : (
                           (() => {
-                            const links = selectedMaterial.link_capa ? selectedMaterial.link_capa.split(/[\n,;]+/).map((l: string) => l.trim()).filter(Boolean) : [];
+                            const links = expandedCapaLinks;
                             
+                            if (isExpandingFolder) {
+                              return (
+                                <div className="flex flex-col items-center justify-center gap-3">
+                                  <Loader2 className="animate-spin text-white opacity-40" size={32} />
+                                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
+                                </div>
+                              );
+                            }
+
                             const currentLink = links[currentSlide] || '';
                             const isDirectImage = currentLink.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i);
                             const embed = getEmbedUrl(currentLink);
@@ -604,11 +653,15 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                         const isImg = link.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i);
                                         const emb = getEmbedUrl(link);
                                         return (
-                                          <div key={idx} className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black">
+                                          <div 
+                                            key={idx} 
+                                            onClick={() => setPreviewUrl(link)}
+                                            className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black cursor-zoom-in"
+                                          >
                                             {isImg ? (
-                                              <img src={link} className="w-full h-full object-contain select-none pointer-events-none" alt={`Slide ${idx + 1}`} />
+                                              <img src={link} className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                                             ) : (
-                                              <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0" allowFullScreen></iframe>
+                                              <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
                                             )}
                                           </div>
                                         );
@@ -616,34 +669,34 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                     </div>
                                   </div>
                                   
-                                  {/* Navegação de Slides (Desktop) */}
-                                  <div className="hidden md:flex absolute inset-x-4 top-1/2 -translate-y-1/2 justify-between items-center z-20 pointer-events-none">
+                                  {/* Navegação de Slides (Sempre Visível) */}
+                                  <div className="absolute inset-x-2 md:inset-x-4 top-1/2 -translate-y-1/2 justify-between items-center z-20 pointer-events-none flex">
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); emblaApi?.scrollPrev(); }}
-                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10 pointer-events-auto"
+                                      className="p-2.5 md:p-3 bg-black/30 md:bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10 pointer-events-auto transition-all active:scale-90 shadow-xl"
                                     >
-                                      <ChevronDown className="rotate-90" size={24} />
+                                      <ChevronDown className="rotate-90" size={18} />
                                     </button>
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); emblaApi?.scrollNext(); }}
-                                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10 pointer-events-auto"
+                                      className="p-2.5 md:p-3 bg-black/30 md:bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 border border-white/10 pointer-events-auto transition-all active:scale-90 shadow-xl"
                                     >
-                                      <ChevronDown className="-rotate-90" size={24} />
+                                      <ChevronDown className="-rotate-90" size={18} />
                                     </button>
                                   </div>
 
                                   {/* Contador e Bolinhas */}
                                   <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 z-20 pointer-events-none">
-                                    <div className="flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-sm rounded-full border border-white/10 pointer-events-auto">
+                                    <div className="flex gap-2 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 pointer-events-auto">
                                       {links.map((_: any, idx: number) => (
                                         <button 
                                           key={idx} 
                                           onClick={() => emblaApi?.scrollTo(idx)}
-                                          className={`w-2 h-2 rounded-full transition-all ${idx === currentSlide ? 'bg-white scale-125' : 'bg-white/30 hover:bg-white/50'}`}
+                                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white scale-125 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'bg-white/20 hover:bg-white/40'}`}
                                         />
                                       ))}
                                     </div>
-                                    <span className="text-[10px] font-black text-white bg-black/50 px-3 py-1 rounded-full uppercase tracking-widest">{currentSlide + 1} / {links.length}</span>
+                                    <span className="text-[10px] font-black text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-sm">{currentSlide + 1} / {links.length}</span>
                                   </div>
                                 </div>
                               );
@@ -870,8 +923,12 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
               <X size={20} />
             </button>
           </div>
-          <div className="w-full h-[85vh] max-w-[400px] md:max-w-5xl mx-auto flex items-center justify-center overflow-hidden">
-            <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
+          <div className="w-full h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10">
+            {previewUrl.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i) ? (
+              <img src={previewUrl} className="max-w-full max-h-full object-contain rounded-xl shadow-2xl shadow-white/5" alt="Preview" />
+            ) : (
+              <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
+            )}
           </div>
         </div>
       )}

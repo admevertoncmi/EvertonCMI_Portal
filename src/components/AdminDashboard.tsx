@@ -387,18 +387,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (material) {
       if (newStatus === 'faltando_material' || newStatus === 'verificar_material') {
         const p = membros.find(m => m.id === material.planner_id);
-        await notificarClickUpChat(`⚠️ PROBLEMA NA PRODUÇÃO\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}\n🚨 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
+        await notificarClickUpChat(`⚠️ PROBLEMA NA PRODUÇÃO\n\n${material.cliente?.nome}\n${material.titulo}\n🚨 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
       }
       else if (newStatus === 'revisao') {
-        await notificarClickUpChat(`👀 EDIÇÃO PRONTA\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}\n🚀 AGUARDANDO ANÁLISE ADMIN`);
+        await notificarClickUpChat(`👀 EDIÇÃO PRONTA\n\n${material.cliente?.nome}\n${material.titulo}\n🚀 AGUARDANDO ANÁLISE ADMIN`);
       }
       else if (newStatus === 'organizado') {
-        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}`);
+        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\n${material.cliente?.nome}\n${material.titulo}`);
       }
       else if (['aprovado', 'roteiro_aprovado', 'post_aprovado'].includes(newStatus)) {
         const label = newStatus === 'roteiro_aprovado' ? 'ROTEIRO APROVADO' : 'POST APROVADO';
         const icon = newStatus === 'roteiro_aprovado' ? '📝✅' : '✅';
-        await notificarClickUpChat(`${icon} ${label}\n\nCLIENTE: ${material.cliente?.nome}\nMATERIAL: ${material.titulo}`);
+        await notificarClickUpChat(`${icon} ${label}\n\n${material.cliente?.nome}\n${material.titulo}`);
       }
     }
 
@@ -472,7 +472,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
       
-      const msgResolvido = `✅ PROBLEMA RESOLVIDO\n\nCLIENTE: ${selectedMaterial.cliente?.nome}\nMATERIAL: ${selectedMaterial.titulo}\n💬 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
+      const msgResolvido = `✅ PROBLEMA RESOLVIDO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}\n💬 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
 
       if (resolveType === 'planner') {
         const p = membros.find(x => x.id === selectedMaterial.planner_id);
@@ -531,7 +531,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
         const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
         const textoMensagem = `Olá! O roteiro do material "${material.titulo}" foi revisado e ajustado conforme as suas pontuações. 📝✨\n\nPor favor, acesse o portal para reanalisar: ${linkPortal}`;
-        window.open(`https://wa.me/${material.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+        
+        const groupId = material.cliente.whatsapp_group_id;
+        if (groupId) {
+          toast.info("Avisando cliente via grupo...");
+          notificarWhatsApp(textoMensagem, groupId);
+        } else {
+          toast.info("Avisando cliente via WhatsApp...");
+          notificarWhatsApp(textoMensagem, material.cliente.telefone.replace(/\D/g, ''));
+        }
       }
       loadData();
     } else { toast.error("Erro ao reenviar."); }
@@ -547,7 +555,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
         const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}`;
         const textoMensagem = `Olá! Novos roteiros foram disponibilizados para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui: ${linkPortal}`;
-        window.open(`https://wa.me/${primeiroItem.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+        
+        const groupId = primeiroItem.cliente.whatsapp_group_id;
+        if (groupId) {
+          toast.info("Avisando cliente via grupo...");
+          notificarWhatsApp(textoMensagem, groupId);
+        } else {
+          toast.info("Avisando cliente via WhatsApp...");
+          notificarWhatsApp(textoMensagem, primeiroItem.cliente.telefone.replace(/\D/g, ''));
+        }
       }
       loadData();
     } else { toast.error("Erro ao enviar lote."); } setLoading(false);
@@ -568,7 +584,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           toast.info("Enviando aviso automático para o grupo...");
           notificarWhatsApp(textoMensagem, groupId);
         } else {
-          window.open(`https://wa.me/${primeiroItem.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+          toast.info("Enviando aviso automático via WhatsApp...");
+          notificarWhatsApp(textoMensagem, primeiroItem.cliente.telefone.replace(/\D/g, ''));
         }
       }
       loadData();
@@ -584,7 +601,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
        toast.info("Avisando cliente via grupo...");
        notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
     } else {
-       window.open(`https://wa.me/${cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+       toast.info("Avisando cliente via WhatsApp...");
+       notificarWhatsApp(textoMensagem, cliente.telefone.replace(/\D/g, ''));
     }
   };
 
@@ -602,7 +620,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         toast.info("Enviando aviso automático para o grupo...");
         notificarWhatsApp(textoMensagem, groupId);
       } else {
-        window.open(`https://wa.me/${material.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+        toast.info("Enviando aviso automático via WhatsApp...");
+        notificarWhatsApp(textoMensagem, material.cliente.telefone.replace(/\D/g, ''));
       }
     } else { toast.info("Faltam dados do cliente para o WhatsApp."); }
     loadData(); setActionLoading(null);
@@ -659,17 +678,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       if (delegationType === 'planner') {
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
-        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\nCLIENTE: ${clienteNome}\nMATERIAL: ${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
+        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n${clienteNome}\n${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
         await notificarClickUpChat(msgPlanner, (mPlanner as any)?.telegram_thread_id);
       } else {
         if (selectedEditorId) {
           const mEditor = membros.find(m => m.id === selectedEditorId);
-          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\nCLIENTE: ${clienteNome}\nMATERIAL: ${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
+          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n${clienteNome}\n${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
           await notificarClickUpChat(msgEditor, (mEditor as any)?.telegram_thread_id);
         }
         if (selectedDesignerId) {
           const mDesigner = membros.find(m => m.id === selectedDesignerId);
-          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\nCLIENTE: ${clienteNome}\nMATERIAL: ${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
+          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n${clienteNome}\n${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
           await notificarClickUpChat(msgDesigner, (mDesigner as any)?.telegram_thread_id);
         }
       }
@@ -743,7 +762,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!selectedMaterial || !newDriveLink) return
     setLoading(true)
     await supabase.from('materiais').update({ link_drive: newDriveLink, status: 'pendente', feedback: null }).eq('id', selectedMaterial.id)
-    await notificarClickUpChat(`🔄 REEDIÇÃO\n\nCLIENTE: ${selectedMaterial.cliente?.nome}\nMATERIAL: ${selectedMaterial.titulo}`);
+    await notificarClickUpChat(`🔄 REEDIÇÃO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}`);
     setIsVersionModalOpen(false); setNewDriveLink(''); loadData(); setLoading(false); toast.success("Versão atualizada!");
   }
 
