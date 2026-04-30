@@ -167,7 +167,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Problema reportado ao Admin!");
       
-      const msgErro = `⚠️ PROBLEMA NA DECUPAGEM\n\nDE: DECUPADOR\nCLIENTE: ${selectedMaterial.cliente?.nome?.toUpperCase()}\nMATERIAL: ${selectedMaterial.titulo.toUpperCase()}\n💬 MOTIVO: ${issueText.toUpperCase()}`;
+      const msgErro = `🔔 PROBLEMA NA DECUPAGEM\n\n👤 DE: DECUPADOR\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo.toUpperCase()}\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
 
       setIsIssueModalOpen(false); 
@@ -185,7 +185,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Pasta entregue!");
       
-      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\nCLIENTE: ${selectedMaterial.cliente?.nome?.toUpperCase()}\nMATERIAL: ${selectedMaterial.titulo.toUpperCase()}`;
+      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo.toUpperCase()}`;
       await notificarClickUpChat(msgSucesso);
 
       setIsSubmitModalOpen(false); 
@@ -329,7 +329,7 @@ export default function DecupadorDashboard() {
                                           </span>
                                         )}
 
-                                        <span className={`font-bold ${textPrincipal} uppercase text-xs sm:text-sm truncate block`}>{m.titulo}</span>
+                                        <span className={`font-bold ${textPrincipal} uppercase text-xs sm:text-sm break-words block`}>{m.titulo}</span>
                                       </div>
                                       
                                       {/* SELECT BLINDADO */}
@@ -344,10 +344,10 @@ export default function DecupadorDashboard() {
                                           ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-700/50' : 'bg-red-100 text-red-700 border-red-200') : ''}
                                         `}
                                       >
-                                        <option value="planejamento">Pendente</option>
-                                        <option value="em_organizacao">Em Andamento</option>
+                                        <option value="planejamento">Aguardando Decupagem</option>
+                                        <option value="em_organizacao">Decupagem em Andamento</option>
                                         <option value="verificar_material">Verificar Material</option>
-                                        <option value="faltando_material">Faltando Material</option>
+                                        <option value="faltando_material">Falta Material Bruto</option>
                                       </select>
                                     </div>
 
@@ -402,7 +402,7 @@ export default function DecupadorDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {filaEntregues.map(m => (
                 <div key={m.id} className={`${bgSecundario} border ${borderSecundario} rounded-[20px] p-5 md:p-6 flex items-center justify-between shadow-sm`}>
-                  <div className="pr-4 min-w-0"><h3 className={`font-black text-base md:text-lg ${textPrincipal} tracking-tight uppercase truncate`}>{m.titulo}</h3><p className={`${textSecundario} font-bold text-xs mt-1 truncate`}>{m.cliente?.nome}</p></div>
+                  <div className="pr-4 min-w-0"><h3 className={`font-black text-base md:text-lg ${textPrincipal} tracking-tight uppercase break-words`}>{m.titulo}</h3><p className={`${textSecundario} font-bold text-xs mt-1 truncate`}>{m.cliente?.nome}</p></div>
                   <div className={`${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200'} font-black text-[9px] uppercase px-3 py-2 rounded-xl border shrink-0`}>Entregue</div>
                 </div>
               ))}

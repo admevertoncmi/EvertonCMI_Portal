@@ -168,7 +168,7 @@ export default function EditorDashboard() {
     else {
       if (isGlobalComplete && statusFinal === 'revisao') {
         toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
-        const msgAdmin = `👀 REVISÃO PENDENTE (ADMIN)\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}`;
+        const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}`;
         await notificarClickUpChat(msgAdmin);
       } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
       setIsVersionModalOpen(false)
@@ -185,7 +185,7 @@ export default function EditorDashboard() {
     if (!error) {
       toast.success("Problema reportado ao Admin!");
       const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
-      const msgErro = `⚠️ PROBLEMA NA PRODUÇÃO\n\nDE: ${roleTag} (${userProfile?.nome || 'Equipe'})\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}\nMotivo: ${issueText}`;
+      const msgErro = `🔔 PROBLEMA NA PRODUÇÃO\n\n👤 DE: ${roleTag} (${userProfile?.nome || 'Equipe'})\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false); 
       loadData(); 
@@ -346,23 +346,23 @@ export default function EditorDashboard() {
                                               </span>
                                             )}
                                           </div>
-                                          <h5 className={`text-lg font-black tracking-tight ${textPrincipal} uppercase truncate ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
+                                          <h5 className={`text-base md:text-lg font-black tracking-tight ${textPrincipal} uppercase break-words ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
                                         </div>
                                         
-                                        <div className="flex flex-wrap gap-2 md:gap-3">
+                                        <div className="flex flex-wrap gap-2 md:gap-3 w-full">
                                           {m.link_organizado && (
-                                            <a href={m.link_organizado} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                            <a href={m.link_organizado} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
                                               <Folder size={14}/> Drive (Brutos)
                                             </a>
                                           )}
                                           
                                           {m.roteiro && (
-                                            <button onClick={() => setPreviewRoteiro(m)} className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                            <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
                                               <FileText size={14}/> Ler Roteiro
                                             </button>
                                           )}
 
-                                          <button onClick={() => { setSelectedMaterial(m); setIssueType('verificar_material'); setIssueText(''); setIsIssueModalOpen(true); }} disabled={isReported} className={`inline-flex items-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                          <button onClick={() => { setSelectedMaterial(m); setIssueType('verificar_material'); setIssueText(''); setIsIssueModalOpen(true); }} disabled={isReported} className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
                                             <AlertCircle size={14}/> {isReported ? 'Problema Reportado' : 'Relatar Problema'}
                                           </button>
 
@@ -410,7 +410,7 @@ export default function EditorDashboard() {
                                                         </button>
                                                         
                                                         {isFbExpanded && (
-                                                          <div className={`mt-3 pt-3 border-t ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} space-y-2 animate-in fade-in duration-300 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar`}>
+                                                          <div className={`mt-3 pt-3 border-t ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} space-y-2 animate-in fade-in duration-300 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar`}>
                                                             {fbs.slice(1).map((hist, idx) => (
                                                               <div key={idx} className={`p-2.5 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900/30 text-red-200/70' : 'bg-white border border-red-100 text-red-800'} text-xs font-medium whitespace-pre-wrap break-words break-all`}>
                                                                 {renderTextWithLinks(hist)}
@@ -594,7 +594,7 @@ export default function EditorDashboard() {
            <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-3xl max-h-[85vh] rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left min-w-0`}>
               <div className={`p-5 md:p-8 border-b ${borderSecundario} flex justify-between items-center ${bgPrincipal} shrink-0`}>
                  <div className="min-w-0 pr-4">
-                    <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} truncate`}>{previewRoteiro.titulo}</h3>
+                    <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} break-words`}>{previewRoteiro.titulo}</h3>
                     <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mt-1 flex items-center gap-1.5"><FileText size={12}/> Roteiro Base</p>
                  </div>
                  <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${bgSecundario} hover:${bgPrincipal} ${textSecundario} hover:${textPrincipal} rounded-full shrink-0 transition-colors`}><X size={20}/></button>

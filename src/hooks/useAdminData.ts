@@ -35,7 +35,7 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
             const oldMat = prevMateriaisRef.current.find(x => x.id === newMat.id);
             if (oldMat && oldMat.status === 'ajustes' && (newMat.status === 'pendente' || newMat.status === 'roteiro_pendente')) {
               toast.info(`⚠️ ATENÇÃO: O cliente cancelou a solicitação de ajuste do material: "${newMat.titulo}"`, { duration: 6000, style: { background: '#FEF2F2', color: '#991B1B', border: '1px solid #FECACA' } });
-              notificarClickUpChat(`⚠️ ALERTA: CANCELAMENTO DE AJUSTE\n\nCLIENTE: ${newMat.cliente?.nome?.toUpperCase()}\nMATERIAL: ${newMat.titulo.toUpperCase()}\n🚨 O CLIENTE CANCELOU A SOLICITAÇÃO DE AJUSTE NO PORTAL.`, '2');
+              notificarClickUpChat(`🔔 ALERTA: CANCELAMENTO DE AJUSTE\n\n${newMat.cliente?.nome?.toUpperCase()}\n${newMat.titulo.toUpperCase()}\n🚨 O CLIENTE CANCELOU A SOLICITAÇÃO DE AJUSTE NO PORTAL.`, '2');
             }
           });
         }

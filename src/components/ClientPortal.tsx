@@ -274,7 +274,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', finalId)
     await registrarLogAcesso(finalId, `✅ POST Aprovado`);
 
-    const msg = `✅ POST APROVADO\n\nCLIENTE: ${cliente.nome.toUpperCase()}\nMATERIAL: ${mat.titulo.toUpperCase()}`;
+    const msg = `✅ POST APROVADO\n\n${cliente.nome}\n${mat.titulo.toUpperCase()}`;
     await notificarClickUpChat(msg);
     toast.success("Post aprovado com sucesso!");
     setIsApprovalModalOpen(false);
@@ -293,7 +293,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', finalId)
     await registrarLogAcesso(finalId, `✅ Roteiro Aprovado`);
 
-    const msg = `📝✅ ROTEIRO APROVADO\n\nCLIENTE: ${cliente.nome.toUpperCase()}\nMATERIAL: ${mat.titulo.toUpperCase()}`;
+    const msg = `📝✅ ROTEIRO APROVADO\n\n${cliente.nome}\n${mat.titulo.toUpperCase()}`;
     await notificarClickUpChat(msg);
     toast.success("Roteiro aprovado! A equipe de produção foi notificada.");
     setIsApprovalModalOpen(false);
@@ -349,7 +349,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
     await registrarLogAcesso(id, `⚠️ Pedido de Ajuste`);
 
-    const msg = `⚠️ SOLICITAÇÃO DE AJUSTE\n\nCLIENTE: ${cliente.nome.toUpperCase()}\nMATERIAL: ${selectedMaterial.titulo.toUpperCase()}\n💬 INSTRUÇÃO: ${textoBase.toUpperCase()}`;
+    const msg = `🔔 SOLICITAÇÃO DE AJUSTE\n\n${cliente.nome}\n${selectedMaterial.titulo.toUpperCase()}\n🔔 INSTRUÇÃO: ${textoBase.toUpperCase()}`;
     await notificarClickUpChat(msg);
 
     setFeedbackText('');
@@ -450,7 +450,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
               >
                 Área do Cliente
               </p>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase truncate">Olá, {cliente?.nome}</h1>
+              <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase break-words">Olá, {cliente?.nome}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
@@ -560,7 +560,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                           className={`w-full text-left p-4 rounded-[20px] transition-all border outline-none ${buttonClass}`}
                         >
                           <div className="flex flex-col gap-2">
-                            <p className="font-bold text-xs md:text-sm leading-snug truncate">{m.titulo}</p>
+                            <p className="font-bold text-xs md:text-sm leading-snug break-words">{m.titulo}</p>
                             <div className="flex items-center justify-between">
                               <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-widest ${badgeClass}`}>
                                 {isItemAprovado ? <><CheckCircle2 size={10} className="inline mr-1" />{badgeText}</> : badgeText}
@@ -728,21 +728,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         )}
                       </div>
 
-                      {/* Botão de Tela Cheia Mobile */}
-                      <div className="md:hidden mb-5">
-                        <button
-                          onClick={() => {
-                            const urlAtual = mediaTab === 'video' ? embedUrl : capaEmbedUrl;
-                            const linkOriginal = mediaTab === 'video' ? selectedMaterial.link_drive : selectedMaterial.link_capa;
-                            if (urlAtual) setPreviewUrl(urlAtual);
-                            else window.open(linkOriginal, '_blank');
-                          }}
-                          className="w-full bg-zinc-900 text-white rounded-[16px] py-4 flex items-center justify-center gap-3 shadow-md active:scale-95 transition-all"
-                        >
-                          {mediaTab === 'video' ? <PlayCircle size={20} className="text-blue-400" /> : <ImageIcon size={20} className="text-pink-400" />}
-                          <span className="font-black uppercase tracking-widest text-[10px]">Ver em Tela Cheia</span>
-                        </button>
-                      </div>
                     </>
                   )}
 

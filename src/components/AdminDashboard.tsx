@@ -373,10 +373,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     let updatePayload: any = { status: newStatus };
     
     // Limpeza de responsáveis ao retroceder fluxos para evitar registros "travados"
-    if (newStatus === 'analise_roteiro' || newStatus === 'roteiro_pendente') {
+    if (['analise_roteiro', 'roteiro_pendente', 'roteiro_aprovado', 'aprovado'].includes(newStatus)) {
       updatePayload.planner_id = null;
       updatePayload.editor_id = null;
       updatePayload.designer_id = null;
+      // Ao voltar para o roteiro, limpamos os links para que a tarefa apareça no Planejamento (Roteiros Aprovados)
+      if (newStatus === 'roteiro_aprovado' || newStatus === 'aprovado') {
+        updatePayload.link_bruto = null;
+        updatePayload.link_drive = null;
+        updatePayload.link_capa = null;
+      }
     } else if (newStatus === 'planejamento' || newStatus === 'em_organizacao') {
       updatePayload.editor_id = null;
       updatePayload.designer_id = null;
@@ -387,18 +393,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (material) {
       if (newStatus === 'faltando_material' || newStatus === 'verificar_material') {
         const p = membros.find(m => m.id === material.planner_id);
-        await notificarClickUpChat(`⚠️ PROBLEMA NA PRODUÇÃO\n\n${material.cliente?.nome}\n${material.titulo}\n🚨 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
+        await notificarClickUpChat(`🔔 PROBLEMA NA PRODUÇÃO\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
       }
       else if (newStatus === 'revisao') {
-        await notificarClickUpChat(`👀 EDIÇÃO PRONTA\n\n${material.cliente?.nome}\n${material.titulo}\n🚀 AGUARDANDO ANÁLISE ADMIN`);
+        await notificarClickUpChat(`🎬 EDIÇÃO PRONTA\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 AGUARDANDO ANÁLISE ADMIN`);
       }
       else if (newStatus === 'organizado') {
-        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\n${material.cliente?.nome}\n${material.titulo}`);
+        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}`);
       }
       else if (['aprovado', 'roteiro_aprovado', 'post_aprovado'].includes(newStatus)) {
         const label = newStatus === 'roteiro_aprovado' ? 'ROTEIRO APROVADO' : 'POST APROVADO';
         const icon = newStatus === 'roteiro_aprovado' ? '📝✅' : '✅';
-        await notificarClickUpChat(`${icon} ${label}\n\n${material.cliente?.nome}\n${material.titulo}`);
+        await notificarClickUpChat(`${icon} ${label}\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}`);
       }
     }
 
@@ -472,7 +478,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
       
-      const msgResolvido = `✅ PROBLEMA RESOLVIDO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}\n💬 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
+      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}\n🔔 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
 
       if (resolveType === 'planner') {
         const p = membros.find(x => x.id === selectedMaterial.planner_id);
@@ -676,19 +682,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       const firstItem = materiais.find(m => selectedItemsToDelegate.includes(m.id));
       const clienteNome = firstItem?.cliente?.nome || 'CLIENTE NÃO IDENTIFICADO';
 
+      const tituloOrQuantidade = selectedItemsToDelegate.length > 1 ? `🔢 ${selectedItemsToDelegate.length} MATERIAIS` : (firstItem?.titulo || 'DIVERSOS');
+
       if (delegationType === 'planner') {
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
-        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n${clienteNome}\n${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
+        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n${clienteNome}\n${tituloOrQuantidade}`;
         await notificarClickUpChat(msgPlanner, (mPlanner as any)?.telegram_thread_id);
       } else {
         if (selectedEditorId) {
           const mEditor = membros.find(m => m.id === selectedEditorId);
-          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n${clienteNome}\n${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
+          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n${clienteNome}\n${tituloOrQuantidade}`;
           await notificarClickUpChat(msgEditor, (mEditor as any)?.telegram_thread_id);
         }
         if (selectedDesignerId) {
           const mDesigner = membros.find(m => m.id === selectedDesignerId);
-          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n${clienteNome}\n${materiais.find(m => selectedItemsToDelegate.includes(m.id))?.titulo || 'DIVERSOS'}`;
+          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n${clienteNome}\n${tituloOrQuantidade}`;
           await notificarClickUpChat(msgDesigner, (mDesigner as any)?.telegram_thread_id);
         }
       }
@@ -762,7 +770,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!selectedMaterial || !newDriveLink) return
     setLoading(true)
     await supabase.from('materiais').update({ link_drive: newDriveLink, status: 'pendente', feedback: null }).eq('id', selectedMaterial.id)
-    await notificarClickUpChat(`🔄 REEDIÇÃO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}`);
+    await notificarClickUpChat(`🎬 REEDIÇÃO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}`);
     setIsVersionModalOpen(false); setNewDriveLink(''); loadData(); setLoading(false); toast.success("Versão atualizada!");
   }
 
@@ -1026,14 +1034,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors`}>
-                                    <div className="flex-1 w-full text-left">
+                                    <div className="flex-1 min-w-0 w-full text-left">
                                       <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Aprovado</span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
                                     </div>
-                                    <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto">
+                                    <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
                                       <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta OK' : 'Inserir Pasta'}</button>
                                     </div>
@@ -1069,7 +1077,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
-                                    <div className="flex-1 w-full">
+                                    <div className="flex-1 min-w-0 w-full">
                                       <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
                                         <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
@@ -1087,7 +1095,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       })()}
                                       <div className={`mt-3 p-4 ${tc.bgCard} rounded-xl border ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'}`}><p className="text-[10px] font-black uppercase text-red-400 tracking-widest mb-1">Motivo:</p><p className={`${tc.textMuted} font-medium text-sm whitespace-pre-wrap break-words break-all`}>"{renderTextWithLinks(m.feedback || '')}"</p></div>
                                     </div>
-                                    <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-center items-center">
+                                    <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-center items-center md:shrink-0">
                                       <button onClick={() => openResolveModal(m)} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
                                       <button onClick={() => openConfirm('Arquivar Tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`px-4 py-4 ${tc.bgCard} border ${theme === 'dark' ? 'border-red-900/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'} rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />} Arquivar</button>
                                     </div>
@@ -1300,7 +1308,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
                                   <div className="flex-1 min-w-0 w-full text-left">
                                     <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
-                                      {(!m.link_drive && !m.link_capa) ? '⚠️ Ajuste Planeamento' : '🎬 Ajuste Produção'}
+                                      {(!m.link_drive && !m.link_capa) ? '🔔 Ajuste Planejamento' : '🎬 Ajuste Produção'}
                                     </span>
                                     {m.data_limite && new Date(m.data_limite) < new Date() && (
                                       <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
@@ -1351,7 +1359,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       </div>
                                     )}
                                   </div>
-                                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0">
+                                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0 md:shrink-0">
                                     <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                     {(!m.link_drive && !m.link_capa) ? (
                                       <div className="flex flex-col sm:flex-row gap-2 w-full">
@@ -1401,7 +1409,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} md:ml-1`}>
                               {data.itens.map((m: Material) => (
                                 <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
-                                  <div className="flex-1 w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span><h5 className="font-bold text-sm">{m.titulo}</h5></div>
+                                  <div className="flex-1 min-w-0 w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span><h5 className="font-bold text-sm">{m.titulo}</h5></div>
                                   <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
                                     <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
 
@@ -1613,13 +1621,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <div key={m.id} className={`flex flex-col md:flex-row items-start md:items-center justify-between ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors`}>
                                           <div className="flex-1 w-full">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                              <span className="font-bold text-sm">{m.titulo}</span>
-                                              {(m.status === 'aprovado' || m.status === 'post_aprovado') && (m.link_drive || m.link_capa) && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} px-1.5 py-0.5 rounded shadow-sm`}>Pronto</span>)}
-                                              {m.status === 'roteiro_aprovado' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado</span>)}
-                                              {m.status === 'ajustes' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-red-400 bg-red-900/30 border-red-900/50' : 'text-red-700 bg-red-100 border-red-200'} px-1.5 py-0.5 rounded border`}>Ajuste</span>)}
-                                              {m.status === 'em_edicao' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 border-blue-900/50' : 'text-blue-700 bg-blue-100 border-blue-200'} px-1.5 py-0.5 rounded border`}>Em Produção</span>)}
+                                              <span className="font-bold text-sm break-words">{m.titulo}</span>
+                                              {(m.status === 'aprovado' || m.status === 'concluido') && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} px-1.5 py-0.5 rounded shadow-sm`}>Arquivado / Finalizado</span>)}
+                                              {m.status === 'post_aprovado' && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} px-1.5 py-0.5 rounded shadow-sm`}>Post Aprovado (Cliente)</span>)}
+                                              {m.status === 'roteiro_aprovado' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado (Cliente)</span>)}
+                                              {m.status === 'ajustes' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-red-400 bg-red-900/30 border-red-900/50' : 'text-red-700 bg-red-100 border-red-200'} px-1.5 py-0.5 rounded border`}>Ajustes Solicitados</span>)}
+                                              {m.status === 'em_edicao' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 border-blue-900/50' : 'text-blue-700 bg-blue-100 border-blue-200'} px-1.5 py-0.5 rounded border`}>Em Edição / Design</span>)}
+                                              {m.status === 'analise_roteiro' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-pink-400 bg-pink-900/30 border-pink-900/50' : 'text-pink-700 bg-pink-100 border-pink-200'} px-1.5 py-0.5 rounded border`}>Roteiro em Análise</span>)}
+                                              {m.status === 'revisao' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 border-purple-900/50' : 'text-purple-700 bg-purple-100 border-purple-200'} px-1.5 py-0.5 rounded border`}>Revisão Agência</span>)}
                                               {m.link_bruto ? (
-                                                <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 border-indigo-900/50' : 'text-indigo-700 bg-indigo-100 border-indigo-200'} px-1.5 py-0.5 rounded border flex items-center gap-1`}><Link size={8} /> Pasta OK</span>
+                                                <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 border-indigo-900/50' : 'text-indigo-700 bg-indigo-100 border-indigo-200'} px-1.5 py-0.5 rounded border flex items-center gap-1`} title={m.link_bruto}><Link size={8} /> Pasta OK</span>
                                               ) : (
                                                 <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 border-amber-900/50' : 'text-amber-700 bg-amber-100 border-amber-200'} px-1.5 py-0.5 rounded border flex items-center gap-1 animate-pulse`}><Link size={8} /> Sem Pasta</span>
                                               )}
@@ -1630,6 +1641,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               <select value={m.status} onChange={e => handleUpdateStatus(m.id, e.target.value)} disabled={actionLoading === m.id} className={`appearance-none px-3 py-1.5 pr-7 rounded-md text-[9px] font-black uppercase outline-none border transition-all cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 ${getStatusColor(m.status)} ${theme === 'dark' ? 'bg-opacity-20 border-opacity-30' : ''}`}>
                                                 <option value="analise_roteiro">Roteiro em Análise</option>
                                                 <option value="roteiro_pendente">Aguardando Cliente (Roteiro)</option>
+                                                <option value="roteiro_aprovado">Roteiro Aprovado (Pelo Cliente)</option>
                                                 <option value="planejamento">Aguardando Decupagem</option>
                                                 <option value="em_organizacao">Decupagem em Andamento</option>
                                                 <option value="faltando_material">Falta Material Bruto</option>
@@ -1639,10 +1651,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 <option value="pendente">Aguardando Aprovação Cliente</option>
                                                 <option value="ajustes">Ajustes Solicitados</option>
                                                 <option value="revisao">Revisão Agência</option>
-                                                <option value="aprovado">{!m.link_drive ? 'Roteiro Aprovado (Legado)' : 'Aprovado / Finalizado'}</option>
-                                                <option value="roteiro_aprovado">Roteiro Aprovado (Cliente)</option>
-                                                <option value="post_aprovado">Post Aprovado (Cliente)</option>
-                                                <option value="concluido">Arquivado</option>
+                                                <option value="post_aprovado">Post Aprovado (Pelo Cliente)</option>
+                                                <option value="concluido">Arquivado / Finalizado</option>
                                               </select>
                                               {actionLoading === m.id ? <Loader2 size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 animate-spin ${textSecundario}`} /> : <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${getStatusColor(m.status).split(' ')[1]}`} />}
                                             </div>
@@ -2188,7 +2198,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega</label>
                 <input
                   type="date"
-                  className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors [color-scheme:dark]`}
+                  className={`w-full p-3.5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors [color-scheme:dark]`}
                   value={delegationDeadline}
                   onChange={e => setDelegationDeadline(e.target.value)}
                 />
@@ -2321,7 +2331,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-3xl max-h-[85vh] rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
             <div className={`p-5 md:p-8 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} shrink-0`}>
-              <div className="truncate pr-4"><h3 className="text-xl md:text-2xl font-black uppercase truncate">{previewRoteiro.titulo}</h3><p className="text-[10px] font-bold text-purple-500 uppercase mt-1">📝 Roteiro</p></div>
+              <div className="min-w-0 flex-1 pr-4"><h3 className="text-xl md:text-2xl font-black uppercase truncate break-words break-all" title={previewRoteiro.titulo}>{previewRoteiro.titulo}</h3><p className="text-[10px] font-bold text-purple-500 uppercase mt-1">📝 Roteiro</p></div>
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${tc.bgCard} ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className="p-5 md:p-8 overflow-y-auto">
@@ -2577,8 +2587,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     className={`w-full flex items-center justify-between p-4 ${tc.bgHover} border ${tc.borderStrong} rounded-2xl transition-all group`}
                   >
                     <div className="text-left">
-                      <p className="font-bold text-sm uppercase group-hover:text-green-500 transition-colors">{g.name || 'Grupo sem nome'}</p>
-                      <p className={`text-[10px] font-mono ${tc.textMuted}`}>{g.id}</p>
+                      <p className="font-bold text-sm uppercase group-hover:text-green-500 transition-colors truncate max-w-[200px] md:max-w-none">{g.name || 'Grupo sem nome'}</p>
+                      <p className={`text-[10px] font-mono ${tc.textMuted} truncate max-w-[200px] md:max-w-none`}>{g.id}</p>
                     </div>
                     <div className={`p-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-lg group-hover:bg-green-500 group-hover:text-white transition-colors`}>
                       <CheckCircle2 size={14} />
