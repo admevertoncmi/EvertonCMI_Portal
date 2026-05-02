@@ -720,12 +720,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setActionLoading(materialToSchedule.id);
     const id = materialToSchedule.id;
     
+    // Converte para ISO para evitar problemas de fuso horário
+    const isoDate = new Date(scheduledDate).toISOString();
+    
     const { error } = await supabase.from('materiais').update({ 
-      status: 'pendente', 
-      feedback_admin: null, 
-      editor_id: null, 
-      designer_id: null,
-      agendado_para: scheduledDate,
+      // Não mudamos o status aqui para ele continuar na fila de Aprovação Interna
+      agendado_para: isoDate,
       wpp_enviado: false
     }).eq('id', id);
 
@@ -742,6 +742,19 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setActionLoading(null);
   }
 
+  const handleCancelarAgendamento = async (id: string) => {
+    setActionLoading(id);
+    const { error } = await supabase.from('materiais').update({ 
+      agendado_para: null,
+      wpp_enviado: false
+    }).eq('id', id);
+
+    if (error) toast.error("Erro ao cancelar: " + error.message);
+    else toast.success("Agendamento cancelado!");
+    
+    loadData();
+    setActionLoading(null);
+  }
   const handleCheckAndAprovar = (m: Material) => {
     const missingVideo = m.editor_id && !m.video_entregue;
     const missingDesign = m.designer_id && !m.design_entregue;
@@ -1445,17 +1458,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
-                                      <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
+                                      <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
+                                        <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
 
-                                      {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
-                                      {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
+                                        {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
+                                        {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
 
-                                      <button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">
-                                        {actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Aprovar Cliente
-                                      </button>
-                                      <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-colors">Devolver</button>
-                                    </div>
+                                        <button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">
+                                          {actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} {m.agendado_para && !m.wpp_enviado ? 'Enviar Agora' : 'Aprovar Cliente'}
+                                        </button>
+
+                                        {m.agendado_para && !m.wpp_enviado ? (
+                                          <button onClick={() => handleCancelarAgendamento(m.id)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-colors">
+                                            <X size={14} /> Cancelar Agend.
+                                          </button>
+                                        ) : (
+                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-colors">Devolver</button>
+                                        )}
+                                      </div>
                                   </div>
                                 )
                               })}
@@ -2707,20 +2727,27 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm font-medium`}>
-                Selecione o horário para envio da notificação de <strong className={tc.textMain}>{materialToSchedule.titulo}</strong>:
+                Escolha quando o cliente deve receber a notificação de <strong className={tc.textMain}>{materialToSchedule.titulo}</strong>:
               </p>
               
-              <input 
-                type="datetime-local" 
-                className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-colors`}
-                value={scheduledDate}
-                onChange={e => setScheduledDate(e.target.value)}
-              />
+              <div className="relative group">
+                <input 
+                  type="datetime-local" 
+                  className={`w-full p-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner`}
+                  value={scheduledDate}
+                  onChange={e => setScheduledDate(e.target.value)}
+                />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+              </div>
+
+              <p className="text-[10px] text-zinc-500 font-medium italic">
+                💡 Clique no ícone de calendário para abrir o seletor visual ou digite manualmente.
+              </p>
               
-              <div className={`${theme === 'dark' ? 'bg-blue-900/20 border-blue-900/30' : 'bg-blue-50 border-blue-100'} border p-4 rounded-2xl`}>
-                <p className="text-blue-600 text-[10px] md:text-xs font-bold flex gap-2">
+              <div className={`${theme === 'dark' ? 'bg-blue-900/10 border-blue-900/20' : 'bg-blue-50 border-blue-100'} border p-4 rounded-2xl`}>
+                <p className="text-blue-600 text-[10px] md:text-xs font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
-                  O sistema enviará a mensagem automaticamente no horário escolhido.
+                  O material continuará visível para você na lista de aprovação até o envio ser concluído.
                 </p>
               </div>
             </div>

@@ -48,10 +48,10 @@ export async function GET(request: Request) {
         const envio = await notificarWhatsApp(textoMensagem, chatId);
         
         if (envio?.success) {
-          // Marcar como enviado com sucesso
+          // Marcar como enviado com sucesso e mudar status para aparecer no portal
           await supabase
             .from('materiais')
-            .update({ wpp_enviado: true })
+            .update({ wpp_enviado: true, status: 'pendente' })
             .eq('id', material.id);
           
           resultados.push({ id: material.id, status: 'sucesso' });
