@@ -753,7 +753,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         cliente_id: importClienteId,
         titulo: sub.name,
         roteiro: sub.text_content || sub.description || 'Sem roteiro inserido no ClickUp.',
-        status: 'planejamento',
+        status: 'analise_roteiro',
         clickup_task_id: sub.id,
         ciclo: parseInt(importCiclo) || 1,
         created_at: new Date().toISOString()

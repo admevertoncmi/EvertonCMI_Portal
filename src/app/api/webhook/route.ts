@@ -61,9 +61,8 @@ export async function POST(request: NextRequest) {
 
       if (!client) return NextResponse.json({ error: 'Cliente não cadastrado no Assent' }, { status: 404 })
 
-      // 🚨 REGRA INTELIGENTE DE STATUS
-      // Se houver um link, trata-se de um vídeo para aprovação ('pendente'). Se for só texto, é 'roteiro_pendente'.
-      const statusDefinido = linkExtraido ? 'pendente' : 'roteiro_pendente'
+      // 🚨 REGRA DE STATUS: Todas as tarefas importadas do ClickUp entram em 'Análise de Roteiro'
+      const statusDefinido = 'analise_roteiro'
 
       // 6. Inserir Material com as novas colunas
       const { error } = await supabase
