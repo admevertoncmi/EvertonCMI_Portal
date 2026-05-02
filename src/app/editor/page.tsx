@@ -21,10 +21,16 @@ interface Material {
   cliente?: { nome: string; };
 }
 
+const getCleanText = (text: string | null | undefined) => {
+  if (!text) return "";
+  return text.replace(/\[ID:[^\]]+\]\s*/g, '');
+};
+
 const renderTextWithLinks = (text: string) => {
   if (!text) return null;
+  const cleanText = getCleanText(text);
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
+  const parts = cleanText.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
       return (
@@ -168,7 +174,8 @@ export default function EditorDashboard() {
     else {
       if (isGlobalComplete && statusFinal === 'revisao') {
         toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
-        const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}`;
+        const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
+        const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n👤 DE: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo?.toUpperCase()}`;
         await notificarClickUpChat(msgAdmin);
       } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
       setIsVersionModalOpen(false)
@@ -185,7 +192,7 @@ export default function EditorDashboard() {
     if (!error) {
       toast.success("Problema reportado ao Admin!");
       const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
-      const msgErro = `🔔 PROBLEMA NA PRODUÇÃO\n\n👤 DE: ${roleTag} (${userProfile?.nome || 'Equipe'})\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
+      const msgErro = `🔔 PROBLEMA NA PRODUÇÃO\n\n👤 DE: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo?.toUpperCase()}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false); 
       loadData(); 

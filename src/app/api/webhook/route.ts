@@ -1,7 +1,6 @@
 import { createServerClient } from '@/lib/supabase-server'
 import { NextRequest, NextResponse } from 'next/server'
 
-const CLICKUP_TOKEN = 'pk_81597562_SYUPP3VKNK8LXG76KMSPE2VUJLBOKIE4'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +10,9 @@ export async function POST(request: NextRequest) {
     // 1. Validar se o evento é a mudança de status para 'Aprovação'
     if (body.event === 'taskStatusUpdated' && body.history_items?.[0]?.after?.status === 'aprovação') {
       const taskId = body.task_id
+
+      const CLICKUP_TOKEN = process.env.CLICKUP_API_TOKEN;
+      if (!CLICKUP_TOKEN) return NextResponse.json({ error: 'Token do ClickUp não configurado' }, { status: 500 })
 
       // 2. Buscar detalhes da tarefa (API v2)
       const taskRes = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
 
       if (!client) return NextResponse.json({ error: 'Cliente não cadastrado no Assent' }, { status: 404 })
 
-      // 🚨 REGRA DE STATUS: Todas as tarefas importadas do ClickUp entram em 'Análise de Roteiro'
+      // 🚨 REGRA DE STATUS: Todas as tarefas importadas do ClickUp entram em 'Roteiro em Análise'
       const statusDefinido = 'analise_roteiro'
 
       // 6. Inserir Material com as novas colunas
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
 
       if (error) throw error
 
-      return NextResponse.json({ success: true, message: 'Material sincronizado com sucesso!' })
+      return NextResponse.json({ success: true, message: 'Material sincronizado com status [Roteiro em Análise]!' })
     }
 
     return NextResponse.json({ success: true, message: 'Evento ignorado' })

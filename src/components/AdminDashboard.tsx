@@ -396,7 +396,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         await notificarClickUpChat(`🔔 PROBLEMA NA PRODUÇÃO\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
       }
       else if (newStatus === 'revisao') {
-        await notificarClickUpChat(`🎬 EDIÇÃO PRONTA\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 AGUARDANDO ANÁLISE ADMIN`);
+        await notificarClickUpChat(`🎬 EDIÇÃO PRONTA\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 AGUARDANDO REVISÃO AGÊNCIA`);
       }
       else if (newStatus === 'organizado') {
         await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}`);
@@ -478,7 +478,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
       
-      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}\n🔔 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
+      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}\n\n📝 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
 
       if (resolveType === 'planner') {
         const p = membros.find(x => x.id === selectedMaterial.planner_id);
@@ -522,7 +522,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
         const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
         const textoMensagem = `Olá! O roteiro do material "${material.titulo}" já está disponível para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui: ${linkPortal}`;
-        window.open(`https://wa.me/${material.cliente.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(textoMensagem)}`, '_blank');
+        
+        const groupId = material.cliente.whatsapp_group_id;
+        if (groupId) {
+          toast.info("Avisando cliente via grupo...");
+          await notificarWhatsApp(textoMensagem, groupId);
+        } else {
+          toast.info("Avisando cliente via WhatsApp...");
+          await notificarWhatsApp(textoMensagem, material.cliente.telefone.replace(/\D/g, ''));
+        }
       }
       loadData();
     } else { toast.error("Erro."); }
@@ -541,10 +549,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         const groupId = material.cliente.whatsapp_group_id;
         if (groupId) {
           toast.info("Avisando cliente via grupo...");
-          notificarWhatsApp(textoMensagem, groupId);
+          await notificarWhatsApp(textoMensagem, groupId);
         } else {
           toast.info("Avisando cliente via WhatsApp...");
-          notificarWhatsApp(textoMensagem, material.cliente.telefone.replace(/\D/g, ''));
+          await notificarWhatsApp(textoMensagem, material.cliente.telefone.replace(/\D/g, ''));
         }
       }
       loadData();
@@ -565,10 +573,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         const groupId = primeiroItem.cliente.whatsapp_group_id;
         if (groupId) {
           toast.info("Avisando cliente via grupo...");
-          notificarWhatsApp(textoMensagem, groupId);
+          await notificarWhatsApp(textoMensagem, groupId);
         } else {
           toast.info("Avisando cliente via WhatsApp...");
-          notificarWhatsApp(textoMensagem, primeiroItem.cliente.telefone.replace(/\D/g, ''));
+          await notificarWhatsApp(textoMensagem, primeiroItem.cliente.telefone.replace(/\D/g, ''));
         }
       }
       loadData();
@@ -598,17 +606,31 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     } else { toast.error("Erro ao aprovar lote."); } setLoading(false);
   }
 
-  const handleAvisarCicloWhatsApp = (cliente?: Cliente, cicloLabel?: string) => {
+  const handleAvisarCicloWhatsApp = async (cliente?: Cliente, cicloLabel?: string) => {
     if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
     const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
     const textoMensagem = `Olá! Temos atualizações nos seus materiais do ${cicloLabel}. 🚀\n\nAcesse seu portal para verificar: ${linkPortal}`;
     
     if (cliente.whatsapp_group_id) {
        toast.info("Avisando cliente via grupo...");
-       notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
+       await notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
     } else {
        toast.info("Avisando cliente via WhatsApp...");
-       notificarWhatsApp(textoMensagem, cliente.telefone.replace(/\D/g, ''));
+       await notificarWhatsApp(textoMensagem, cliente.telefone.replace(/\D/g, ''));
+    }
+  };
+
+  const handleAvisarPortalWhatsApp = async (cliente: Cliente) => {
+    if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
+    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
+    const textoMensagem = `Olá! O seu portal de acompanhamento já está disponível. 🚀\n\nAcesse aqui para ver os materiais: ${linkPortal}`;
+    
+    if (cliente.whatsapp_group_id) {
+       toast.info("Avisando cliente via grupo...");
+       await notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
+    } else {
+       toast.info("Avisando cliente via WhatsApp...");
+       await notificarWhatsApp(textoMensagem, cliente.telefone.replace(/\D/g, ''));
     }
   };
 
@@ -684,19 +706,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       const tituloOrQuantidade = selectedItemsToDelegate.length > 1 ? `🔢 ${selectedItemsToDelegate.length} MATERIAIS` : (firstItem?.titulo || 'DIVERSOS');
 
+      const instrucaoMsg = adminFeedback ? `\n\n📝 INSTRUÇÃO: ${adminFeedback.toUpperCase()}` : '';
+
       if (delegationType === 'planner') {
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
-        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n${clienteNome}\n${tituloOrQuantidade}`;
+        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n${clienteNome}\n${tituloOrQuantidade}${instrucaoMsg}`;
         await notificarClickUpChat(msgPlanner, (mPlanner as any)?.telegram_thread_id);
       } else {
         if (selectedEditorId) {
           const mEditor = membros.find(m => m.id === selectedEditorId);
-          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n${clienteNome}\n${tituloOrQuantidade}`;
+          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n${clienteNome}\n${tituloOrQuantidade}${instrucaoMsg}`;
           await notificarClickUpChat(msgEditor, (mEditor as any)?.telegram_thread_id);
         }
         if (selectedDesignerId) {
           const mDesigner = membros.find(m => m.id === selectedDesignerId);
-          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n${clienteNome}\n${tituloOrQuantidade}`;
+          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n${clienteNome}\n${tituloOrQuantidade}${instrucaoMsg}`;
           await notificarClickUpChat(msgDesigner, (mDesigner as any)?.telegram_thread_id);
         }
       }
@@ -727,7 +751,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const insercoes = loteItens.map(item => ({ cliente_id: loteForm.cliente_id, ciclo: parseInt(loteForm.ciclo) || 1, link_bruto: loteForm.link_bruto || null, titulo: item.titulo, roteiro: item.roteiro, status: 'analise_roteiro' }));
     const { error } = await supabase.from('materiais').insert(insercoes);
     if (error) { toast.error("Erro ao enviar lote: " + error.message); setLoading(false); return; }
-    toast.success(`${loteItens.length} tarefas criadas e enviadas para Análise!`);
+    toast.success(`${loteItens.length} tarefas criadas e enviadas para Roteiro em Análise!`);
     setLoteForm({ cliente_id: '', ciclo: '1', link_bruto: '' });
     setLoteItens([{ id: Date.now(), titulo: '', roteiro: '' }]); loadData(); setLoading(false);
   }
@@ -762,7 +786,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (error) { toast.error("Erro no Banco de Dados: " + error.message); setLoading(false); return; }
       setIsImportModalOpen(false);
       setPlannerTaskId(''); loadData();
-      toast.success(`${novos.length} Guias importados para a aba de Planejamento!`);
+      toast.success(`${novos.length} Guias importados com status [Roteiro em Análise] para a aba de Planejamento!`);
     } catch (err) { toast.error("Erro na comunicação com o ClickUp."); } finally { setLoading(false) }
   }
 
@@ -988,7 +1012,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors`}>
                                     <div className="flex-1 w-full text-left">
-                                      <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Análise Admin</span>
+                                      <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
@@ -1015,7 +1039,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
               <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><FileText className="text-orange-500" size={28} /> Roteiros Aprovados</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>O cliente aprovou o texto. Coloque o Link Bruto e delegue para o Decupador.</p></header>
               {Object.keys(groupedRoteiros).length === 0 ? (
-                <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhum roteiro aguardando decupagem.</p></div>
+                <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhum roteiro aprovado aguardando delegação.</p></div>
               ) : (
                 <div className="space-y-4">
                   {Object.entries(groupedRoteiros).map(([clienteId, group]) => (
@@ -1035,7 +1059,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors`}>
                                     <div className="flex-1 min-w-0 w-full text-left">
-                                      <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Aprovado</span>
+                                      <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
@@ -1798,7 +1822,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                   <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all justify-end">
                     <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
-                    <button onClick={() => { window.open(`https://wa.me/${c.telefone.replace(/\D/g, '')}?text=${encodeURIComponent(`Portal: ${window.location.origin}/portal/${c.token_magico}`)}`, '_blank'); }} className={`p-3 ${theme === 'dark' ? 'bg-green-900/30 hover:bg-green-900/50 text-green-400' : 'bg-green-50 hover:bg-green-600 hover:text-white text-green-600'} rounded-xl transition-colors`} title="Avisar no WhatsApp"><Send size={18} /></button>
+                    <button onClick={() => handleAvisarPortalWhatsApp(c)} className={`p-3 ${theme === 'dark' ? 'bg-green-900/30 hover:bg-green-900/50 text-green-400' : 'bg-green-50 hover:bg-green-600 hover:text-white text-green-600'} rounded-xl transition-colors`} title="Avisar no WhatsApp Automático"><Send size={18} /></button>
                     <button onClick={() => copyToClipboard(`${window.location.origin}/portal/${c.token_magico}`)} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
                     <button onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'bg-red-900/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-600 hover:text-white text-red-500'} rounded-xl transition-colors`} title="Excluir Cliente"><Trash2 size={18} /></button>
                   </div>

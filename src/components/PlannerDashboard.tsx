@@ -23,10 +23,16 @@ interface Material {
   cliente?: { nome: string; };
 }
 
+const getCleanText = (text: string | null | undefined) => {
+  if (!text) return "";
+  return text.replace(/\[ID:[^\]]+\]\s*/g, '');
+};
+
 const renderTextWithLinks = (text: string | null | undefined) => {
   if (!text) return null;
+  const cleanText = getCleanText(text);
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
+  const parts = cleanText.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
       return (
@@ -81,6 +87,7 @@ export default function DecupadorDashboard() {
   const [materiais, setMateriais] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<{nome: string, role: string} | null>(null)
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -100,6 +107,8 @@ export default function DecupadorDashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/'); return; }
     setUserId(user.id)
+    const { data: profile } = await supabase.from('perfis_equipe').select('*').eq('id', user.id).single();
+    if (profile) setUserProfile(profile as any);
 
     const { data: m } = await supabase
       .from('materiais')
@@ -167,7 +176,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Problema reportado ao Admin!");
       
-      const msgErro = `🔔 PROBLEMA NA DECUPAGEM\n\n👤 DE: DECUPADOR\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo.toUpperCase()}\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
+      const msgErro = `🔔 PROBLEMA NA DECUPAGEM\n\n👤 DE: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo.toUpperCase()}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
 
       setIsIssueModalOpen(false); 
@@ -185,7 +194,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Pasta entregue!");
       
-      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo.toUpperCase()}`;
+      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n👤 DE: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo.toUpperCase()}`;
       await notificarClickUpChat(msgSucesso);
 
       setIsSubmitModalOpen(false); 
