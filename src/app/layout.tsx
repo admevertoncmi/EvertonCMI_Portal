@@ -36,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning className="bg-zinc-50">
       {/* 👇 Substituímos a variável pela classe direta da fonte (openSans.className) */}
       <body suppressHydrationWarning className={`${openSans.className} min-h-screen bg-zinc-50 antialiased`}>
         {children}

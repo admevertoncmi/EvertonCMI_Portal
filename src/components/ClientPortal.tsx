@@ -407,7 +407,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   ) : false;
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 pb-24 md:pb-8">
+    <div className="min-h-screen min-h-[100dvh] bg-zinc-50 font-sans text-zinc-900 pb-24 md:pb-8 overflow-x-hidden relative">
       <Toaster position="top-right" richColors />
 
       {/* HEADER MOBILE COM WHITE-LABEL */}
@@ -891,7 +891,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       </a>
 
       {/* BARRA DE NAVEGAÇÃO INFERIOR MOBILE */}
-      <div className="md:hidden fixed bottom-0 left-0 w-full bg-white rounded-t-[20px] shadow-[0_-5px_30px_rgba(0,0,0,0.06)] z-40 border-t border-zinc-100 flex justify-around items-center px-2 pb-5 pt-2">
+      <div 
+        className="md:hidden fixed bottom-0 left-0 w-full bg-white rounded-t-[20px] shadow-[0_-5px_40px_rgba(0,0,0,0.1)] z-40 border-t border-zinc-100 flex justify-around items-center px-2 pt-2"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+      >
         <button onClick={() => { setActiveTab('roteiros'); setSelectedMaterial(null); }} className={`flex flex-col items-center gap-1 p-2 w-20 transition-all ${activeTab === 'roteiros' ? 'text-purple-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
           <FileText size={20} className={activeTab === 'roteiros' ? 'fill-purple-50' : ''} />
           <span className="text-[9px] font-black uppercase tracking-widest">Roteiros</span>

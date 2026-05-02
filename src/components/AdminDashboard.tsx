@@ -8,7 +8,9 @@ import { cadastrarClienteCompleto } from '@/actions/clientes'
 import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from '@/actions/clickup'
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
+import { getDriveFolderFiles } from '@/actions/google'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import useEmblaCarousel from 'embla-carousel-react'
 import GoogleDrivePicker from '@/components/GoogleDrivePicker'
 import {
   LayoutDashboard, Users, Plus, LogOut, Phone, Link, Send,
@@ -22,7 +24,7 @@ import {
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
-export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; }
+export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
 interface Props { materials: Material[]; initialClientes?: Cliente[] }
 
@@ -214,11 +216,61 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isApproveConfirmModalOpen, setIsApproveConfirmModalOpen] = useState(false);
   const [materialToApproveFinal, setMaterialToApproveFinal] = useState<Material | null>(null);
   
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [expandedCapaLinks, setExpandedCapaLinks] = useState<string[]>([]);
+  const [isExpandingFolder, setIsExpandingFolder] = useState(false);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, skipSnaps: false });
+
+  // Sincronizar slide atual com o Embla
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setCurrentSlide(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
+  }, [emblaApi]);
+
+  // LÓGICA DE EXPANSÃO DE PASTA: Transforma link de pasta em lista de arquivos
+  useEffect(() => {
+    const expandFolder = async () => {
+      if (!previewUrl) {
+        setExpandedCapaLinks([]);
+        return;
+      }
+
+      const folderMatch = /\/folders\/([a-zA-Z0-9_-]+)/.exec(previewUrl);
+      
+      if (folderMatch?.[1]) {
+        setIsExpandingFolder(true);
+        try {
+          const files = await getDriveFolderFiles(folderMatch[1]);
+          if (files && files.length > 0) {
+            setExpandedCapaLinks(files);
+          } else {
+            setExpandedCapaLinks([previewUrl]);
+          }
+        } catch (error) {
+          setExpandedCapaLinks([previewUrl]);
+        } finally {
+          setIsExpandingFolder(false);
+        }
+      } else {
+        const links = previewUrl.split(/[\n,;]+/).map((l: string) => l.trim()).filter(Boolean);
+        setExpandedCapaLinks(links);
+      }
+      setCurrentSlide(0);
+    };
+
+    expandFolder();
+  }, [previewUrl]);
+  
   const [isGruposModalOpen, setIsGruposModalOpen] = useState(false);
   const [listagemGrupos, setListagemGrupos] = useState<any[]>([]);
   const [carregandoGrupos, setCarregandoGrupos] = useState(false);
   const [buscaGrupo, setBuscaGrupo] = useState('');
   const [wppGroupId, setWppGroupId] = useState('');
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [materialToSchedule, setMaterialToSchedule] = useState<Material | null>(null);
 
   const {
     clientes, setClientes,
@@ -637,7 +689,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const handleAprovarParaCliente = async (id: string) => {
     setActionLoading(id);
     const material = materiais.find(m => m.id === id);
-    await supabase.from('materiais').update({ status: 'pendente', feedback_admin: null, editor_id: null, designer_id: null }).eq('id', id)
+    await supabase.from('materiais').update({ 
+      status: 'pendente', 
+      feedback_admin: null, 
+      editor_id: null, 
+      designer_id: null,
+      wpp_enviado: true,
+      agendado_para: null 
+    }).eq('id', id)
     toast.success("Aprovado! A abrir o WhatsApp do cliente...");
     if (material?.cliente?.telefone && material?.cliente?.token_magico) {
       const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
@@ -653,6 +712,34 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       }
     } else { toast.info("Faltam dados do cliente para o WhatsApp."); }
     loadData(); setActionLoading(null);
+  }
+
+  const handleAgendarParaCliente = async () => {
+    if (!materialToSchedule || !scheduledDate) return toast.error("Selecione uma data e hora!");
+    
+    setActionLoading(materialToSchedule.id);
+    const id = materialToSchedule.id;
+    
+    const { error } = await supabase.from('materiais').update({ 
+      status: 'pendente', 
+      feedback_admin: null, 
+      editor_id: null, 
+      designer_id: null,
+      agendado_para: scheduledDate,
+      wpp_enviado: false
+    }).eq('id', id);
+
+    if (error) {
+      toast.error("Erro ao agendar: " + error.message);
+    } else {
+      toast.success(`Mensagem agendada para ${new Date(scheduledDate).toLocaleString()}!`);
+      setIsScheduleModalOpen(false);
+      setMaterialToSchedule(null);
+      setScheduledDate('');
+    }
+    
+    loadData(); 
+    setActionLoading(null);
   }
 
   const handleCheckAndAprovar = (m: Material) => {
@@ -828,7 +915,75 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const renderPreviewContent = (url: string) => {
     if (!url) return null;
-    if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+
+    if (isExpandingFolder) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3">
+          <Loader2 className="animate-spin text-white opacity-40" size={40} />
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
+        </div>
+      );
+    }
+
+    const links = expandedCapaLinks;
+    if (links.length > 1) {
+      return (
+        <div className="w-full h-full relative group">
+          <div className="w-full h-full overflow-hidden" ref={emblaRef}>
+            <div className="flex w-full h-full">
+              {links.map((link: string, idx: number) => {
+                const isImg = link.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i);
+                const emb = getEmbedUrl(link);
+                return (
+                  <div 
+                    key={idx} 
+                    className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black"
+                  >
+                    {isImg ? (
+                      <img src={link} className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                    ) : (
+                      <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Navegação de Slides */}
+          <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 justify-between items-center z-20 pointer-events-none flex">
+            <button 
+              onClick={(e) => { e.stopPropagation(); emblaApi?.scrollPrev(); }}
+              className="p-3 bg-white/10 backdrop-blur-md text-white rounded-full hover:bg-white/20 border border-white/10 pointer-events-auto transition-all active:scale-90 shadow-xl"
+            >
+              <ChevronDown className="rotate-90" size={24} />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); emblaApi?.scrollNext(); }}
+              className="p-3 bg-white/10 backdrop-blur-md text-white rounded-full hover:bg-white/20 border border-white/10 pointer-events-auto transition-all active:scale-90 shadow-xl"
+            >
+              <ChevronDown className="-rotate-90" size={24} />
+            </button>
+          </div>
+
+          {/* Contador */}
+          <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 z-20 pointer-events-none">
+            <div className="flex gap-2 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 pointer-events-auto">
+              {links.map((_: any, idx: number) => (
+                <button 
+                  key={idx} 
+                  onClick={() => emblaApi?.scrollTo(idx)}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white scale-125 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'bg-white/20 hover:bg-white/40'}`}
+                />
+              ))}
+            </div>
+            <span className="text-[10px] font-black text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-sm">{currentSlide + 1} / {links.length}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     const finalUrl = getEmbedUrl(url) || url;
     return <iframe src={finalUrl} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] border-0 bg-black shadow-2xl" allowFullScreen />;
   };
@@ -844,7 +999,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   );
 
   return (
-    <div className={`flex h-screen ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`} suppressHydrationWarning>
+    <div className={`flex h-screen h-[100dvh] ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`} suppressHydrationWarning>
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* CABEÇALHO MOBILE MINIMALISTA (GLASSMORPISM) */}
@@ -1263,7 +1418,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
-                                      <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                        {m.agendado_para && !m.wpp_enviado && (
+                                          <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center gap-1">
+                                            <Clock size={10} /> Agendado: {new Date(m.agendado_para).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                          </span>
+                                        )}
+                                      </div>
 
                                       {/* Indicadores Dinâmicos */}
                                       <div className={`mt-2 text-[10px] font-bold uppercase tracking-widest flex gap-3 ${tc.textMuted}`}>
@@ -2531,6 +2693,51 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </div>
       )}
 
+      {isScheduleModalOpen && materialToSchedule && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-6`}>
+            <div className="flex justify-between items-center">
+              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+                <Clock size={24} className="text-blue-500" /> Agendar Envio
+              </h3>
+              <button onClick={() => setIsScheduleModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className={`${tc.textMuted} text-sm font-medium`}>
+                Selecione o horário para envio da notificação de <strong className={tc.textMain}>{materialToSchedule.titulo}</strong>:
+              </p>
+              
+              <input 
+                type="datetime-local" 
+                className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-colors`}
+                value={scheduledDate}
+                onChange={e => setScheduledDate(e.target.value)}
+              />
+              
+              <div className={`${theme === 'dark' ? 'bg-blue-900/20 border-blue-900/30' : 'bg-blue-50 border-blue-100'} border p-4 rounded-2xl`}>
+                <p className="text-blue-600 text-[10px] md:text-xs font-bold flex gap-2">
+                  <Activity size={16} className="shrink-0" />
+                  O sistema enviará a mensagem automaticamente no horário escolhido.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <button onClick={() => setIsScheduleModalOpen(false)} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors`}>Voltar</button>
+              <button 
+                onClick={handleAgendarParaCliente} 
+                disabled={!scheduledDate || actionLoading === materialToSchedule.id} 
+                className="w-full sm:flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
+              >
+                {actionLoading === materialToSchedule.id ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isApproveConfirmModalOpen && materialToApproveFinal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl text-left space-y-6`}>
@@ -2557,11 +2764,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIsApproveConfirmModalOpen(false)} disabled={actionLoading === materialToApproveFinal.id} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors`}>Cancelar</button>
-              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-1 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
-                {actionLoading === materialToApproveFinal.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Confirmar & Enviar</>}
+              <button onClick={() => { setMaterialToSchedule(materialToApproveFinal); setIsScheduleModalOpen(true); setIsApproveConfirmModalOpen(false); }} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center justify-center gap-2 border border-transparent hover:border-zinc-500`}>
+                <Clock size={16} /> Agendar
+              </button>
+              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-2 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
+                {actionLoading === materialToApproveFinal.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Enviar Agora</>}
               </button>
             </div>
+            <button onClick={() => setIsApproveConfirmModalOpen(false)} className={`w-full py-2 text-[10px] font-bold uppercase ${tc.textMuted} hover:text-zinc-500 transition-colors`}>Cancelar</button>
           </div>
         </div>
       )}
