@@ -2730,14 +2730,19 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 Escolha quando o cliente deve receber a notificação de <strong className={tc.textMain}>{materialToSchedule.titulo}</strong>:
               </p>
               
-              <div className="relative group">
+              <div className="relative group cursor-pointer" onClick={(e) => {
+                const input = e.currentTarget.querySelector('input');
+                if (input && 'showPicker' in input) {
+                  try { (input as any).showPicker(); } catch (e) {}
+                }
+              }}>
                 <input 
                   type="datetime-local" 
-                  className={`w-full p-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner`}
+                  className={`w-full p-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer`}
                   value={scheduledDate}
                   onChange={e => setScheduledDate(e.target.value)}
                 />
-                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={20} />
               </div>
 
               <p className="text-[10px] text-zinc-500 font-medium italic">
