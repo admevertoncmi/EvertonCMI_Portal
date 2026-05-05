@@ -2723,8 +2723,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isScheduleModalOpen && materialToSchedule && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6`}>
-            <div className="flex justify-between items-center">
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-4 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col`}>
+            <div className="flex justify-between items-center shrink-0">
               <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
                 <Clock size={24} className="text-blue-500" /> Agendar Envio
               </h3>
@@ -2733,12 +2733,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </button>
             </div>
 
-            <div className="space-y-4">
-              <p className={`${tc.textMuted} text-sm font-medium`}>
-                Escolha quando o cliente deve receber a notificação de <strong className={tc.textMain}>{materialToSchedule.titulo}</strong>:
+            <div className="space-y-4 min-w-0">
+              <p className={`${tc.textMuted} text-sm font-medium leading-relaxed break-words`}>
+                Escolha quando o cliente deve receber a notificação de <strong className={`${tc.textMain} break-words`}>{materialToSchedule.titulo}</strong>:
               </p>
               
-              <div className="relative group cursor-pointer w-full" onClick={(e) => {
+              <div className="relative group cursor-pointer w-full max-w-full overflow-hidden" onClick={(e) => {
                 const input = e.currentTarget.querySelector('input');
                 if (input && 'showPicker' in input) {
                   try { (input as any).showPicker(); } catch (e) {}
@@ -2746,7 +2746,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               }}>
                 <input 
                   type="datetime-local" 
-                  className={`w-full py-3 px-3 md:px-4 pr-10 md:pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-xs md:text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] min-w-0`}
+                  className={`w-full py-3 px-3 md:px-4 pr-10 md:pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-xs md:text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] min-w-0 box-border`}
                   value={scheduledDate}
                   onChange={e => setScheduledDate(e.target.value)}
                 />
