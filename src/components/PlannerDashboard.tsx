@@ -526,11 +526,11 @@ export default function DecupadorDashboard() {
       {/* MODAL PARA RELATAR PROBLEMA */}
       {isIssueModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-6 md:p-10 shadow-2xl space-y-6 text-left`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500 tracking-tighter flex items-center gap-2"><AlertCircle size={24} /> Problema</h3><button onClick={() => setIsIssueModalOpen(false)} className={`p-2 ${textSecundario} hover:${textPrincipal} transition-all`}><X size={20} /></button></div>
             <p className={`${textSecundario} text-xs md:text-sm`}>Explique ao Admin o que está errado com este material.</p>
-            <textarea className={`w-full p-4 ${tc.bgInput} border ${borderSecundario} ${textPrincipal} rounded-2xl font-medium outline-none focus:border-red-500 transition-colors min-h-[120px] text-sm resize-none`} placeholder="Ex: O link está fora do ar ou faltam cenas..." value={issueText} onChange={e => setIssueText(e.target.value)} />
-            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-4 md:py-5 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-red-500 active:scale-95 transition-all">
+            <textarea className={`w-full py-3 px-4 ${tc.bgInput} border ${borderSecundario} ${textPrincipal} rounded-2xl font-medium outline-none focus:border-red-500 transition-colors min-h-[120px] text-sm resize-none`} placeholder="Ex: O link está fora do ar ou faltam cenas..." value={issueText} onChange={e => setIssueText(e.target.value)} />
+            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-3.5 bg-red-600 text-white rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:bg-red-500 active:scale-95 transition-all">
               {isSubmitting ? "Enviando..." : "Devolver para o Admin"}
             </button>
           </div>
@@ -540,20 +540,20 @@ export default function DecupadorDashboard() {
       {/* MODAL DE ENTREGA */}
       {isSubmitModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-6 md:p-10 shadow-2xl space-y-6 text-left`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} tracking-tighter`}>Entregar Pasta</h3><button onClick={() => setIsSubmitModalOpen(false)} className={`p-2 ${textSecundario} hover:${textPrincipal} transition-all`}><X size={20} /></button></div>
             <div className={`${tc.bgInput} p-4 rounded-2xl border ${borderSecundario} mb-2`}><p className={`text-[10px] font-black uppercase ${textSecundario} mb-1`}>Tarefa:</p><p className={`font-bold ${textPrincipal} text-sm truncate`}>{selectedMaterial.titulo}</p></div>
 
             <div className="space-y-3">
               <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link da Pasta Organizada</label>
               <div className="flex flex-col gap-3">
-                <input className={`w-full p-4 md:p-5 ${tc.bgInput} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-zinc-500 transition-colors text-sm`} placeholder="Link da pasta final no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+                <input className={`w-full py-3 px-4 ${tc.bgInput} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-zinc-500 transition-colors text-sm`} placeholder="Link da pasta final no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
                 <div className="flex justify-center">
                   <GoogleDrivePicker onSelect={(url) => setNewDriveLink(url)} type="folder" label="Selecionar Pasta no Google Drive" />
                 </div>
               </div>
             </div>
-            <button onClick={handleDeliverOrganization} disabled={!newDriveLink || isSubmitting} className={`w-full py-4 md:py-5 ${theme === 'dark' ? 'bg-white text-zinc-950 hover:bg-zinc-200' : 'bg-[#1A1A1A] text-white hover:bg-black'} rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg active:scale-95 transition-all mt-2 disabled:opacity-50`}>
+            <button onClick={handleDeliverOrganization} disabled={!newDriveLink || isSubmitting} className={`w-full py-3.5 ${theme === 'dark' ? 'bg-white text-zinc-950 hover:bg-zinc-200' : 'bg-[#1A1A1A] text-white hover:bg-black'} rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all mt-2 disabled:opacity-50`}>
               {isSubmitting ? "A enviar..." : "Concluir e Avisar Admin"}
             </button>
           </div>
@@ -562,16 +562,16 @@ export default function DecupadorDashboard() {
 
       {/* PLAYER TELA CHEIA (RESPONSIVO VERTICAL/HORIZONTAL) */}
       {previewUrl && (
-        <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="absolute top-4 right-4 flex items-center gap-2 z-[10000]">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-              <ExternalLink size={18} />
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <ExternalLink size={18} /> Abrir Original
             </a>
-            <button onClick={() => setPreviewUrl(null)} className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-              <X size={20} />
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-[85vh] max-w-[400px] md:max-w-5xl mx-auto flex items-center justify-center overflow-hidden">
+          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
             {renderPreviewContent(previewUrl)}
           </div>
         </div>

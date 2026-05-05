@@ -621,7 +621,7 @@ export default function EditorDashboard() {
       {/* MODAL DE ENTREGA DO MATERIAL */}
       {isVersionModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-lg max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-lg max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center">
               <div className="min-w-0 pr-4">
                 <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} tracking-tighter`}>Entregar Material</h3>
@@ -644,7 +644,7 @@ export default function EditorDashboard() {
                 <div className="space-y-2">
                   <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link do Vídeo Final (Drive)</label>
                   <div className="flex flex-col gap-3">
-                    <input className={`w-full p-4 md:p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do vídeo no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+                    <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do vídeo no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
                     <div className="flex justify-center">
                       <GoogleDrivePicker onSelect={(url) => setNewDriveLink(url)} type="file" label="Selecionar Vídeo no Drive" />
                     </div>
@@ -656,7 +656,7 @@ export default function EditorDashboard() {
                 <div className="space-y-2">
                   <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link da Capa (Google Drive)</label>
                   <div className="flex flex-col gap-3">
-                    <input className={`w-full p-4 md:p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do design no Drive..." value={newCapaLink} onChange={e => setNewCapaLink(e.target.value)} />
+                    <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do design no Drive..." value={newCapaLink} onChange={e => setNewCapaLink(e.target.value)} />
                     <div className="flex justify-center">
                       <GoogleDrivePicker onSelect={(url) => setNewCapaLink(url)} type="file" label="Selecionar Capa no Drive" />
                     </div>
@@ -665,7 +665,7 @@ export default function EditorDashboard() {
               )}
             </div>
 
-            <button onClick={handleSendNewVersion} disabled={isSubmitting || (!newDriveLink && !newCapaLink)} className={`w-full py-4 md:py-5 ${theme === 'dark' ? 'bg-white hover:bg-zinc-200 text-black' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2`}>
+            <button onClick={handleSendNewVersion} disabled={isSubmitting || (!newDriveLink && !newCapaLink)} className={`w-full py-3.5 ${theme === 'dark' ? 'bg-white hover:bg-zinc-200 text-black' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2`}>
               {isSubmitting ? <Loader2 size={16} className="animate-spin inline-block" /> : null}
               {isSubmitting ? "A salvar..." : "Entregar Minha Parte"}
             </button>
@@ -676,7 +676,7 @@ export default function EditorDashboard() {
       {/* MODAL PARA RELATAR PROBLEMA */}
       {isIssueModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-6 md:p-10 shadow-2xl space-y-6 text-left`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center">
               <h3 className={`text-xl md:text-2xl font-black uppercase text-red-500 tracking-tighter flex items-center gap-2`}><AlertCircle size={24} /> Problema</h3>
               <button onClick={() => setIsIssueModalOpen(false)} className={`p-2 ${textSecundario} hover:${textPrincipal} transition-all`}><X size={20} /></button>
@@ -685,20 +685,20 @@ export default function EditorDashboard() {
             <p className={`${textSecundario} text-xs md:text-sm font-medium`}>Explique ao Admin o que está errado com o material bruto recebido.</p>
 
             <div className="space-y-4">
-              <select className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-red-500 transition-colors text-sm shadow-sm`} value={issueType} onChange={e => setIssueType(e.target.value as any)}>
+              <select className={`w-full py-3 px-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-bold outline-none focus:border-red-500 transition-colors text-sm shadow-sm`} value={issueType} onChange={e => setIssueType(e.target.value as any)}>
                 <option value="verificar_material">Erro no Material / Dúvida</option>
                 <option value="faltando_material">Falta Material na Pasta</option>
               </select>
 
               <textarea
-                className={`w-full p-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-medium outline-none focus:border-red-500 transition-colors min-h-[120px] text-sm resize-none shadow-sm`}
+                className={`w-full py-3 px-4 ${bgPrincipal} border ${borderSecundario} ${textPrincipal} rounded-2xl font-medium outline-none focus:border-red-500 transition-colors min-h-[120px] text-sm resize-none shadow-sm`}
                 placeholder="Ex: O link da pasta está quebrado, ou falta uma foto para o carrossel..."
                 value={issueText}
                 onChange={e => setIssueText(e.target.value)}
               />
             </div>
 
-            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-4 md:py-5 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-red-500 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-3.5 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:bg-red-500 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
               {isSubmitting ? "A enviar..." : "Devolver para o Admin"}
             </button>
@@ -728,12 +728,16 @@ export default function EditorDashboard() {
 
       {/* PLAYER TELA CHEIA */}
       {previewUrl && (
-        <div className="fixed inset-0 z-[1000] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-500">
-          <div className="absolute top-4 right-4 flex items-center gap-2 z-[1100]">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all border border-white/10"><ExternalLink size={18} /></a>
-            <button onClick={() => setPreviewUrl(null)} className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all border border-white/10"><X size={20} /></button>
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <ExternalLink size={18} /> Abrir Original
+            </a>
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <X size={20} /> Fechar
+            </button>
           </div>
-          <div className="w-full h-full max-w-5xl mx-auto flex items-center justify-center">
+          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
             {renderPreviewContent(previewUrl)}
           </div>
         </div>

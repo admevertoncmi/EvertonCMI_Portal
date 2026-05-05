@@ -2347,7 +2347,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isDelegateModalOpen && selectedCicloDelegation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'}`}>
+          <div className={`${tc.bgCard} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'}`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Delegar</h3><button onClick={() => setIsDelegateModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className={`${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} p-4 rounded-2xl border mb-2`}>
               <p className={`text-[10px] font-black uppercase ${tc.textMuted} mb-2`}>Selecione as subtarefas:</p>
@@ -2368,7 +2368,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <input
                     type="text"
                     placeholder="https://drive.google.com/..."
-                    className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`}
+                    className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`}
                     value={newLinkBruto}
                     onChange={e => setNewLinkBruto(e.target.value)}
                   />
@@ -2378,7 +2378,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               {delegationType === 'planner' ? (
                 <div className="space-y-1">
                   <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Selecionar Decupador</label>
-                  <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedPlannerId} onChange={e => setSelectedPlannerId(e.target.value)}>
+                  <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedPlannerId} onChange={e => setSelectedPlannerId(e.target.value)}>
                     <option value="">Nenhum</option>
                     {planners.map(m => (
                       <option key={m.id} value={m.id}>{m.nome ? `${m.nome} (${m.role === 'admin' ? 'Gestor' : 'Decupador'})` : `${m.email} (${m.role === 'admin' ? 'Gestor' : 'Decupador'})`}</option>
@@ -2389,7 +2389,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <div className="flex flex-col gap-4">
                   <div className="space-y-1">
                     <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PlayCircle size={12} /> Editor (Vídeos/Reels)</label>
-                    <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedEditorId} onChange={e => setSelectedEditorId(e.target.value)}>
+                    <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedEditorId} onChange={e => setSelectedEditorId(e.target.value)}>
                       <option value="">Nenhum</option>
                       {editores.map(m => (
                         <option key={m.id} value={m.id}>{m.nome ? `${m.nome} (${m.role === 'admin' ? 'Gestor' : 'Editor'})` : `${m.email} (${m.role === 'admin' ? 'Gestor' : 'Editor'})`}</option>
@@ -2412,15 +2412,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega</label>
                 <input
                   type="date"
-                  className={`w-full p-3.5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors [color-scheme:dark]`}
+                  className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors [color-scheme:dark]`}
                   value={delegationDeadline}
                   onChange={e => setDelegationDeadline(e.target.value)}
                 />
               </div>
 
-              <textarea className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções..." value={adminFeedback} onChange={e => setAdminFeedback(e.target.value)} />
+              <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções..." value={adminFeedback} onChange={e => setAdminFeedback(e.target.value)} />
             </div>
-            <button onClick={handleDelegarItems} disabled={loading || selectedItemsToDelegate.length === 0} className="w-full py-4 md:py-5 bg-[#A25431] hover:bg-[#8a4729] text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            <button onClick={handleDelegarItems} disabled={loading || selectedItemsToDelegate.length === 0} className="w-full py-4 bg-[#A25431] hover:bg-[#8a4729] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Delegar Selecionados
             </button>
@@ -2430,18 +2430,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isLinkBrutoModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Link Bruto</h3><button onClick={() => setIsLinkBrutoModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm font-medium`}>Insira o link da pasta com os materiais brutos gravados para esta tarefa.</p>
               <div className="flex flex-col gap-3">
-                <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} placeholder="https://drive.google.com/..." value={newLinkBruto} onChange={e => setNewLinkBruto(e.target.value)} />
+                <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} placeholder="https://drive.google.com/..." value={newLinkBruto} onChange={e => setNewLinkBruto(e.target.value)} />
                 <div className="flex justify-center">
                   <GoogleDrivePicker onSelect={(url) => setNewLinkBruto(url)} type="folder" label="Selecionar Pasta no Google Drive" />
                 </div>
               </div>
             </div>
-            <button onClick={handleUpdateLinkBruto} disabled={loading || !newLinkBruto} className="w-full py-4 md:py-5 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[10px] hover:bg-[#8a4729] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            <button onClick={handleUpdateLinkBruto} disabled={loading || !newLinkBruto} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-[#8a4729] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Salvar Link
             </button>
           </div>
@@ -2450,7 +2450,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isResolveIssueModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-6 md:p-8 shadow-2xl space-y-6 text-left`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}>
               <div className="flex justify-between items-center mb-1">
@@ -2487,7 +2487,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <div className="space-y-1">
                 <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Link Bruto (Opcional)</label>
                 <div className="flex flex-col gap-2">
-                  <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
+                  <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
                   <div className="flex justify-center">
                     <GoogleDrivePicker onSelect={(url) => setResolveLinkBruto(url)} type="folder" label="Selecionar no Drive" />
                   </div>
@@ -2495,10 +2495,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
               <div className="space-y-1">
                 <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Instrução de Resolução</label>
-                <textarea className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-red-500 min-h-[100px] text-sm resize-none transition-colors`} placeholder="Explique o que foi feito ou o que fazer agora..." value={resolveText} onChange={e => setResolveText(e.target.value)} />
+                <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-red-500 min-h-[100px] text-sm resize-none transition-colors`} placeholder="Explique o que foi feito ou o que fazer agora..." value={resolveText} onChange={e => setResolveText(e.target.value)} />
               </div>
             </div>
-            <button onClick={handleResolveIssue} disabled={loading || !resolveText} className={`w-full py-4 md:py-5 ${resolveType === 'planner' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
+            <button onClick={handleResolveIssue} disabled={loading || !resolveText} className={`w-full py-4 ${resolveType === 'planner' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} {resolveType === 'planner' ? 'Confirmar & Devolver' : 'Confirmar & Reenviar'}
             </button>
           </div>
@@ -2507,14 +2507,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isImportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-6 md:p-10 shadow-2xl space-y-6 text-left`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Importar</h3><button onClick={() => setIsImportModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className="space-y-4">
-              <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="ID da Tarefa" value={plannerTaskId} onChange={e => setPlannerTaskId(e.target.value)} />
+              <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="ID da Tarefa" value={plannerTaskId} onChange={e => setPlannerTaskId(e.target.value)} />
               <input type="number" min="1" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="Ciclo" value={importCiclo} onChange={e => setImportCiclo(e.target.value)} />
               <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={importClienteId} onChange={e => setImportClienteId(e.target.value)}><option value="">Selecionar Cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
             </div>
-            <button onClick={handleImportPlanner} disabled={loading || !plannerTaskId} className="w-full py-4 md:py-5 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-[#8a4729] transition-colors">
+            <button onClick={handleImportPlanner} disabled={loading || !plannerTaskId} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-[#8a4729] transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Sincronizar
             </button>
           </div>
@@ -2557,10 +2557,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isVersionModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-6 md:p-10 shadow-2xl space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Nova Versão</h3><button onClick={() => setIsVersionModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
-            <input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-blue-500 transition-colors`} placeholder="Novo link..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
-            <button onClick={handleSendNewVersion} disabled={!newDriveLink || loading} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-xs flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
+            <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-blue-500 transition-colors`} placeholder="Novo link..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+            <button onClick={handleSendNewVersion} disabled={!newDriveLink || loading} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Atualizar
             </button>
           </div>
@@ -2569,7 +2569,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isDeleteClientModalOpen && clientToDelete && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl text-left space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
               <h3 className="text-xl md:text-2xl font-black uppercase text-red-500 flex items-center gap-2">
                 <AlertCircle size={24} /> Excluir
@@ -2593,8 +2593,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIsDeleteClientModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors`}>Cancelar</button>
-              <button onClick={async () => { setLoading(true); const { error } = await supabase.from('clientes').delete().eq('id', clientToDelete.id); if (error) { toast.error("Erro ao excluir: " + error.message); } else { toast.success("Cliente excluído com sucesso!"); loadData(); } setLoading(false); setIsDeleteClientModalOpen(false); setClientToDelete(null); }} disabled={loading} className="w-full sm:flex-1 py-4 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all flex justify-center items-center gap-2">
+              <button onClick={() => setIsDeleteClientModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}>Cancelar</button>
+              <button onClick={async () => { setLoading(true); const { error } = await supabase.from('clientes').delete().eq('id', clientToDelete.id); if (error) { toast.error("Erro ao excluir: " + error.message); } else { toast.success("Cliente excluído com sucesso!"); loadData(); } setLoading(false); setIsDeleteClientModalOpen(false); setClientToDelete(null); }} disabled={loading} className="w-full sm:flex-1 py-3.5 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all flex justify-center items-center gap-2">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <><Trash2 size={16} /> Sim, Excluir</>}
               </button>
             </div>
@@ -2604,7 +2604,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isArchiveCycleModalOpen && cycleToArchive && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl text-left space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
               <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
                 <Archive size={24} className={tc.textMuted} /> Arquivar Ciclo
@@ -2628,8 +2628,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIsArchiveCycleModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors disabled:opacity-50`}>Cancelar</button>
-              <button onClick={async () => { setLoading(true); const ids = cycleToArchive.itens.map(i => i.id); const { error } = await supabase.from('materiais').update({ status: 'concluido' }).in('id', ids); if (error) { toast.error("Erro ao arquivar: " + error.message); } else { toast.success(`${cycleToArchive.cicloLabel} arquivado com sucesso!`); loadData(); } setLoading(false); setIsArchiveCycleModalOpen(false); setCycleToArchive(null); }} disabled={loading} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 disabled:opacity-50`}>
+              <button onClick={() => setIsArchiveCycleModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors disabled:opacity-50`}>Cancelar</button>
+              <button onClick={async () => { setLoading(true); const ids = cycleToArchive.itens.map(i => i.id); const { error } = await supabase.from('materiais').update({ status: 'concluido' }).in('id', ids); if (error) { toast.error("Erro ao arquivar: " + error.message); } else { toast.success(`${cycleToArchive.cicloLabel} arquivado com sucesso!`); loadData(); } setLoading(false); setIsArchiveCycleModalOpen(false); setCycleToArchive(null); }} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 disabled:opacity-50`}>
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <><Archive size={16} /> Sim, Arquivar</>}
               </button>
             </div>
@@ -2639,7 +2639,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {incompleteApprovalData && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl text-left space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
               <h3 className="text-xl md:text-2xl font-black uppercase text-orange-500 flex items-center gap-2">
                 <AlertCircle size={24} /> Entrega Parcial
@@ -2664,8 +2664,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIncompleteApprovalData(null)} disabled={actionLoading === incompleteApprovalData.material.id} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors`}>Aguardar Equipe</button>
-              <button onClick={() => { handleAprovarParaCliente(incompleteApprovalData.material.id); setIncompleteApprovalData(null); }} disabled={actionLoading === incompleteApprovalData.material.id} className="w-full sm:flex-1 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2">
+              <button onClick={() => setIncompleteApprovalData(null)} disabled={actionLoading === incompleteApprovalData.material.id} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}>Aguardar Equipe</button>
+              <button onClick={() => { handleAprovarParaCliente(incompleteApprovalData.material.id); setIncompleteApprovalData(null); }} disabled={actionLoading === incompleteApprovalData.material.id} className="w-full sm:flex-1 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2">
                 {actionLoading === incompleteApprovalData.material.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Enviar Mesmo Assim</>}
               </button>
             </div>
@@ -2706,16 +2706,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {previewUrl && (
-        <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="absolute top-4 right-4 flex items-center gap-2 z-[10000]">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-              <ExternalLink size={18} />
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <ExternalLink size={18} /> Abrir Original
             </a>
-            <button onClick={() => setPreviewUrl(null)} className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors">
-              <X size={20} />
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+              <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-[85vh] max-w-[400px] md:max-w-5xl mx-auto flex items-center justify-center overflow-hidden">
+          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
             {renderPreviewContent(previewUrl)}
           </div>
         </div>
@@ -2723,7 +2723,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isScheduleModalOpen && materialToSchedule && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-6`}>
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
               <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
                 <Clock size={24} className="text-blue-500" /> Agendar Envio
@@ -2746,7 +2746,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               }}>
                 <input 
                   type="datetime-local" 
-                  className={`w-full p-3.5 md:p-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark]`}
+                  className={`w-full py-3 px-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark]`}
                   value={scheduledDate}
                   onChange={e => setScheduledDate(e.target.value)}
                 />
@@ -2765,12 +2765,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIsScheduleModalOpen(false)} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors`}>Voltar</button>
+            <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
+              <button onClick={() => setIsScheduleModalOpen(false)} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}>Voltar</button>
               <button 
                 onClick={handleAgendarParaCliente} 
                 disabled={!scheduledDate || actionLoading === materialToSchedule.id} 
-                className="w-full sm:flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                className="w-full sm:flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
               >
                 {actionLoading === materialToSchedule.id ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
               </button>
@@ -2780,7 +2780,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
       {isApproveConfirmModalOpen && materialToApproveFinal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl text-left space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
               <h3 className="text-xl md:text-2xl font-black uppercase text-green-500 flex items-center gap-2">
                 <CheckCircle2 size={24} /> Aprovar p/ Cliente
@@ -2803,11 +2803,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => { setMaterialToSchedule(materialToApproveFinal); setIsScheduleModalOpen(true); setIsApproveConfirmModalOpen(false); }} className={`w-full sm:flex-1 py-4 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center justify-center gap-2 border border-transparent hover:border-zinc-500`}>
+            <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
+              <button onClick={() => { setMaterialToSchedule(materialToApproveFinal); setIsScheduleModalOpen(true); setIsApproveConfirmModalOpen(false); }} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex items-center justify-center gap-2 border border-transparent hover:border-zinc-500`}>
                 <Clock size={16} /> Agendar
               </button>
-              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-2 py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
+              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-2 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
                 {actionLoading === materialToApproveFinal.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Enviar Agora</>}
               </button>
             </div>
@@ -2817,7 +2817,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
       {isGruposModalOpen && (
         <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-lg rounded-[32px] md:rounded-[40px] p-6 md:p-8 shadow-2xl space-y-6 animate-in zoom-in-95`}>
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-lg rounded-[32px] md:rounded-[40px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 animate-in zoom-in-95`}>
             <div className="flex justify-between items-center">
                <div>
                  <h3 className={`text-xl font-black uppercase ${tc.textMain}`}>Grupos do WhatsApp</h3>
