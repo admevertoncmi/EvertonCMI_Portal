@@ -2722,8 +2722,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {isScheduleModalOpen && materialToSchedule && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-4 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col`}>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
             <div className="flex justify-between items-center shrink-0">
               <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
                 <Clock size={24} className="text-blue-500" /> Agendar Envio
