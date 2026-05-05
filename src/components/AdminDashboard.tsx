@@ -2733,12 +2733,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </button>
             </div>
 
-            <div className="space-y-4 min-w-0">
-              <p className={`${tc.textMuted} text-sm font-medium leading-relaxed break-words`}>
+            <div className="space-y-4 w-full overflow-hidden">
+              <p className={`${tc.textMuted} text-sm font-medium leading-relaxed break-words px-1`}>
                 Escolha quando o cliente deve receber a notificação de <strong className={`${tc.textMain} break-words`}>{materialToSchedule.titulo}</strong>:
               </p>
               
-              <div className="relative group cursor-pointer w-full max-w-full overflow-hidden" onClick={(e) => {
+              <div className="relative group w-full" onClick={(e) => {
                 const input = e.currentTarget.querySelector('input');
                 if (input && 'showPicker' in input) {
                   try { (input as any).showPicker(); } catch (e) {}
@@ -2746,11 +2746,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               }}>
                 <input 
                   type="datetime-local" 
-                  className={`w-full py-3 px-3 md:px-4 pr-10 md:pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-xs md:text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] min-w-0 box-border`}
+                  className={`w-full py-3.5 px-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] appearance-none box-border`}
+                  style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                   value={scheduledDate}
                   onChange={e => setScheduledDate(e.target.value)}
                 />
-                <Calendar className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
               </div>
 
               <p className="text-[10px] text-zinc-500 font-medium italic">

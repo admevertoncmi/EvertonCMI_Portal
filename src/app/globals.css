@@ -68,4 +68,16 @@
   .shadow-elevation-1 { box-shadow: var(--shadow-md); }
   .shadow-elevation-2 { box-shadow: var(--shadow-lg); }
   .shadow-elevation-3 { box-shadow: var(--shadow-xl); }
+
+  /* Esconde o ícone nativo do calendário para não duplicar com o Lucide */
+  input::-webkit-calendar-picker-indicator {
+    display: none !important;
+    -webkit-appearance: none;
+  }
+  
+  /* Garante que inputs de data não forcem a largura no mobile */
+  input[type="date"], input[type="datetime-local"] {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
 }
