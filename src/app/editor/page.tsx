@@ -61,6 +61,10 @@ export default function EditorDashboard() {
   // --- TEMA ---
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   useEffect(() => { const storedTheme = localStorage.getItem('editorTheme') as 'dark' | 'light' | null; if (storedTheme) setTheme(storedTheme); }, []);
+  useEffect(() => {
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [theme]);
   const toggleTheme = () => { const newTheme = theme === 'dark' ? 'light' : 'dark'; setTheme(newTheme); localStorage.setItem('editorTheme', newTheme); };
 
   const tc = {

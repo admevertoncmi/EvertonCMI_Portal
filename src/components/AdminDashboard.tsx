@@ -84,6 +84,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
   }, []);
 
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
@@ -2738,7 +2746,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               }}>
                 <input 
                   type="datetime-local" 
-                  className={`w-full p-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer`}
+                  className={`w-full p-3.5 md:p-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark]`}
                   value={scheduledDate}
                   onChange={e => setScheduledDate(e.target.value)}
                 />

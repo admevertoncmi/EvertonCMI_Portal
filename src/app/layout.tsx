@@ -15,6 +15,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
+  viewportFit: 'cover',
 }
 
 // 3. Metadados e PWA
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     title: 'EvertonCMI',
   },
 }
@@ -36,9 +37,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning className="bg-zinc-50">
-      {/* 👇 Substituímos a variável pela classe direta da fonte (openSans.className) */}
-      <body suppressHydrationWarning className={`${openSans.className} min-h-screen bg-zinc-50 antialiased`}>
+    <html lang="pt-BR" suppressHydrationWarning className="antialiased">
+      {/* 👇 Removemos bg-zinc-50 fixo para evitar barras brancas no Safari mobile */}
+      <body suppressHydrationWarning className={`${openSans.className} min-h-[100dvh] antialiased`}>
         {children}
         
         {/* Script para registrar o PWA (App instalável) */}
