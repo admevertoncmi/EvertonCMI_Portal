@@ -2412,7 +2412,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega</label>
                 <input
                   type="date"
-                  className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors [color-scheme:dark]`}
+                  className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-xs md:text-sm transition-colors [color-scheme:dark] min-w-0`}
                   value={delegationDeadline}
                   onChange={e => setDelegationDeadline(e.target.value)}
                 />
@@ -2738,7 +2738,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 Escolha quando o cliente deve receber a notificação de <strong className={tc.textMain}>{materialToSchedule.titulo}</strong>:
               </p>
               
-              <div className="relative group cursor-pointer" onClick={(e) => {
+              <div className="relative group cursor-pointer w-full" onClick={(e) => {
                 const input = e.currentTarget.querySelector('input');
                 if (input && 'showPicker' in input) {
                   try { (input as any).showPicker(); } catch (e) {}
@@ -2746,11 +2746,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               }}>
                 <input 
                   type="datetime-local" 
-                  className={`w-full py-3 px-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark]`}
+                  className={`w-full py-3 px-3 md:px-4 pr-10 md:pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-xs md:text-sm focus:border-blue-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] min-w-0`}
                   value={scheduledDate}
                   onChange={e => setScheduledDate(e.target.value)}
                 />
-                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={20} />
+                <Calendar className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
               </div>
 
               <p className="text-[10px] text-zinc-500 font-medium italic">
