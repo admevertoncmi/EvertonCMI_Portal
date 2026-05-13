@@ -623,10 +623,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       )}
 
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
-                      <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center overflow-hidden relative shadow-2xl mb-5 border border-zinc-200`}>
+                      <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square overflow-hidden'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
                           embedUrl ? (
-                            <iframe title="Vídeo" src={embedUrl} className="w-full h-full border-0 absolute top-0 left-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                            <iframe title="Vídeo" src={embedUrl} className="w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                           ) : (
                             <div className="text-center p-4 z-10">
                               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto border border-white/20 mb-3">
@@ -694,19 +694,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                     </button>
                                   </div>
 
-                                  {/* Contador e Bolinhas */}
-                                  <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 z-20 pointer-events-none">
-                                    <div className="flex gap-2 p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 pointer-events-auto">
-                                      {links.map((_: any, idx: number) => (
-                                        <button 
-                                          key={idx} 
-                                          onClick={() => emblaApi?.scrollTo(idx)}
-                                          className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white scale-125 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'bg-white/20 hover:bg-white/40'}`}
-                                        />
-                                      ))}
-                                    </div>
-                                    <span className="text-[10px] font-black text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-sm">{currentSlide + 1} / {links.length}</span>
-                                  </div>
+
                                 </div>
                               );
                             }
@@ -911,7 +899,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
       {/* PLAYER TELA CHEIA MOBILE */}
       {previewUrl && (
-        <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black p-4 animate-in fade-in duration-300">
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
             <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
               <ExternalLink size={18} /> Abrir Original

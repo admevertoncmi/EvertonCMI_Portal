@@ -1136,8 +1136,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </button>
             <span className={`text-[9px] font-bold tracking-wide mt-auto ${activeTab === 'geral' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>Visão</span>
           </div>
-          <button onClick={() => { setActiveTab('materiais-aprovados'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovados' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
+          <button onClick={() => { setActiveTab('materiais-aprovados'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovados' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
             <CheckCircle2 size={20} />
+            {filaMateriaisAprovados.length > 0 && <span className="absolute top-1 right-3 w-2 h-2 bg-green-500 rounded-full border-2 border-zinc-900"></span>}
             <span className="text-[9px] font-bold tracking-wide">Prontos</span>
           </button>
           <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
@@ -1823,9 +1824,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <Archive size={14} className="sm:w-3 sm:h-3" /> Arquivar
                                         </button>
                                       )}
-                                      <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-sm`}>
-                                        <Send size={14} className="sm:w-3 sm:h-3" /> Avisar Cliente
-                                      </button>
+                                      {!showArchived && (
+                                        <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-sm`}>
+                                          <Send size={14} className="sm:w-3 sm:h-3" /> Avisar Cliente
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
 
@@ -2529,7 +2532,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgCard} ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className={`p-5 md:p-8 overflow-y-auto ${tc.bgCard} flex-1`}>
-              <textarea className={`w-full h-full min-h-[250px] md:min-h-[300px] p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-pink-500 resize-none transition-colors`} value={newRoteiroText} onChange={e => setNewRoteiroText(e.target.value)} placeholder="Edite o roteiro..." />
+              <textarea className={`w-full h-full min-h-[60vh] md:min-h-[70vh] p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-pink-500 resize-none transition-colors`} value={newRoteiroText} onChange={e => setNewRoteiroText(e.target.value)} placeholder="Edite o roteiro..." />
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`px-4 py-3 font-bold ${tc.textMuted} ${tc.bgHover} rounded-xl transition-colors`}>Cancelar</button>
@@ -2706,7 +2709,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {previewUrl && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black p-4 animate-in fade-in duration-300">
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
             <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
               <ExternalLink size={18} /> Abrir Original
