@@ -1126,8 +1126,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <span className="text-[9px] font-bold tracking-wide">Plano</span>
           </button>
           <button onClick={() => { setActiveTab('materiais-aprovacao'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovacao' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
-            <ClipboardCheck size={20} />
-            {filaMateriaisAprovacao.length > 0 && <span className="absolute top-1 right-3 w-2 h-2 bg-blue-500 rounded-full border-2 border-zinc-900"></span>}
+            <div className="relative">
+              <ClipboardCheck size={20} />
+              {filaMateriaisAprovacao.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-blue-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovacao.length}</span>}
+            </div>
             <span className="text-[9px] font-bold tracking-wide">Aprovar</span>
           </button>
           <div className="relative w-16 flex justify-center h-full">
@@ -1137,8 +1139,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <span className={`text-[9px] font-bold tracking-wide mt-auto ${activeTab === 'geral' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>Visão</span>
           </div>
           <button onClick={() => { setActiveTab('materiais-aprovados'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovados' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
-            <CheckCircle2 size={20} />
-            {filaMateriaisAprovados.length > 0 && <span className="absolute top-1 right-3 w-2 h-2 bg-green-500 rounded-full border-2 border-zinc-900"></span>}
+            <div className="relative">
+              <CheckCircle2 size={20} />
+              {filaMateriaisAprovados.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovados.length}</span>}
+            </div>
             <span className="text-[9px] font-bold tracking-wide">Prontos</span>
           </button>
           <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
@@ -2525,14 +2529,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {isEditRoteiroModalOpen && roteiroToEdit && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-3xl max-h-[85vh] rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
-            <div className={`p-5 md:p-8 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} shrink-0`}>
-              <div className="truncate pr-4"><h3 className="text-xl md:text-2xl font-black uppercase">Editar Roteiro</h3></div>
-              <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgCard} ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-5xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
+            <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
+              <div className="truncate pr-4"><h3 className="text-lg md:text-xl font-black uppercase flex items-center gap-3"><FileText size={20} className="text-pink-500" /> Editar Roteiro</h3></div>
+              <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
-            <div className={`p-5 md:p-8 overflow-y-auto ${tc.bgCard} flex-1`}>
-              <textarea className={`w-full h-full min-h-[60vh] md:min-h-[70vh] p-5 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-pink-500 resize-none transition-colors`} value={newRoteiroText} onChange={e => setNewRoteiroText(e.target.value)} placeholder="Edite o roteiro..." />
+            <div className={`p-0 md:p-8 overflow-y-auto ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
+              <textarea className={`w-full h-full max-w-3xl p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg text-[15px] md:text-base leading-relaxed font-medium outline-none focus:ring-0 resize-none transition-colors`} value={newRoteiroText} onChange={e => setNewRoteiroText(e.target.value)} placeholder="Escreva o roteiro aqui..." />
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`px-4 py-3 font-bold ${tc.textMuted} ${tc.bgHover} rounded-xl transition-colors`}>Cancelar</button>
@@ -2545,14 +2549,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {previewRoteiro && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-3xl max-h-[85vh] rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
-            <div className={`p-5 md:p-8 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} shrink-0`}>
-              <div className="min-w-0 flex-1 pr-4"><h3 className="text-xl md:text-2xl font-black uppercase truncate break-words break-all" title={previewRoteiro.titulo}>{previewRoteiro.titulo}</h3><p className="text-[10px] font-bold text-purple-500 uppercase mt-1">📝 Roteiro</p></div>
-              <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${tc.bgCard} ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-5xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
+            <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
+              <div className="min-w-0 flex-1 pr-4"><h3 className="text-lg md:text-xl font-black uppercase truncate break-words break-all flex items-center gap-2" title={previewRoteiro.titulo}><FileText size={20} className="text-purple-500" /> {previewRoteiro.titulo}</h3></div>
+              <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
-            <div className="p-5 md:p-8 overflow-y-auto">
-              <div className={`prose prose-sm max-w-none ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap font-medium break-words break-all`}>{renderTextWithLinks(previewRoteiro.roteiro || "Vazio.")}</div>
+            <div className={`p-0 md:p-8 overflow-y-auto ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
+              <div className={`w-full h-full max-w-3xl p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg overflow-y-auto`}>
+                <div className="prose prose-sm md:prose-base max-w-none whitespace-pre-wrap font-medium break-words break-all leading-relaxed">{renderTextWithLinks(previewRoteiro.roteiro || "Vazio.")}</div>
+              </div>
             </div>
           </div>
         </div>
