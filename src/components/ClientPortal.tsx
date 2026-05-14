@@ -80,6 +80,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const [materialToApprove, setMaterialToApprove] = useState<any>(null)
+
+  const [isBulkApprovalModalOpen, setIsBulkApprovalModalOpen] = useState(false);
+  const [bulkApprovalData, setBulkApprovalData] = useState<{ itens: any[], label: string } | null>(null);
+
   const materiaisVisualizados = useRef<Set<string>>(new Set());
 
   // 🔥 Estados para expansão de pastas do Drive
@@ -557,11 +561,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     </div>
                     {isRoteiro && itens.some(m => !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(m.status?.toLowerCase()) || (m.status?.toLowerCase() === 'ajustes' && !!(m.link_drive || m.link_capa)))) && (
                       <button 
-                        onClick={(e) => { e.stopPropagation(); handleAprovarTodosRoteirosDoCiclo(itens, cicloLabel); }}
+                        onClick={(e) => { e.stopPropagation(); setBulkApprovalData({ itens, label: cicloLabel }); setIsBulkApprovalModalOpen(true); }}
                         disabled={actionLoading}
-                        className="text-[9px] font-black uppercase text-purple-600 hover:text-purple-800 transition-colors flex items-center gap-1 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-600 rounded-xl text-[9px] font-black uppercase transition-all flex items-center gap-1.5 border border-purple-100 shadow-sm disabled:opacity-50 group"
                       >
-                        {actionLoading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                        {actionLoading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} className="group-hover:text-white" />}
                         Aprovar Tudo
                       </button>
                     )}
@@ -1000,6 +1004,59 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                 </button>
                 <button 
                   onClick={() => { setIsApprovalModalOpen(false); setMaterialToApprove(null); }}
+                  className="w-full py-4 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-zinc-600 transition-colors"
+                >
+                  Voltar e Revisar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE APROVAÇÃO EM LOTE */}
+      {isBulkApprovalModalOpen && bulkApprovalData && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 text-center">
+              <div className="w-20 h-20 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 size={40} />
+              </div>
+              <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 mb-2">Aprovar Ciclo?</h3>
+              <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-6">
+                Você está prestes a aprovar todos os roteiros do <strong>{bulkApprovalData.label}</strong> de uma vez.
+              </p>
+              
+              <div className="bg-zinc-50 rounded-2xl p-4 mb-8 text-left max-h-[140px] overflow-y-auto border border-zinc-100 custom-scrollbar">
+                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block mb-2">Materiais incluídos:</span>
+                <ul className="space-y-2">
+                  {bulkApprovalData.itens.filter(m => {
+                    const s = m.status?.toLowerCase();
+                    return !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(s) || (s === 'ajustes' && !!(m.link_drive || m.link_capa)));
+                  }).map((m: any) => (
+                    <li key={m.id} className="text-[10px] font-bold text-zinc-600 flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 bg-purple-400 rounded-full mt-1 shrink-0"></div>
+                      <span className="leading-tight">{m.titulo}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={async () => {
+                    await handleAprovarTodosRoteirosDoCiclo(bulkApprovalData.itens, bulkApprovalData.label);
+                    setIsBulkApprovalModalOpen(false);
+                    setBulkApprovalData(null);
+                  }} 
+                  disabled={actionLoading}
+                  className="w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
+                  Confirmar Aprovação
+                </button>
+                <button 
+                  onClick={() => { setIsBulkApprovalModalOpen(false); setBulkApprovalData(null); }}
                   className="w-full py-4 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-zinc-600 transition-colors"
                 >
                   Voltar e Revisar
