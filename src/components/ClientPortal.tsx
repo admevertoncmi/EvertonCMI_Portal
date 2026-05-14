@@ -300,6 +300,55 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setActionLoading(false);
   }
 
+  const handleAprovarTodosRoteirosDoCiclo = async (cicloItens: any[], cicloLabel: string) => {
+    // Definimos o que é considerado "já aprovado" para roteiros seguindo a lógica do componente
+    const roteirosPendentes = cicloItens.filter(m => {
+      const s = m.status?.toLowerCase();
+      const isItemAprovado = ['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(s) || (s === 'ajustes' && !!(m.link_drive || m.link_capa));
+      return !isItemAprovado;
+    });
+
+    if (roteirosPendentes.length === 0) {
+      return toast.info("Todos os roteiros deste ciclo já estão aprovados ou em produção.");
+    }
+
+    setActionLoading(true);
+    try {
+      const ids = roteirosPendentes.map(m => m.id);
+      
+      // 1. Atualizar Estado Local
+      setTodosMateriais(prev => prev.map(m => {
+        if (ids.includes(m.id)) {
+          return { ...m, status: 'roteiro_aprovado', feedback: null };
+        }
+        return m;
+      }));
+
+      // 2. Atualizar no Supabase
+      const { error } = await supabase
+        .from('materiais')
+        .update({ status: 'roteiro_aprovado', feedback: null })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      // 3. Registrar Logs
+      await Promise.all(ids.map(id => registrarLogAcesso(id, `✅ Roteiro Aprovado (Lote)`)));
+
+      // 4. Notificar no ClickUp (mensagem única para o lote)
+      const listaTitulos = roteirosPendentes.map(m => `• ${m.titulo.toUpperCase()}`).join('\n');
+      const msg = `📝✅ LOTE DE ROTEIROS APROVADOS (${cicloLabel.toUpperCase()})\n\nCLIENTE: ${cliente.nome.toUpperCase()}\n\nMATERIAIS:\n${listaTitulos}\n\n🚀 A equipe de produção pode iniciar os trabalhos.`;
+      await notificarClickUpChat(msg);
+
+      toast.success(`${roteirosPendentes.length} roteiros aprovados com sucesso!`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao aprovar roteiros em lote.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSolicitarAjuste = async (id: string) => {
     if (!feedbackText) return toast.error("Por favor, descreva o que precisa ser ajustado.")
     if (!selectedMaterial) return;
@@ -501,9 +550,21 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             <div className="lg:col-span-4 space-y-4 md:space-y-6 w-full">
               {Object.entries(grouped).map(([cicloLabel, itens]) => (
                 <div key={cicloLabel} className="space-y-2 md:space-y-3">
-                  <div className="flex items-center gap-2 px-1">
-                    <Calendar size={12} className="text-zinc-400" />
-                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={12} className="text-zinc-400" />
+                      <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
+                    </div>
+                    {isRoteiro && itens.some(m => !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(m.status?.toLowerCase()) || (m.status?.toLowerCase() === 'ajustes' && !!(m.link_drive || m.link_capa)))) && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleAprovarTodosRoteirosDoCiclo(itens, cicloLabel); }}
+                        disabled={actionLoading}
+                        className="text-[9px] font-black uppercase text-purple-600 hover:text-purple-800 transition-colors flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {actionLoading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} />}
+                        Aprovar Tudo
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-2">
