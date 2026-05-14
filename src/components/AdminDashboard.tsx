@@ -1742,7 +1742,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
               </div>
               {/* FILTROS RÁPIDOS GLOBAIS */}
-              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar sticky top-20 z-20 bg-inherit py-2">
+              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar py-2">
                 {[
                   { id: 'todos', label: 'TODOS', color: 'bg-zinc-500' },
                   { id: 'urgentes', label: '🔥 ATRASADOS', color: 'bg-red-600' },
