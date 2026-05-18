@@ -39,12 +39,19 @@ const isGoogleDriveVideo = (url: string) => {
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
 }
 
+const getGoogleDriveId = (url: string) => {
+  if (!url) return null;
+  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch1?.[1]) return driveMatch1[1];
+  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch2?.[1] && url.includes('drive.google.com')) return driveMatch2[1];
+  return null;
+}
+
 const getRawVideoUrl = (url: string) => {
   if (!url) return '';
-  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
-  if (driveMatch1?.[1]) return `https://drive.google.com/uc?export=download&id=${driveMatch1[1]}`;
-  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
-  if (driveMatch2?.[1] && url.includes('drive.google.com')) return `https://drive.google.com/uc?export=download&id=${driveMatch2[1]}`;
+  const driveId = getGoogleDriveId(url);
+  if (driveId) return `/api/video-proxy?id=${driveId}`;
   return url;
 }
 
@@ -339,7 +346,17 @@ export default function DecupadorDashboard() {
     const finalUrl = getEmbedUrl(url) || url;
     return (
       <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
-        <iframe src={finalUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen />
+        {isGoogleDriveVideo(url) ? (
+          <video 
+            src={getRawVideoUrl(url)} 
+            className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
+            controls 
+            playsInline 
+            preload="metadata"
+          />
+        ) : (
+          <iframe src={finalUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen />
+        )}
       </div>
     );
   };

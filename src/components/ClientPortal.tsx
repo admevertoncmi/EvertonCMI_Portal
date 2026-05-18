@@ -41,12 +41,19 @@ const isGoogleDriveVideo = (url: string) => {
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id='));
 }
 
+const getGoogleDriveId = (url: string) => {
+  if (!url) return null;
+  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch1?.[1]) return driveMatch1[1];
+  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch2?.[1] && url.includes('drive.google.com')) return driveMatch2[1];
+  return null;
+}
+
 const getRawVideoUrl = (url: string) => {
   if (!url) return '';
-  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
-  if (driveMatch1?.[1]) return `https://drive.google.com/uc?export=download&id=${driveMatch1[1]}`;
-  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
-  if (driveMatch2?.[1] && url.includes('drive.google.com')) return `https://drive.google.com/uc?export=download&id=${driveMatch2[1]}`;
+  const driveId = getGoogleDriveId(url);
+  if (driveId) return `/api/video-proxy?id=${driveId}`;
   return url;
 }
 
@@ -704,7 +711,15 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
                       <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
-                          embedUrl ? (
+                          selectedMaterial.link_drive && isGoogleDriveVideo(selectedMaterial.link_drive) ? (
+                            <video 
+                              src={getRawVideoUrl(selectedMaterial.link_drive)} 
+                              className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
+                              controls 
+                              playsInline 
+                              preload="metadata"
+                            />
+                          ) : embedUrl ? (
                             <iframe title="Vídeo" src={embedUrl} className="absolute top-0 left-0 w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                           ) : (
                             <div className="text-center p-4 z-10">
@@ -989,7 +1004,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div className="w-full max-w-[400px] md:max-w-5xl aspect-[9/16] md:aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10">
-              <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen></iframe>
+              {isGoogleDriveVideo(previewUrl) ? (
+                <video 
+                  src={getRawVideoUrl(previewUrl)} 
+                  className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
+                  controls 
+                  playsInline 
+                  preload="metadata"
+                />
+              ) : (
+                <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen></iframe>
+              )}
             </div>
           </div>
         </div>
