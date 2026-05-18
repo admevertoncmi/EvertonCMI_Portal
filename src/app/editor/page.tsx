@@ -71,10 +71,7 @@ const getGoogleDriveId = (url: string) => {
 const getRawVideoUrl = (url: string) => {
   if (!url) return '';
   const driveId = getGoogleDriveId(url);
-  if (driveId) {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || 'AIzaSyBq2zXAsGA5lBh83hLYEHNaA8cRVioIFf8';
-    return `https://www.googleapis.com/drive/v3/files/${driveId}?alt=media&key=${apiKey}`;
-  }
+  if (driveId) return `/api/video-proxy?id=${driveId}`;
   return url;
 }
 
