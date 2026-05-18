@@ -96,8 +96,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
 
-  const [minutoAjuste, setMinutoAjuste] = useState('')
-  const [segundoAjuste, setSegundoAjuste] = useState('')
+
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const [materialToApprove, setMaterialToApprove] = useState<any>(null)
@@ -167,8 +166,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setFeedbackText('')
     setMediaTab('video')
     setAlvoAjuste('video')
-    setMinutoAjuste('')
-    setSegundoAjuste('')
   }, [activeTab])
 
   // 🔥 LÓGICA CORRIGIDA: Define a aba e alvo padrão dependendo do que foi entregue
@@ -185,8 +182,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
         setAlvoAjuste('video');
       }
     }
-    setMinutoAjuste('')
-    setSegundoAjuste('')
     setCurrentSlide(0)
   }, [selectedMaterial])
 
@@ -388,12 +383,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     let textoBase = feedbackText;
     const isRoteiro = activeTab === 'roteiros';
 
-    if (!isRoteiro && (minutoAjuste || segundoAjuste)) {
-      const min = minutoAjuste.padStart(2, '0') || '00';
-      const seg = segundoAjuste.padStart(2, '0') || '00';
-      textoBase = `[⏱️ ${min}:${seg}] - ${textoBase}`;
-    }
-
     let flagVideo = selectedMaterial.video_entregue;
     let flagDesign = selectedMaterial.design_entregue;
 
@@ -433,8 +422,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await notificarClickUpChat(msg);
 
     setFeedbackText('');
-    setMinutoAjuste('');
-    setSegundoAjuste('');
     toast.success("Solicitação de ajuste enviada para a equipe!");
     setActionLoading(false);
   }
@@ -934,39 +921,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                           </div>
                         )}
 
-                        {/* 🔥 MINUTAGEM OPCIONAL (Não aparece para Carrosséis) */}
-                        {!isRoteiro && selectedMaterial.link_drive && (alvoAjuste === 'video' || alvoAjuste === 'ambos') && (
-                          <div className="space-y-2">
-                            <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
-                              Em qual momento do vídeo? (Opcional)
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center bg-white border border-zinc-200 rounded-xl px-4 py-2.5 w-max shadow-sm">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="59"
-                                  placeholder="00"
-                                  className="w-10 text-center text-sm font-bold outline-none bg-transparent"
-                                  value={minutoAjuste}
-                                  onChange={(e) => setMinutoAjuste(e.target.value.slice(0, 2))}
-                                />
-                                <span className="font-bold text-zinc-400 px-1">:</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="59"
-                                  placeholder="00"
-                                  className="w-10 text-center text-sm font-bold outline-none bg-transparent"
-                                  value={segundoAjuste}
-                                  onChange={(e) => setSegundoAjuste(e.target.value.slice(0, 2))}
-                                />
-                              </div>
-                              <span className="text-xs text-zinc-400 font-medium">Ex: 01:23</span>
-                            </div>
-                          </div>
-                        )}
-
                         {/* ÁREA DE TEXTO DO FEEDBACK */}
                         <div className="space-y-2">
                           <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
@@ -981,7 +935,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         </div>
 
                         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-                          <button onClick={() => { setIsRequestingAjuste(false); setFeedbackText(''); setAlvoAjuste('video'); setMinutoAjuste(''); setSegundoAjuste(''); }} disabled={actionLoading} className="w-full sm:w-auto px-6 py-4 font-bold text-zinc-400 hover:text-zinc-600 uppercase text-[10px] tracking-widest transition-colors disabled:opacity-50">
+                          <button onClick={() => { setIsRequestingAjuste(false); setFeedbackText(''); setAlvoAjuste('video'); }} disabled={actionLoading} className="w-full sm:w-auto px-6 py-4 font-bold text-zinc-400 hover:text-zinc-600 uppercase text-[10px] tracking-widest transition-colors disabled:opacity-50">
                             Cancelar
                           </button>
                           <button onClick={() => handleSolicitarAjuste(selectedMaterial.id)} disabled={actionLoading} className="w-full sm:w-auto px-8 py-4 bg-zinc-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
