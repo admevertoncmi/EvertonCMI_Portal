@@ -739,7 +739,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                               <div className={`feed-player-wrapper-${selectedMaterial.id} flex items-center justify-center`}>
                                 <iframe 
                                   title="Vídeo" 
-                                  src={embedUrl || selectedMaterial.link_drive} 
+                                  src={getEmbedUrl(selectedMaterial.link_drive) || selectedMaterial.link_drive} 
                                   className="w-full h-full border-0" 
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                                   allowFullScreen
