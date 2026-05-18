@@ -713,12 +713,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive && isGoogleDriveVideo(selectedMaterial.link_drive) ? (
                             <video 
-                              src={getRawVideoUrl(selectedMaterial.link_drive)} 
                               className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
                               controls 
                               playsInline 
                               preload="metadata"
-                            />
+                            >
+                              <source src={getRawVideoUrl(selectedMaterial.link_drive)} type="video/mp4" />
+                            </video>
                           ) : embedUrl ? (
                             <iframe title="Vídeo" src={embedUrl} className="absolute top-0 left-0 w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                           ) : (
@@ -1006,12 +1007,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             <div className="w-full max-w-[400px] md:max-w-5xl aspect-[9/16] md:aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10">
               {isGoogleDriveVideo(previewUrl) ? (
                 <video 
-                  src={getRawVideoUrl(previewUrl)} 
                   className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
                   controls 
                   playsInline 
                   preload="metadata"
-                />
+                >
+                  <source src={getRawVideoUrl(previewUrl)} type="video/mp4" />
+                </video>
               ) : (
                 <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen></iframe>
               )}

@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
     // Forward crucial video stream headers
     const responseHeaders = new Headers();
     
-    const contentType = response.headers.get("content-type") || "video/mp4";
+    let contentType = response.headers.get("content-type") || "video/mp4";
+    if (contentType === "application/octet-stream" || !contentType.startsWith("video/")) {
+      contentType = "video/mp4";
+    }
     responseHeaders.set("Content-Type", contentType);
     
     const contentLength = response.headers.get("content-length");

@@ -1031,12 +1031,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
         {isGoogleDriveVideo(url) ? (
           <video 
-            src={getRawVideoUrl(url)} 
             className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
             controls 
             playsInline 
             preload="metadata"
-          />
+          >
+            <source src={getRawVideoUrl(url)} type="video/mp4" />
+          </video>
         ) : (
           <iframe src={finalUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen />
         )}
