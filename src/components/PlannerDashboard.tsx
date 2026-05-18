@@ -347,22 +347,27 @@ export default function DecupadorDashboard() {
     const finalUrl = getEmbedUrl(url) || url;
     return (
       <div className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
-        <div 
-          className="relative overflow-hidden flex items-center justify-center shrink-0"
-          style={{
-            width: '576px',
-            height: '1024px',
-            transform: 'scale(min(1, calc((100vw - 32px) / 576)))',
-            transformOrigin: 'center center',
-          }}
-        >
+        {isGoogleDriveVideo(url) && !useIframeFallback[url] ? (
+          <video 
+            className="absolute inset-0 w-full h-full object-contain" 
+            controls 
+            playsInline 
+            preload="metadata"
+            onError={() => {
+              console.warn("Video failed to load natively, falling back to iframe.");
+              setUseIframeFallback(prev => ({ ...prev, [url]: true }));
+            }}
+          >
+            <source src={getRawVideoUrl(url)} type="video/mp4" />
+          </video>
+        ) : (
           <iframe 
             src={finalUrl} 
-            className="w-full h-full border-0" 
+            className="absolute inset-0 w-full h-full border-0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen 
           />
-        </div>
+        )}
       </div>
     );
   };

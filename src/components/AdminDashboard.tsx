@@ -1030,22 +1030,27 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const finalUrl = getEmbedUrl(url) || url;
     return (
       <div className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
-        <div 
-          className="relative overflow-hidden flex items-center justify-center shrink-0"
-          style={{
-            width: '576px',
-            height: '1024px',
-            transform: 'scale(min(1, calc((100vw - 32px) / 576)))',
-            transformOrigin: 'center center',
-          }}
-        >
+        {isGoogleDriveVideo(url) && !useIframeFallback[url] ? (
+          <video 
+            className="absolute inset-0 w-full h-full object-contain" 
+            controls 
+            playsInline 
+            preload="metadata"
+            onError={() => {
+              console.warn("Video failed to load natively, falling back to iframe.");
+              setUseIframeFallback(prev => ({ ...prev, [url]: true }));
+            }}
+          >
+            <source src={getRawVideoUrl(url)} type="video/mp4" />
+          </video>
+        ) : (
           <iframe 
             src={finalUrl} 
-            className="w-full h-full border-0" 
+            className="absolute inset-0 w-full h-full border-0" 
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen 
           />
-        </div>
+        )}
       </div>
     );
   };
@@ -2408,7 +2413,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 ))}
               </div>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3">
 
               {delegationType === 'planner' && (
                 <div className="space-y-1">
@@ -2434,7 +2439,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </select>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
                   <div className="space-y-1">
                     <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PlayCircle size={12} /> Editor (Vídeos/Reels)</label>
                     <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedEditorId} onChange={e => setSelectedEditorId(e.target.value)}>
@@ -2446,7 +2451,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                   <div className="space-y-1">
                     <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PenTool size={12} /> Designer (Capas/Carrosséis)</label>
-                    <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedDesignerId} onChange={e => setSelectedDesignerId(e.target.value)}>
+                    <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedDesignerId} onChange={e => setSelectedDesignerId(e.target.value)}>
                       <option value="">Nenhum</option>
                       {designers.map(m => (
                         <option key={m.id} value={m.id}>{m.nome ? `${m.nome} (${m.role === 'admin' ? 'Gestor' : 'Designer'})` : `${m.email} (${m.role === 'admin' ? 'Gestor' : 'Designer'})`}</option>

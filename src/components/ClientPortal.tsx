@@ -719,32 +719,24 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive ? (
                             <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-[24px]">
-                              <style>{`
-                                .feed-player-wrapper-${selectedMaterial.id} {
-                                  width: 100%;
-                                  height: 100%;
-                                  position: absolute;
-                                  inset: 0;
-                                }
-                                @media (max-w: 768px) {
-                                  .feed-player-wrapper-${selectedMaterial.id} {
-                                    width: 576px !important;
-                                    height: 1024px !important;
-                                    transform: scale(calc((100vw - 32px) / 576)) !important;
-                                    transform-origin: center center !important;
-                                    flex-shrink: 0;
-                                  }
-                                }
-                              `}</style>
-                              <div className={`feed-player-wrapper-${selectedMaterial.id} flex items-center justify-center`}>
+                              {isGoogleDriveVideo(selectedMaterial.link_drive) && !useIframeFallback ? (
+                                <video 
+                                  src={getRawVideoUrl(selectedMaterial.link_drive)} 
+                                  className="absolute inset-0 w-full h-full object-contain" 
+                                  controls 
+                                  playsInline 
+                                  preload="metadata" 
+                                  onError={() => setUseIframeFallback(true)} 
+                                />
+                              ) : (
                                 <iframe 
                                   title="Vídeo" 
                                   src={getEmbedUrl(selectedMaterial.link_drive) || selectedMaterial.link_drive} 
-                                  className="w-full h-full border-0" 
+                                  className="absolute inset-0 w-full h-full border-0" 
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                                   allowFullScreen
                                 ></iframe>
-                              </div>
+                              )}
                             </div>
                           ) : (
                             <div className="text-center p-4 z-10">
@@ -1028,23 +1020,24 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div className="w-full max-w-[420px] aspect-[9/16] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
-              <div 
-                className="relative overflow-hidden flex items-center justify-center shrink-0"
-                style={{
-                  width: '576px',
-                  height: '1024px',
-                  transform: 'scale(min(1, calc((100vw - 32px) / 576)))',
-                  transformOrigin: 'center center',
-                }}
-              >
+              {isGoogleDriveVideo(previewUrl) && !useIframeFallback ? (
+                <video 
+                  src={getRawVideoUrl(previewUrl)} 
+                  className="absolute inset-0 w-full h-full object-contain" 
+                  controls 
+                  playsInline 
+                  preload="metadata" 
+                  onError={() => setUseIframeFallback(true)} 
+                />
+              ) : (
                 <iframe 
                   title="Player" 
                   src={getEmbedUrl(previewUrl) || previewUrl} 
-                  className="w-full h-full border-0" 
+                  className="absolute inset-0 w-full h-full border-0" 
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                   allowFullScreen
                 ></iframe>
-              </div>
+              )}
             </div>
           </div>
         </div>
