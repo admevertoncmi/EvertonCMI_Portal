@@ -295,7 +295,7 @@ export default function DecupadorDashboard() {
                     {isImg ? (
                       <img src={link} className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                     ) : (
-                      <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
+                      <iframe title={`Slide ${idx + 1}`} src={emb || link} className="absolute top-[-6%] left-0 w-full h-[112%] border-0 pointer-events-none" allowFullScreen></iframe>
                     )}
                   </div>
                 );
@@ -339,7 +339,7 @@ export default function DecupadorDashboard() {
     const finalUrl = getEmbedUrl(url) || url;
     return (
       <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
-        <iframe src={finalUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen />
+        <iframe src={finalUrl} className="absolute top-[-6%] left-0 w-full h-[112%] border-0" allowFullScreen />
       </div>
     );
   };
