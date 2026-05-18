@@ -36,6 +36,20 @@ const getRawDriveUrl = (url: string) => {
   return url;
 }
 
+const isGoogleDriveVideo = (url: string) => {
+  if (!url) return false;
+  return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id='));
+}
+
+const getRawVideoUrl = (url: string) => {
+  if (!url) return '';
+  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch1?.[1]) return `https://drive.google.com/uc?export=download&id=${driveMatch1[1]}`;
+  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch2?.[1] && url.includes('drive.google.com')) return `https://drive.google.com/uc?export=download&id=${driveMatch2[1]}`;
+  return url;
+}
+
 const renderTextWithLinks = (text: string) => {
   if (!text) return text;
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -217,7 +231,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   }, [todosMateriais])
 
   const videosList = useMemo(() => {
-    return todosMateriais.filter(m => (m.link_drive || m.link_capa) && ['pendente', 'ajustes', 'aprovado', 'post_aprovado'].includes(m.status.toLowerCase()));
+    return todosMateriais.filter(m => (m.link_drive || m.link_capa) && ['pendente', 'ajustes', 'aprovado', 'post_aprovado'].includes(m.status?.toLowerCase()));
   }, [todosMateriais])
 
   const currentList = activeTab === 'videos' ? videosList : roteirosList;
@@ -252,7 +266,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     } else {
       const itemsInCycle = todosMateriais.filter(m => (m.ciclo || 1) === activeCycle);
       const total = itemsInCycle.length || 1;
-      const aprovados = itemsInCycle.filter(m => ['aprovado', 'post_aprovado'].includes(m.status.toLowerCase()) && (m.link_drive || m.link_capa)).length;
+      const aprovados = itemsInCycle.filter(m => ['aprovado', 'post_aprovado'].includes(m.status?.toLowerCase()) && (m.link_drive || m.link_capa)).length;
       return { ciclo: activeCycle, total, aprovados, percentual: Math.round((aprovados / total) * 100) };
     }
   }, [todosMateriais, roteirosList, activeTab]);
@@ -691,7 +705,16 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square overflow-hidden'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
                           embedUrl ? (
-                            <iframe title="Vídeo" src={embedUrl} className="w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                            isGoogleDriveVideo(selectedMaterial.link_drive) ? (
+                              <video 
+                                src={getRawVideoUrl(selectedMaterial.link_drive)} 
+                                className="w-full h-full rounded-[24px] bg-black object-contain" 
+                                controls 
+                                playsInline 
+                              />
+                            ) : (
+                              <iframe title="Vídeo" src={embedUrl} className="w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                            )
                           ) : (
                             <div className="text-center p-4 z-10">
                               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto border border-white/20 mb-3">
@@ -974,7 +997,16 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             </button>
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
-            <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
+            {isGoogleDriveVideo(previewUrl) ? (
+              <video 
+                src={getRawVideoUrl(previewUrl)} 
+                className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black object-contain" 
+                controls 
+                playsInline 
+              />
+            ) : (
+              <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
+            )}
           </div>
         </div>
       )}

@@ -34,6 +34,20 @@ const getEmbedUrl = (url: string) => {
   return url;
 };
 
+const isGoogleDriveVideo = (url: string) => {
+  if (!url) return false;
+  return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
+}
+
+const getRawVideoUrl = (url: string) => {
+  if (!url) return '';
+  const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch1?.[1]) return `https://drive.google.com/uc?export=download&id=${driveMatch1[1]}`;
+  const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch2?.[1] && url.includes('drive.google.com')) return `https://drive.google.com/uc?export=download&id=${driveMatch2[1]}`;
+  return url;
+}
+
 const getCleanText = (text: string | null | undefined) => {
   if (!text) return "";
   return text.replace(/\[ID:[^\]]+\]\s*/g, '');
@@ -323,6 +337,16 @@ export default function DecupadorDashboard() {
     }
 
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+    if (isGoogleDriveVideo(url)) {
+      return (
+        <video 
+          src={getRawVideoUrl(url)} 
+          className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] bg-black object-contain shadow-2xl animate-in fade-in duration-300" 
+          controls 
+          playsInline 
+        />
+      );
+    }
     const finalUrl = getEmbedUrl(url) || url;
     return <iframe src={finalUrl} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] border-0 bg-black shadow-2xl" allowFullScreen />;
   };
