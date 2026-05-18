@@ -1035,18 +1035,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div className="w-full max-w-[400px] md:max-w-5xl aspect-[9/16] md:aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10">
-              {isGoogleDriveVideo(previewUrl) ? (
-                <video 
-                  className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
-                  controls 
-                  playsInline 
-                  preload="metadata"
-                >
-                  <source src={getRawVideoUrl(previewUrl)} type="video/mp4" />
-                </video>
-              ) : (
-                <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen></iframe>
-              )}
+              <iframe 
+                title="Player" 
+                src={getEmbedUrl(previewUrl) || previewUrl} 
+                className="absolute inset-0 w-full h-full border-0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
+              ></iframe>
             </div>
           </div>
         </div>
