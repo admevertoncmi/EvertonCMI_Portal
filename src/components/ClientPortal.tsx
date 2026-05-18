@@ -715,7 +715,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       )}
 
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
-                      <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}>
+                      <div 
+                        className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}
+                        style={{ containerType: 'inline-size' }}
+                      >
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive ? (
                             <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-[24px]">
@@ -727,7 +730,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                     style={{
                                       width: '576px',
                                       height: '1024px',
-                                      transform: 'scale(calc(min(100vw - 48px, 360px) / 576))',
+                                      transform: 'scale(calc(100cqw / 576))',
                                       transformOrigin: 'center center',
                                     }}
                                   >
@@ -1039,14 +1042,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             </button>
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
-            <div className="w-full max-w-[420px] aspect-[9/16] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
+            <div 
+              className="w-full max-w-[420px] aspect-[9/16] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center"
+              style={{ containerType: 'inline-size' }}
+            >
               {isGoogleDriveVideo(previewUrl) ? (
                 <div 
                   className="relative overflow-hidden flex items-center justify-center shrink-0"
                   style={{
                     width: '576px',
                     height: '1024px',
-                    transform: 'scale(calc(min(100vw - 32px, 420px) / 576))',
+                    transform: 'scale(calc(100cqw / 576))',
                     transformOrigin: 'center center',
                   }}
                 >

@@ -1030,14 +1030,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const finalUrl = getEmbedUrl(url) || url;
     const isDrive = isGoogleDriveVideo(url);
     return (
-      <div className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
+      <div 
+        className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center"
+        style={{ containerType: 'inline-size' }}
+      >
         {isDrive ? (
           <div 
             className="relative overflow-hidden flex items-center justify-center shrink-0"
             style={{
               width: '576px',
               height: '1024px',
-              transform: 'scale(calc(min(100vw - 32px, 420px) / 576))',
+              transform: 'scale(calc(100cqw / 576))',
               transformOrigin: 'center center',
             }}
           >
