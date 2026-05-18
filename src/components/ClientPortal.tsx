@@ -6,7 +6,7 @@ import { notificarClickUpChat } from '@/actions/clickup'
 import { getDriveFolderFiles } from '@/actions/google'
 import {
   CheckCircle2, ExternalLink, Calendar,
-  AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown
+  AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown, Play
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -717,28 +717,48 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
                       <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
-                          selectedMaterial.link_drive && isGoogleDriveVideo(selectedMaterial.link_drive) && !useIframeFallback ? (
-                            <video 
-                              className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
-                              controls 
-                              playsInline 
-                              preload="metadata"
-                              onError={() => {
-                                console.warn("Video failed to load natively, falling back to iframe.");
-                                setUseIframeFallback(true);
-                              }}
+                          selectedMaterial.link_drive ? (
+                            <div 
+                              onClick={() => setPreviewUrl(selectedMaterial.link_drive)}
+                              className="absolute inset-0 w-full h-full cursor-pointer group flex flex-col items-center justify-center bg-zinc-950 transition-all overflow-hidden"
                             >
-                              <source src={getRawVideoUrl(selectedMaterial.link_drive)} type="video/mp4" />
-                            </video>
-                          ) : embedUrl ? (
-                            <iframe title="Vídeo" src={embedUrl} className="absolute top-0 left-0 w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                              {/* Backdrop Image if available */}
+                              {selectedMaterial.link_capa && selectedMaterial.link_capa.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i) ? (
+                                <>
+                                  <img 
+                                    src={selectedMaterial.link_capa} 
+                                    className="absolute inset-0 w-full h-full object-cover opacity-45 group-hover:scale-105 transition-all duration-700 select-none filter blur-[1px]" 
+                                    alt="Cover" 
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/50 z-0" />
+                                </>
+                              ) : (
+                                <div className="absolute inset-0 bg-gradient-to-tr from-orange-600/20 via-zinc-950 to-zinc-950 z-0 animate-pulse duration-[8000ms]" />
+                              )}
+                              
+                              {/* Glassmorphic Play Container */}
+                              <div className="relative z-10 flex flex-col items-center gap-4 transition-all duration-300 transform group-hover:scale-110">
+                                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-2xl shadow-orange-500/10 group-hover:bg-white group-hover:text-black group-hover:border-white transition-all duration-300 relative">
+                                  {/* pulsating ring */}
+                                  <div className="absolute inset-0 rounded-full border border-white/30 animate-ping opacity-70 group-hover:hidden" />
+                                  <Play fill="currentColor" className="ml-1" size={28} />
+                                </div>
+                                <div className="text-center">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/90 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+                                    Reproduzir Vídeo
+                                  </span>
+                                  <p className="text-[10px] text-zinc-500 mt-2 font-medium tracking-wide">
+                                    Clique para abrir em tela cheia
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
                           ) : (
                             <div className="text-center p-4 z-10">
                               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto border border-white/20 mb-3">
                                 <ExternalLink className="text-white" size={20} />
                               </div>
-                              <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Este link não suporta reprodução direta no portal.</p>
-                              <a href={selectedMaterial.link_drive} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Material Original <ExternalLink size={12} /></a>
+                              <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Nenhum vídeo disponível no momento.</p>
                             </div>
                           )
                         ) : (
