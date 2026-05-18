@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
-import { notificarTelegram } from './telegram'
+import { notificarTelegram } from './notificacoes'
 import { revalidatePath } from 'next/cache'
 import type { Material, EquipeMember } from '../types/assent'
 

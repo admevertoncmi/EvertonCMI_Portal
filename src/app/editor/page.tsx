@@ -347,21 +347,26 @@ export default function EditorDashboard() {
     }
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     const finalUrl = getEmbedUrl(url) || url;
+    const isDrive = isGoogleDriveVideo(url);
     return (
       <div className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
-        {isGoogleDriveVideo(url) && !useIframeFallback[url] ? (
-          <video 
-            className="absolute inset-0 w-full h-full object-contain" 
-            controls 
-            playsInline 
-            preload="metadata"
-            onError={() => {
-              console.warn("Video failed to load natively, falling back to iframe.");
-              setUseIframeFallback(prev => ({ ...prev, [url]: true }));
+        {isDrive ? (
+          <div 
+            className="relative overflow-hidden flex items-center justify-center shrink-0"
+            style={{
+              width: '576px',
+              height: '1024px',
+              transform: 'scale(calc(min(100vw - 32px, 420px) / 576))',
+              transformOrigin: 'center center',
             }}
           >
-            <source src={getRawVideoUrl(url)} type="video/mp4" />
-          </video>
+            <iframe 
+              src={finalUrl} 
+              className="w-full h-full border-0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen 
+            />
+          </div>
         ) : (
           <iframe 
             src={finalUrl} 

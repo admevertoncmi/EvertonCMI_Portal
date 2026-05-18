@@ -719,15 +719,35 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive ? (
                             <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-[24px]">
-                              {isGoogleDriveVideo(selectedMaterial.link_drive) && !useIframeFallback ? (
-                                <video 
-                                  src={getRawVideoUrl(selectedMaterial.link_drive)} 
-                                  className="absolute inset-0 w-full h-full object-contain" 
-                                  controls 
-                                  playsInline 
-                                  preload="metadata" 
-                                  onError={() => setUseIframeFallback(true)} 
-                                />
+                              {isGoogleDriveVideo(selectedMaterial.link_drive) ? (
+                                <>
+                                  {/* Mobile Player */}
+                                  <div 
+                                    className="md:hidden relative overflow-hidden flex items-center justify-center shrink-0"
+                                    style={{
+                                      width: '576px',
+                                      height: '1024px',
+                                      transform: 'scale(calc(min(100vw - 48px, 360px) / 576))',
+                                      transformOrigin: 'center center',
+                                    }}
+                                  >
+                                    <iframe 
+                                      title="Vídeo Mobile" 
+                                      src={getEmbedUrl(selectedMaterial.link_drive) || selectedMaterial.link_drive} 
+                                      className="w-full h-full border-0" 
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                      allowFullScreen
+                                    />
+                                  </div>
+                                  {/* Desktop Player */}
+                                  <iframe 
+                                    title="Vídeo Desktop" 
+                                    src={getEmbedUrl(selectedMaterial.link_drive) || selectedMaterial.link_drive} 
+                                    className="hidden md:block absolute inset-0 w-full h-full border-0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen
+                                  />
+                                </>
                               ) : (
                                 <iframe 
                                   title="Vídeo" 
@@ -735,7 +755,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                   className="absolute inset-0 w-full h-full border-0" 
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                                   allowFullScreen
-                                ></iframe>
+                                />
                               )}
                             </div>
                           ) : (
@@ -1020,15 +1040,24 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div className="w-full max-w-[420px] aspect-[9/16] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
-              {isGoogleDriveVideo(previewUrl) && !useIframeFallback ? (
-                <video 
-                  src={getRawVideoUrl(previewUrl)} 
-                  className="absolute inset-0 w-full h-full object-contain" 
-                  controls 
-                  playsInline 
-                  preload="metadata" 
-                  onError={() => setUseIframeFallback(true)} 
-                />
+              {isGoogleDriveVideo(previewUrl) ? (
+                <div 
+                  className="relative overflow-hidden flex items-center justify-center shrink-0"
+                  style={{
+                    width: '576px',
+                    height: '1024px',
+                    transform: 'scale(calc(min(100vw - 32px, 420px) / 576))',
+                    transformOrigin: 'center center',
+                  }}
+                >
+                  <iframe 
+                    title="Player" 
+                    src={getEmbedUrl(previewUrl) || previewUrl} 
+                    className="w-full h-full border-0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen
+                  />
+                </div>
               ) : (
                 <iframe 
                   title="Player" 
@@ -1036,7 +1065,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                   className="absolute inset-0 w-full h-full border-0" 
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                   allowFullScreen
-                ></iframe>
+                />
               )}
             </div>
           </div>

@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-let browserQueryClient: QueryClient | undefined = undefined
+let globalBrowserQueryClient: QueryClient | undefined = undefined
 
-export const browserQueryClient = () => browserQueryClient!
+export const browserQueryClient = () => globalBrowserQueryClient!
 
 export function Providers({ children }: {
   children: React.ReactNode
@@ -17,8 +17,8 @@ export function Providers({ children }: {
     )
   } else {
     // Client - singleton
-    if (!browserQueryClient) {
-      browserQueryClient = new QueryClient({
+    if (!globalBrowserQueryClient) {
+      globalBrowserQueryClient = new QueryClient({
         defaultOptions: {
           queries: {
             staleTime: 60 * 1000,
@@ -27,11 +27,9 @@ export function Providers({ children }: {
       })
     }
     return (
-      <QueryClientProvider client={browserQueryClient}>
+      <QueryClientProvider client={globalBrowserQueryClient}>
         {children}
       </QueryClientProvider>
     )
   }
 }
-
-
