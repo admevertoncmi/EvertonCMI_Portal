@@ -1019,16 +1019,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
 
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
-    if (isGoogleDriveVideo(url)) {
-      return (
-        <video 
-          src={getRawVideoUrl(url)} 
-          className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] bg-black object-contain shadow-2xl animate-in fade-in duration-300" 
-          controls 
-          playsInline 
-        />
-      );
-    }
     const finalUrl = getEmbedUrl(url) || url;
     return <iframe src={finalUrl} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] border-0 bg-black shadow-2xl" allowFullScreen />;
   };
