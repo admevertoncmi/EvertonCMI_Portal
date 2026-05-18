@@ -348,13 +348,13 @@ export default function EditorDashboard() {
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     const finalUrl = getEmbedUrl(url) || url;
     return (
-      <div className="w-full mx-auto aspect-video md:max-w-4xl rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
+      <div className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
         <div 
           className="relative overflow-hidden flex items-center justify-center shrink-0"
           style={{
-            width: '1024px',
-            height: '576px',
-            transform: 'scale(min(1, calc((100vw - 32px) / 1024)))',
+            width: '576px',
+            height: '1024px',
+            transform: 'scale(min(1, calc((100vw - 32px) / 576)))',
             transformOrigin: 'center center',
           }}
         >

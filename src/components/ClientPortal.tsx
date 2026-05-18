@@ -718,39 +718,32 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive ? (
-                            <div 
-                              onClick={() => setPreviewUrl(selectedMaterial.link_drive)}
-                              className="absolute inset-0 w-full h-full cursor-pointer group flex flex-col items-center justify-center bg-zinc-950 transition-all overflow-hidden"
-                            >
-                              {/* Backdrop Image if available */}
-                              {selectedMaterial.link_capa && selectedMaterial.link_capa.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i) ? (
-                                <>
-                                  <img 
-                                    src={selectedMaterial.link_capa} 
-                                    className="absolute inset-0 w-full h-full object-cover opacity-45 group-hover:scale-105 transition-all duration-700 select-none filter blur-[1px]" 
-                                    alt="Cover" 
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/50 z-0" />
-                                </>
-                              ) : (
-                                <div className="absolute inset-0 bg-gradient-to-tr from-orange-600/20 via-zinc-950 to-zinc-950 z-0 animate-pulse duration-[8000ms]" />
-                              )}
-                              
-                              {/* Glassmorphic Play Container */}
-                              <div className="relative z-10 flex flex-col items-center gap-4 transition-all duration-300 transform group-hover:scale-110">
-                                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-2xl shadow-orange-500/10 group-hover:bg-white group-hover:text-black group-hover:border-white transition-all duration-300 relative">
-                                  {/* pulsating ring */}
-                                  <div className="absolute inset-0 rounded-full border border-white/30 animate-ping opacity-70 group-hover:hidden" />
-                                  <Play fill="currentColor" className="ml-1" size={28} />
-                                </div>
-                                <div className="text-center">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/90 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
-                                    Reproduzir Vídeo
-                                  </span>
-                                  <p className="text-[10px] text-zinc-500 mt-2 font-medium tracking-wide">
-                                    Clique para abrir em tela cheia
-                                  </p>
-                                </div>
+                            <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-[24px]">
+                              <style>{`
+                                .feed-player-wrapper-${selectedMaterial.id} {
+                                  width: 100%;
+                                  height: 100%;
+                                  position: absolute;
+                                  inset: 0;
+                                }
+                                @media (max-w: 768px) {
+                                  .feed-player-wrapper-${selectedMaterial.id} {
+                                    width: 576px !important;
+                                    height: 1024px !important;
+                                    transform: scale(calc((100vw - 32px) / 576)) !important;
+                                    transform-origin: center center !important;
+                                    flex-shrink: 0;
+                                  }
+                                }
+                              `}</style>
+                              <div className={`feed-player-wrapper-${selectedMaterial.id} flex items-center justify-center`}>
+                                <iframe 
+                                  title="Vídeo" 
+                                  src={embedUrl || selectedMaterial.link_drive} 
+                                  className="w-full h-full border-0" 
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                  allowFullScreen
+                                ></iframe>
                               </div>
                             </div>
                           ) : (
@@ -1034,13 +1027,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             </button>
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
-            <div className="w-full max-w-[1024px] aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
+            <div className="w-full max-w-[420px] aspect-[9/16] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
               <div 
                 className="relative overflow-hidden flex items-center justify-center shrink-0"
                 style={{
-                  width: '1024px',
-                  height: '576px',
-                  transform: 'scale(min(1, calc((100vw - 32px) / 1024)))',
+                  width: '576px',
+                  height: '1024px',
+                  transform: 'scale(min(1, calc((100vw - 32px) / 576)))',
                   transformOrigin: 'center center',
                 }}
               >
