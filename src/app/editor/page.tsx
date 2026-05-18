@@ -116,6 +116,7 @@ export default function EditorDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewRoteiro, setPreviewRoteiro] = useState<Material | null>(null);
+  const [useIframeFallback, setUseIframeFallback] = useState<Record<string, boolean>>({});
 
   // Carousel e Expandir Pasta
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -348,12 +349,16 @@ export default function EditorDashboard() {
     const finalUrl = getEmbedUrl(url) || url;
     return (
       <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
-        {isGoogleDriveVideo(url) ? (
+        {isGoogleDriveVideo(url) && !useIframeFallback[url] ? (
           <video 
             className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
             controls 
             playsInline 
             preload="metadata"
+            onError={() => {
+              console.warn("Video failed to load natively, falling back to iframe.");
+              setUseIframeFallback(prev => ({ ...prev, [url]: true }));
+            }}
           >
             <source src={getRawVideoUrl(url)} type="video/mp4" />
           </video>

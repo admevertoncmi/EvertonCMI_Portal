@@ -107,6 +107,12 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const materiaisVisualizados = useRef<Set<string>>(new Set());
 
+  const [useIframeFallback, setUseIframeFallback] = useState(false);
+
+  useEffect(() => {
+    setUseIframeFallback(false);
+  }, [selectedMaterial]);
+
   // 🔥 Estados para expansão de pastas do Drive
   const [expandedCapaLinks, setExpandedCapaLinks] = useState<string[]>([]);
   const [isExpandingFolder, setIsExpandingFolder] = useState(false);
@@ -711,12 +717,16 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
                       <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
-                          selectedMaterial.link_drive && isGoogleDriveVideo(selectedMaterial.link_drive) ? (
+                          selectedMaterial.link_drive && isGoogleDriveVideo(selectedMaterial.link_drive) && !useIframeFallback ? (
                             <video 
                               className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
                               controls 
                               playsInline 
                               preload="metadata"
+                              onError={() => {
+                                console.warn("Video failed to load natively, falling back to iframe.");
+                                setUseIframeFallback(true);
+                              }}
                             >
                               <source src={getRawVideoUrl(selectedMaterial.link_drive)} type="video/mp4" />
                             </video>

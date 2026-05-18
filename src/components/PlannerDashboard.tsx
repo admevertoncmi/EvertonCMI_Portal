@@ -82,6 +82,7 @@ export default function DecupadorDashboard() {
   const supabase = createClient()
 
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
+  const [useIframeFallback, setUseIframeFallback] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const storedTheme = localStorage.getItem('plannerTheme') as 'dark' | 'light' | null;
@@ -346,12 +347,16 @@ export default function DecupadorDashboard() {
     const finalUrl = getEmbedUrl(url) || url;
     return (
       <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
-        {isGoogleDriveVideo(url) ? (
+        {isGoogleDriveVideo(url) && !useIframeFallback[url] ? (
           <video 
             className="absolute inset-0 w-full h-full rounded-[24px] bg-black object-contain z-10" 
             controls 
             playsInline 
             preload="metadata"
+            onError={() => {
+              console.warn("Video failed to load natively, falling back to iframe.");
+              setUseIframeFallback(prev => ({ ...prev, [url]: true }));
+            }}
           >
             <source src={getRawVideoUrl(url)} type="video/mp4" />
           </video>
