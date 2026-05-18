@@ -1034,14 +1034,24 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             </button>
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
-            <div className="w-full max-w-[400px] md:max-w-5xl aspect-[9/16] md:aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10">
-              <iframe 
-                title="Player" 
-                src={getEmbedUrl(previewUrl) || previewUrl} 
-                className="absolute inset-0 w-full h-full border-0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-              ></iframe>
+            <div className="w-full max-w-[1024px] aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center">
+              <div 
+                className="relative overflow-hidden flex items-center justify-center shrink-0"
+                style={{
+                  width: '1024px',
+                  height: '576px',
+                  transform: 'scale(min(1, calc((100vw - 32px) / 1024)))',
+                  transformOrigin: 'center center',
+                }}
+              >
+                <iframe 
+                  title="Player" 
+                  src={getEmbedUrl(previewUrl) || previewUrl} 
+                  className="w-full h-full border-0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowFullScreen
+                ></iframe>
+              </div>
             </div>
           </div>
         </div>
