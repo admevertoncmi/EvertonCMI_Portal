@@ -702,10 +702,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       )}
 
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
-                      <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square overflow-hidden'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative shadow-2xl mb-5 border border-zinc-200`}>
+                      <div className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}>
                         {mediaTab === 'video' ? (
                           embedUrl ? (
-                            <iframe title="Vídeo" src={embedUrl} className="w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                            <iframe title="Vídeo" src={embedUrl} className="absolute top-0 left-0 w-full h-full rounded-[24px] border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                           ) : (
                             <div className="text-center p-4 z-10">
                               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto border border-white/20 mb-3">
@@ -987,8 +987,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
               <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
-            <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="w-full h-full rounded-[24px] border border-white/10 shadow-2xl bg-black" allowFullScreen></iframe>
+          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
+            <div className="w-full max-w-[400px] md:max-w-5xl aspect-[9/16] md:aspect-video rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10">
+              <iframe title="Player" src={getEmbedUrl(previewUrl) || previewUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen></iframe>
+            </div>
           </div>
         </div>
       )}

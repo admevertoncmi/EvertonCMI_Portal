@@ -1020,7 +1020,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     const finalUrl = getEmbedUrl(url) || url;
-    return <iframe src={finalUrl} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] border-0 bg-black shadow-2xl" allowFullScreen />;
+    return (
+      <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
+        <iframe src={finalUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen />
+      </div>
+    );
   };
 
   const navItem = (id: any, label: string, icon: any, count?: number, badgeColor?: string) => (
@@ -1038,7 +1042,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* CABEÇALHO MOBILE MINIMALISTA (GLASSMORPISM) */}
-      <div className={`md:hidden fixed top-0 left-0 w-full z-40 px-6 py-4 flex items-center justify-between backdrop-blur-md border-b ${theme === 'dark' ? 'bg-zinc-950/80 border-white/5' : 'bg-white/80 border-zinc-200'} shadow-sm transition-all duration-300`}>
+      <div className={`md:hidden fixed top-0 left-0 w-full z-[100] px-6 py-4 flex items-center justify-between backdrop-blur-md border-b ${theme === 'dark' ? 'bg-zinc-950/80 border-white/5' : 'bg-white/80 border-zinc-200'} shadow-sm transition-all duration-300`}>
         <div className="flex items-center gap-3">
           <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-10 w-auto object-contain" />
         </div>
@@ -1133,7 +1137,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       </aside>
 
       {/* BARRA INFERIOR MOBILE */}
-      <div className={`md:hidden fixed bottom-0 left-0 w-full ${tc.bgCard} rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-40 border-t ${tc.borderStrong}`}>
+      <div className={`md:hidden fixed bottom-0 left-0 w-full ${tc.bgCard} rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-[100] border-t ${tc.borderStrong}`}>
         <div className="flex justify-between items-end px-4 pb-4 pt-3 relative">
           <button onClick={() => { setActiveTab('planejamento'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'planejamento' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
             <ListTodo size={20} />

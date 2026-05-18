@@ -337,12 +337,14 @@ export default function EditorDashboard() {
         </div>
       );
     }
-
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     const finalUrl = getEmbedUrl(url) || url;
-    return <iframe src={finalUrl} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] border-0 bg-black shadow-2xl" allowFullScreen />;
+    return (
+      <div className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] overflow-hidden relative bg-black shadow-2xl">
+        <iframe src={finalUrl} className="absolute inset-0 w-full h-full border-0" allowFullScreen />
+      </div>
+    );
   };
-
   const roleLabel = userProfile?.role === 'designer' ? 'Designer' : userProfile?.role === 'planner' ? 'Decupador' : 'Editor';
   const firstName = userProfile?.nome?.split(' ')[0] || '';
 
@@ -351,7 +353,7 @@ export default function EditorDashboard() {
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
-      <div className={`md:hidden flex items-center justify-between p-5 pt-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-40 shadow-lg border-b`}>
+      <div className={`md:hidden flex items-center justify-between p-5 pt-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-[100] shadow-lg border-b`}>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">
             {userProfile?.role === 'designer' ? 'DD' : 'ED'}
