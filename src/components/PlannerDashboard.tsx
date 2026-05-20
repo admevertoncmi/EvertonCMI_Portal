@@ -417,10 +417,15 @@ export default function DecupadorDashboard() {
           </button>
         </div>
       </div>
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-zinc-950/60 backdrop-blur-md z-[9998] md:hidden animate-in fade-in duration-300" 
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+      )}
 
       {/* SIDEBAR COM LOGO MAIOR */}
-      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 ${bgSecundario} border-r ${borderSecundario} flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl md:backdrop-blur-none md:${bgSecundario} border-r border-zinc-200/80 dark:border-zinc-800/80 md:${borderSecundario} flex flex-col z-[9999] shadow-[15px_0_50px_rgba(0,0,0,0.3)] dark:shadow-[15px_0_50px_rgba(0,0,0,0.6)] md:shadow-none rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
         <div className="p-6 md:p-8 flex justify-between items-center">
           <div>
             <p className={`${textSecundario} font-black text-[10px] uppercase tracking-widest mb-2`}>Painel de Produção</p>

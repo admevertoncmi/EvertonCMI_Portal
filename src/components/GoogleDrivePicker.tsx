@@ -73,10 +73,13 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
   const createPicker = (token: string) => {
     window.gapi.load('picker', () => {
       // Usando o namespace correto window.google.picker
-      const viewId = type === 'folder' ? 'folders' : 'all';
+      const viewId = type === 'folder' 
+        ? (window.google.picker.ViewId?.FOLDERS || 'folders') 
+        : (window.google.picker.ViewId?.DOCS || 'docs');
       const view = new window.google.picker.DocsView(viewId);
       
       if (type === 'folder') {
+        view.setIncludeFolders(true);
         view.setSelectFolderEnabled(true);
         view.setMimeTypes('application/vnd.google-apps.folder');
       }

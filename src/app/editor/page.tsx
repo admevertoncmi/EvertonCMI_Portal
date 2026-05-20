@@ -425,10 +425,15 @@ export default function EditorDashboard() {
         </div>
       </div>
 
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-zinc-950/60 backdrop-blur-md z-[9998] md:hidden animate-in fade-in duration-300" 
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+      )}
 
       {/* SIDEBAR COM BOTÃO DARK/LIGHT NA BASE */}
-      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-[#212013] text-white border-r border-[#212013] flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col z-[9999] shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
         <div className="pt-8 pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
           <img src="/logo-light.png" alt="Everton" className="h-32 md:h-36 w-auto object-contain transition-transform duration-300" style={{ marginBottom: '-10px' }} />
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden absolute right-4 top-4 p-2 text-zinc-400 hover:text-white bg-white/10 rounded-full"><X size={18} /></button>

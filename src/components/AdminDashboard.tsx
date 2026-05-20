@@ -1124,10 +1124,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       </div>
 
       {/* OVERLAY MOBILE */}
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-zinc-950/60 backdrop-blur-md z-[9998] md:hidden animate-in fade-in duration-300" 
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+      )}
 
       {/* SIDEBAR RESPONSIVA PADRONIZADA */}
-      <aside className={`fixed inset-y-0 left-0 w-72 md:w-[280px] bg-[#212013] text-white border-r border-[#212013] flex flex-col shadow-2xl md:shadow-none z-50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 md:w-[280px] bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none z-[9999] rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
 
         {/* CONTAINER DA LOGO - Ajustado para logo grande sem empurrar o menu */}
         <div className="pt-8 pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
