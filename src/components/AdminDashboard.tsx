@@ -12,6 +12,7 @@ import { getDriveFolderFiles } from '@/actions/google'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
 import GoogleDrivePicker from '@/components/GoogleDrivePicker'
+import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 import {
   LayoutDashboard, Users, Plus, LogOut, Phone, Link, Send,
   Trash2, ExternalLink, RotateCcw, X, MessageSquare,
@@ -228,6 +229,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isLinkBrutoModalOpen, setIsLinkBrutoModalOpen] = useState(false)
   const [newLinkBruto, setNewLinkBruto] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [zoomMode, setZoomMode] = useState<'fit' | 'fill'>('fit');
+  const [aspectRatio, setAspectRatio] = useState<'9/16' | 'video' | 'square'>('9/16');
+
+  useEffect(() => {
+    if (previewUrl) {
+      setZoomMode('fit');
+      if (isGoogleDriveVideo(previewUrl)) {
+        setAspectRatio('9/16');
+      } else {
+        setAspectRatio('9/16'); // Alterado de 'square' para '9/16' para capas/cards verticais!
+      }
+    }
+  }, [previewUrl]);
+
   const [previewRoteiro, setPreviewRoteiro] = useState<Material | null>(null);
   const [isEditRoteiroModalOpen, setIsEditRoteiroModalOpen] = useState(false);
   const [roteiroToEdit, setRoteiroToEdit] = useState<Material | null>(null);
@@ -1031,26 +1046,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const isDrive = isGoogleDriveVideo(url);
     return (
       <div 
-        className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center"
+        className={`w-full mx-auto bg-black rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
+          aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
+          aspectRatio === 'video' ? 'aspect-video max-w-4xl' : 
+          'aspect-square max-w-2xl'
+        }`}
         style={{ containerType: 'inline-size' }}
       >
+        {/* Tela responsiva do vídeo */}
+
         {isDrive ? (
-          <div 
-            className="relative overflow-hidden flex items-center justify-center shrink-0"
-            style={{
-              width: '576px',
-              height: '1024px',
-              transform: 'scale(calc(100cqw / 576))',
-              transformOrigin: 'center center',
-            }}
-          >
-            <iframe 
-              src={finalUrl} 
-              className="w-full h-full border-0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen 
-            />
-          </div>
+          <ScaledGoogleDrivePlayer 
+            url={url} 
+            zoomMode={zoomMode} 
+            aspectRatio={aspectRatio} 
+          />
         ) : (
           <iframe 
             src={finalUrl} 

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-browser'
 import { useState, useEffect, useMemo, useCallback, useRef, use } from 'react'
+import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 import { notificarClickUpChat } from '@/actions/clickup'
 import { getDriveFolderFiles } from '@/actions/google'
 import {
@@ -115,6 +116,36 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   // 🔥 Estados para expansão de pastas do Drive
   const [expandedCapaLinks, setExpandedCapaLinks] = useState<string[]>([]);
   const [isExpandingFolder, setIsExpandingFolder] = useState(false);
+
+  // Aspect ratio e zoom do portal (inline e modal)
+  const [zoomMode, setZoomMode] = useState<'fit' | 'fill'>('fit');
+  const [aspectRatio, setAspectRatio] = useState<'9/16' | 'video' | 'square'>('9/16');
+
+  const [modalZoomMode, setModalZoomMode] = useState<'fit' | 'fill'>('fit');
+  const [modalAspectRatio, setModalAspectRatio] = useState<'9/16' | 'video' | 'square'>('9/16');
+
+  // Efeito para definir padrões inteligentes de zoom/aspecto baseado na aba
+  useEffect(() => {
+    if (mediaTab === 'video') {
+      setZoomMode('fit');
+      setAspectRatio('9/16');
+    } else {
+      setZoomMode('fit');
+      setAspectRatio('9/16'); // Alterado de 'square' para '9/16' para capas/cards verticais!
+    }
+  }, [mediaTab, selectedMaterial]);
+
+  useEffect(() => {
+    if (previewUrl) {
+      if (isGoogleDriveVideo(previewUrl)) {
+        setModalZoomMode('fit');
+        setModalAspectRatio('9/16');
+      } else {
+        setModalZoomMode('fit');
+        setModalAspectRatio('9/16'); // Alterado de 'square' para '9/16' para capas/cards verticais!
+      }
+    }
+  }, [previewUrl]);
 
   // 🔥 Hook do Embla Carousel movido para o topo para respeitar as regras do React
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, skipSnaps: false });
@@ -447,14 +478,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   }
 
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-white text-blue-600">
+    <div suppressHydrationWarning={true} className="h-screen flex flex-col items-center justify-center bg-white text-blue-600">
       <Loader2 className="animate-spin mb-4" size={40} />
       <span className="font-black uppercase tracking-widest text-xs">A carregar o seu portal...</span>
     </div>
   )
 
   if (!cliente) return (
-    <div className="h-screen flex items-center justify-center text-center p-4 md:p-6 bg-zinc-50">
+    <div suppressHydrationWarning={true} className="h-screen flex items-center justify-center text-center p-4 md:p-6 bg-zinc-50">
       <div className="max-w-sm w-full bg-white p-8 md:p-10 rounded-[24px] shadow-xl border border-zinc-100">
         <h1 className="text-xl md:text-2xl font-black uppercase text-zinc-900">Link Inválido</h1>
         <p className="text-zinc-500 mt-2 font-medium text-sm md:text-base">O acesso que tentou utilizar não existe ou expirou.</p>
@@ -474,7 +505,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   ) : false;
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-zinc-50 font-sans text-zinc-900 pb-24 md:pb-8 overflow-x-hidden relative">
+    <div suppressHydrationWarning={true} className="min-h-screen min-h-[100dvh] bg-zinc-50 font-sans text-zinc-900 pb-24 md:pb-8 overflow-x-hidden relative">
       <Toaster position="top-right" richColors />
 
       {/* HEADER MOBILE COM WHITE-LABEL */}
@@ -703,41 +734,24 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
                       <div 
-                        className={`w-full mx-auto ${mediaTab === 'video' ? 'aspect-[9/16]' : 'aspect-square'} max-w-[360px] md:aspect-video md:max-w-full bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200`}
+                        className={`w-full mx-auto bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200 transition-all duration-300 ${
+                          aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[360px]' : 
+                          aspectRatio === 'video' ? 'aspect-video max-w-full' : 
+                          'aspect-square max-w-[420px]'
+                        }`}
                         style={{ containerType: 'inline-size' }}
                       >
+                        {/* Tela responsiva do vídeo */}
+
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive ? (
                             <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-[24px]">
                               {isGoogleDriveVideo(selectedMaterial.link_drive) ? (
-                                <>
-                                  {/* Mobile Player */}
-                                  <div 
-                                    className="md:hidden relative overflow-hidden flex items-center justify-center shrink-0"
-                                    style={{
-                                      width: '576px',
-                                      height: '1024px',
-                                      transform: 'scale(calc(100cqw / 576))',
-                                      transformOrigin: 'center center',
-                                    }}
-                                  >
-                                    <iframe 
-                                      title="Vídeo Mobile" 
-                                      src={getEmbedUrl(selectedMaterial.link_drive) || selectedMaterial.link_drive} 
-                                      className="w-full h-full border-0" 
-                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                      allowFullScreen
-                                    />
-                                  </div>
-                                  {/* Desktop Player */}
-                                  <iframe 
-                                    title="Vídeo Desktop" 
-                                    src={getEmbedUrl(selectedMaterial.link_drive) || selectedMaterial.link_drive} 
-                                    className="hidden md:block absolute inset-0 w-full h-full border-0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                    allowFullScreen
-                                  />
-                                </>
+                                <ScaledGoogleDrivePlayer 
+                                  url={selectedMaterial.link_drive} 
+                                  zoomMode={zoomMode} 
+                                  aspectRatio={aspectRatio} 
+                                />
                               ) : (
                                 <iframe 
                                   title="Vídeo" 
@@ -997,27 +1011,21 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div 
-              className="w-full max-w-[420px] aspect-[9/16] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center"
+              className={`w-full bg-black rounded-[24px] overflow-hidden relative shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
+                modalAspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
+                modalAspectRatio === 'video' ? 'aspect-video max-w-4xl' : 
+                'aspect-square max-w-2xl'
+              }`}
               style={{ containerType: 'inline-size' }}
             >
+              {/* Modal de vídeo */}
+
               {isGoogleDriveVideo(previewUrl) ? (
-                <div 
-                  className="relative overflow-hidden flex items-center justify-center shrink-0"
-                  style={{
-                    width: '576px',
-                    height: '1024px',
-                    transform: 'scale(calc(100cqw / 576))',
-                    transformOrigin: 'center center',
-                  }}
-                >
-                  <iframe 
-                    title="Player" 
-                    src={getEmbedUrl(previewUrl) || previewUrl} 
-                    className="w-full h-full border-0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                    allowFullScreen
-                  />
-                </div>
+                <ScaledGoogleDrivePlayer 
+                  url={previewUrl} 
+                  zoomMode={modalZoomMode} 
+                  aspectRatio={modalAspectRatio} 
+                />
               ) : (
                 <iframe 
                   title="Player" 

@@ -13,6 +13,7 @@ import {
   Sun, Moon, Loader2
 } from 'lucide-react'
 import GoogleDrivePicker from './GoogleDrivePicker'
+import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 
 interface Cliente { id: string; nome: string; }
 interface Material {
@@ -135,6 +136,21 @@ export default function DecupadorDashboard() {
   const [newDriveLink, setNewDriveLink] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [zoomMode, setZoomMode] = useState<'fit' | 'fill'>('fit');
+  const [aspectRatio, setAspectRatio] = useState<'9/16' | 'video' | 'square'>('9/16');
+
+  // Efeito para definir padrões inteligentes de zoom/aspecto baseado no previewUrl
+  useEffect(() => {
+    if (previewUrl) {
+      if (isGoogleDriveVideo(previewUrl)) {
+        setZoomMode('fit');
+        setAspectRatio('9/16');
+      } else {
+        setZoomMode('fit');
+        setAspectRatio('9/16'); // Alterado de 'square' para '9/16' para capas/cards verticais!
+      }
+    }
+  }, [previewUrl]);
 
   // Carousel e Expandir Pasta
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -343,32 +359,30 @@ export default function DecupadorDashboard() {
         </div>
       );
     }
-    if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+
+    if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) {
+      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+    }
+
     const finalUrl = getEmbedUrl(url) || url;
     const isDrive = isGoogleDriveVideo(url);
     return (
       <div 
-        className="w-full mx-auto aspect-[9/16] md:max-w-[420px] rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center"
+        className={`w-full mx-auto bg-black rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
+          aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
+          aspectRatio === 'video' ? 'aspect-video max-w-4xl' : 
+          'aspect-square max-w-2xl'
+        }`}
         style={{ containerType: 'inline-size' }}
       >
-        {isDrive ? (
-          <div 
-            className="relative overflow-hidden flex items-center justify-center shrink-0"
-            style={{
-              width: '576px',
-              height: '1024px',
-              transform: 'scale(calc(100cqw / 576))',
-              transformOrigin: 'center center',
-            }}
-          >
-            <iframe 
+        {/* Tela responsiva do vídeo */}
 
-              src={finalUrl} 
-              className="w-full h-full border-0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen 
-            />
-          </div>
+        {isDrive ? (
+          <ScaledGoogleDrivePlayer 
+            url={url} 
+            zoomMode={zoomMode} 
+            aspectRatio={aspectRatio} 
+          />
         ) : (
           <iframe 
             src={finalUrl} 

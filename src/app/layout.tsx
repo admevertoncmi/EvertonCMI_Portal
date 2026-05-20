@@ -38,12 +38,42 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning className="antialiased">
+      <head>
+        {/* Script para bloquear injeções de atributos por extensões (como bis_skin_checked) e evitar erros de Hydration Mismatch */}
+        <script
+          suppressHydrationWarning={true}
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const orgSet = Element.prototype.setAttribute;
+                  Element.prototype.setAttribute = function(name, value) {
+                    if (name === 'bis_skin_checked') return;
+                    orgSet.call(this, name, value);
+                  };
+                  const orgSetNS = Element.prototype.setAttributeNS;
+                  Element.prototype.setAttributeNS = function(ns, name, value) {
+                    if (name === 'bis_skin_checked') return;
+                    orgSetNS.call(this, ns, name, value);
+                  };
+                  const orgSetNode = Element.prototype.setAttributeNode;
+                  Element.prototype.setAttributeNode = function(attr) {
+                    if (attr && attr.name === 'bis_skin_checked') return attr;
+                    return orgSetNode.call(this, attr);
+                  };
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       {/* 👇 Removemos bg-zinc-50 fixo para evitar barras brancas no Safari mobile */}
       <body suppressHydrationWarning className={`${openSans.className} min-h-[100dvh] antialiased`}>
         {children}
         
         {/* Script para registrar o PWA (App instalável) */}
         <script
+          suppressHydrationWarning={true}
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
