@@ -400,7 +400,7 @@ export default function DecupadorDashboard() {
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
-      <div className={`md:hidden flex items-center justify-between p-5 pt-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-[100] shadow-lg border-b`}>
+      <div className={`md:hidden flex items-center justify-between p-5 pt-8 safe-pt-header-classic ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-[100] shadow-lg border-b`}>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">PL</div>
           <div>
@@ -426,7 +426,7 @@ export default function DecupadorDashboard() {
 
       {/* SIDEBAR COM LOGO MAIOR */}
       <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl md:backdrop-blur-none md:${bgSecundario} border-r border-zinc-200/80 dark:border-zinc-800/80 md:${borderSecundario} flex flex-col z-[9999] shadow-[15px_0_50px_rgba(0,0,0,0.3)] dark:shadow-[15px_0_50px_rgba(0,0,0,0.6)] md:shadow-none rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
-        <div className="p-6 md:p-8 flex justify-between items-center">
+        <div className="p-6 safe-pt-aside md:p-8 flex justify-between items-center">
           <div>
             <p className={`${textSecundario} font-black text-[10px] uppercase tracking-widest mb-2`}>Painel de Produção</p>
             <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Logo" className="h-20 md:h-24 object-contain" />
@@ -450,7 +450,7 @@ export default function DecupadorDashboard() {
         </div>
       </aside>
 
-      <main className={`flex-1 pt-28 md:pt-10 pb-10 px-4 md:p-10 overflow-y-auto ${bgPrincipal}`}>
+      <main className={`flex-1 pt-28 safe-pt-main-classic md:pt-10 pb-10 px-4 md:p-10 overflow-y-auto ${bgPrincipal}`}>
 
         {activeTab === 'pendentes' && (
           <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">

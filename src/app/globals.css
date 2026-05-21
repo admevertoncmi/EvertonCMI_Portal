@@ -80,4 +80,27 @@
     min-width: 0 !important;
     width: 100% !important;
   }
+
+  /* Suporte a Safe Area do iOS (PWA standalone mode) */
+  @media (max-width: 767px) {
+    .safe-pt-header-admin {
+      padding-top: calc(env(safe-area-inset-top) + 16px) !important;
+    }
+    
+    .safe-pt-main-admin {
+      padding-top: calc(env(safe-area-inset-top) + 96px) !important;
+    }
+
+    .safe-pt-header-classic {
+      padding-top: calc(env(safe-area-inset-top) + 32px) !important;
+    }
+
+    .safe-pt-main-classic {
+      padding-top: calc(env(safe-area-inset-top) + 112px) !important;
+    }
+
+    .safe-pt-aside {
+      padding-top: calc(env(safe-area-inset-top) + 16px) !important;
+    }
+  }
 }

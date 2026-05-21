@@ -73,8 +73,8 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
   const createPicker = (token: string) => {
     window.gapi.load('picker', () => {
       // Usando o namespace correto window.google.picker
-      const viewId = type === 'folder' 
-        ? (window.google.picker.ViewId?.FOLDERS || 'folders') 
+      const viewId = type === 'folder'
+        ? (window.google.picker.ViewId?.FOLDERS || 'folders')
         : (window.google.picker.ViewId?.DOCS || 'docs');
       const view = new window.google.picker.DocsView(viewId);
       
@@ -82,13 +82,24 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
         view.setIncludeFolders(true);
         view.setSelectFolderEnabled(true);
         view.setMimeTypes('application/vnd.google-apps.folder');
+      } else if (type === 'file') {
+        view.setIncludeFolders(false);
+      } else {
+        view.setIncludeFolders(true);
       }
+
+      const title = type === 'folder'
+        ? 'Selecionar Pasta'
+        : type === 'file'
+        ? 'Selecionar Arquivo'
+        : 'Selecionar do Google Drive';
 
       const picker = new window.google.picker.PickerBuilder()
         .setAppId(APP_ID)
         .setOAuthToken(token)
         .setDeveloperKey(API_KEY)
         .addView(view)
+        .setTitle(title)
         .setCallback((data: any) => {
           if (data.action === 'picked') {
             const doc = data.docs[0];

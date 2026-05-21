@@ -1089,7 +1089,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* CABEÇALHO MOBILE MINIMALISTA (GLASSMORPISM) */}
-      <div className={`md:hidden fixed top-0 left-0 w-full z-[100] px-6 py-4 flex items-center justify-between backdrop-blur-md border-b ${theme === 'dark' ? 'bg-zinc-950/80 border-white/5' : 'bg-white/80 border-zinc-200'} shadow-sm transition-all duration-300`}>
+      <div className={`md:hidden fixed top-0 left-0 w-full z-[100] px-6 py-4 safe-pt-header-admin flex items-center justify-between backdrop-blur-md border-b ${theme === 'dark' ? 'bg-zinc-950/80 border-white/5' : 'bg-white/80 border-zinc-200'} shadow-sm transition-all duration-300`}>
         <div className="flex items-center gap-3">
           <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-10 w-auto object-contain" />
         </div>
@@ -1135,7 +1135,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <aside className={`fixed inset-y-0 left-0 w-72 md:w-[280px] bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none z-[9999] rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
 
         {/* CONTAINER DA LOGO - Ajustado para logo grande sem empurrar o menu */}
-        <div className="pt-8 pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
+        <div className="pt-8 safe-pt-aside pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
           <img
             src="/logo-light.png"
             alt="Everton"
@@ -1222,7 +1222,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </div>
       </div>
 
-      <main className={`flex-1 pt-24 pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
+      <main className={`flex-1 pt-24 safe-pt-main-admin pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
         {/* ABA: PLANEJAMENTO */}
         {activeTab === 'planejamento' && (
           <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 text-left animate-in slide-in-from-bottom-4 duration-500">

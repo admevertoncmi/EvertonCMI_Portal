@@ -405,7 +405,7 @@ export default function EditorDashboard() {
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
-      <div className={`md:hidden flex items-center justify-between p-5 pt-8 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-[100] shadow-lg border-b`}>
+      <div className={`md:hidden flex items-center justify-between p-5 pt-8 safe-pt-header-classic ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-[100] shadow-lg border-b`}>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">
             {userProfile?.role === 'designer' ? 'DD' : 'ED'}
@@ -434,7 +434,7 @@ export default function EditorDashboard() {
 
       {/* SIDEBAR COM BOTÃO DARK/LIGHT NA BASE */}
       <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col z-[9999] shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
-        <div className="pt-8 pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
+        <div className="pt-8 safe-pt-aside pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
           <img src="/logo-light.png" alt="Everton" className="h-32 md:h-36 w-auto object-contain transition-transform duration-300" style={{ marginBottom: '-10px' }} />
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden absolute right-4 top-4 p-2 text-zinc-400 hover:text-white bg-white/10 rounded-full"><X size={18} /></button>
         </div>
@@ -455,7 +455,7 @@ export default function EditorDashboard() {
         </div>
       </aside>
 
-      <main className={`flex-1 pt-28 md:pt-10 pb-10 px-4 md:px-10 overflow-y-auto ${bgPrincipal}`}>
+      <main className={`flex-1 pt-28 safe-pt-main-classic md:pt-10 pb-10 px-4 md:px-10 overflow-y-auto ${bgPrincipal}`}>
 
         {/* ABA DE EDIÇÃO / DESIGN */}
         {activeTab === 'ajustes' && (
