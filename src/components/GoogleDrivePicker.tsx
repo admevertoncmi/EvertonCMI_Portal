@@ -93,7 +93,7 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
           ? `mimeType != 'application/vnd.google-apps.folder' and trashed = false`
           : `trashed = false`;
 
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink)&orderBy=modifiedTime desc&pageSize=10`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&orderBy=modifiedTime desc&pageSize=10`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -131,7 +131,7 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
           ? `mimeType != 'application/vnd.google-apps.folder' and name contains '${escapedSearch}' and trashed = false`
           : `name contains '${escapedSearch}' and trashed = false`;
 
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink)&pageSize=15`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&pageSize=15`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -231,9 +231,16 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
                     className="w-full flex items-center justify-between p-3.5 bg-zinc-50/50 dark:bg-zinc-950/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-850 hover:border-zinc-300 dark:hover:border-zinc-700 rounded-2xl transition-all duration-250 group text-left"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 bg-zinc-100 dark:bg-zinc-900 rounded-xl group-hover:bg-[#A25431]/10 group-hover:text-[#A25431] transition-colors text-zinc-500 dark:text-zinc-400">
+                      <div className="flex-shrink-0 w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 group-hover:bg-[#A25431]/10 group-hover:text-[#A25431] transition-colors">
                         {item.mimeType === 'application/vnd.google-apps.folder' ? (
                           <Folder size={18} />
+                        ) : item.thumbnailLink ? (
+                          <img 
+                            src={item.thumbnailLink} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer"
+                          />
                         ) : (
                           <FileText size={18} />
                         )}
