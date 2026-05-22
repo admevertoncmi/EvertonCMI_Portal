@@ -128,17 +128,27 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
       pickerBuilder.setTitle(title);
 
       // ABA 1: Google Drive (DocsView - Apenas Meu Drive)
-      const googleDriveView = new window.google.picker.DocsView(window.google.picker.ViewId.DOCS);
+      const googleDriveView = new window.google.picker.DocsView(
+        type === 'folder' ? window.google.picker.ViewId.FOLDERS : window.google.picker.ViewId.DOCS
+      );
       googleDriveView.setIncludeFolders(true); // IMPORTANTE: Sempre habilitar pastas para permitir navegação/busca profunda
+      if (type === 'folder') {
+        googleDriveView.setMimeTypes('application/vnd.google-apps.folder');
+      }
       if (type === 'folder' || type === 'all') {
         googleDriveView.setSelectFolderEnabled(true);
       }
       pickerBuilder.addView(googleDriveView);
 
       // ABA 2: Shared drives (DocsView - Drives Compartilhados com setEnableDrives)
-      const sharedDrivesView = new window.google.picker.DocsView(window.google.picker.ViewId.DOCS);
+      const sharedDrivesView = new window.google.picker.DocsView(
+        type === 'folder' ? window.google.picker.ViewId.FOLDERS : window.google.picker.ViewId.DOCS
+      );
       sharedDrivesView.setEnableDrives(true); // Exibe os Drives Compartilhados e renomeia a aba no topo para "Shared drives"
       sharedDrivesView.setIncludeFolders(true); // IMPORTANTE: Sempre habilitar pastas para navegar no Shared Drive
+      if (type === 'folder') {
+        sharedDrivesView.setMimeTypes('application/vnd.google-apps.folder');
+      }
       if (type === 'folder' || type === 'all') {
         sharedDrivesView.setSelectFolderEnabled(true);
       }
@@ -153,6 +163,9 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
       // ABA 4: Folders (Visão focada na estrutura de pastas - foldersView)
       const foldersView = new window.google.picker.DocsView(window.google.picker.ViewId.FOLDERS);
       foldersView.setIncludeFolders(true);
+      if (type === 'folder') {
+        foldersView.setMimeTypes('application/vnd.google-apps.folder');
+      }
       if (type === 'folder' || type === 'all') {
         foldersView.setSelectFolderEnabled(true);
       }
