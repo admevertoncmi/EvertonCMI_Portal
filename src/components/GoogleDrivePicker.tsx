@@ -73,9 +73,9 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
   const createPicker = (token: string) => {
     window.gapi.load('picker', () => {
       // Usando o namespace correto window.google.picker
-      const viewId = type === 'folder'
-        ? (window.google.picker.ViewId?.FOLDERS || 'folders')
-        : (window.google.picker.ViewId?.DOCS || 'docs');
+      // Sempre usamos o ViewId.DOCS básico para que a seleção de pastas funcione corretamente,
+      // pois o ViewId.FOLDERS impede que o botão "Selecionar" fique ativo na pasta em si.
+      const viewId = window.google.picker.ViewId?.DOCS || 'docs';
       const view = new window.google.picker.DocsView(viewId);
       
       if (type === 'folder') {
@@ -86,6 +86,7 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
         view.setIncludeFolders(false);
       } else {
         view.setIncludeFolders(true);
+        view.setSelectFolderEnabled(true);
       }
 
       const title = type === 'folder'
