@@ -132,6 +132,8 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
       googleDriveView.setIncludeFolders(true); // IMPORTANTE: Sempre habilitar pastas para permitir navegação/busca profunda
       if (type === 'folder') {
         googleDriveView.setMimeTypes('application/vnd.google-apps.folder');
+      }
+      if (type === 'folder' || type === 'all') {
         googleDriveView.setSelectFolderEnabled(true);
       }
       pickerBuilder.addView(googleDriveView);
@@ -142,6 +144,8 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
       sharedDrivesView.setIncludeFolders(true); // IMPORTANTE: Sempre habilitar pastas para navegar no Shared Drive
       if (type === 'folder') {
         sharedDrivesView.setMimeTypes('application/vnd.google-apps.folder');
+      }
+      if (type === 'folder' || type === 'all') {
         sharedDrivesView.setSelectFolderEnabled(true);
       }
       pickerBuilder.addView(sharedDrivesView);
@@ -154,8 +158,11 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
 
       // ABA 4: Folders (Visão focada na estrutura de pastas - foldersView)
       const foldersView = new window.google.picker.DocsView(window.google.picker.ViewId.FOLDERS);
+      foldersView.setIncludeFolders(true);
       if (type === 'folder') {
         foldersView.setMimeTypes('application/vnd.google-apps.folder');
+      }
+      if (type === 'folder' || type === 'all') {
         foldersView.setSelectFolderEnabled(true);
       }
       pickerBuilder.addView(foldersView);
