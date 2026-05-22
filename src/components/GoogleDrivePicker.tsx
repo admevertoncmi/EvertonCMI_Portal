@@ -93,7 +93,7 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
           ? `mimeType != 'application/vnd.google-apps.folder' and trashed = false`
           : `trashed = false`;
 
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&orderBy=modifiedTime desc&pageSize=10`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&orderBy=modifiedTime desc&pageSize=10&supportsAllDrives=true&includeItemsFromAllDrives=true`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -131,7 +131,7 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
           ? `mimeType != 'application/vnd.google-apps.folder' and name contains '${escapedSearch}' and trashed = false`
           : `name contains '${escapedSearch}' and trashed = false`;
 
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&pageSize=15`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&pageSize=15&supportsAllDrives=true&includeItemsFromAllDrives=true`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`
