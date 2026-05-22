@@ -127,45 +127,33 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
 
       pickerBuilder.setTitle(title);
 
-      // ABA 1: Google Drive (DocsView)
+      // ABA 1: Google Drive (DocsView - Apenas Meu Drive)
       const googleDriveView = new window.google.picker.DocsView(window.google.picker.ViewId.DOCS);
-      googleDriveView.setEnableDrives(true);
+      googleDriveView.setIncludeFolders(true); // IMPORTANTE: Sempre habilitar pastas para permitir navegação/busca profunda
       if (type === 'folder') {
         googleDriveView.setMimeTypes('application/vnd.google-apps.folder');
-        googleDriveView.setSelectFolderEnabled(true);
-        googleDriveView.setIncludeFolders(true);
-      } else if (type === 'file') {
-        googleDriveView.setIncludeFolders(false);
-      } else {
-        googleDriveView.setIncludeFolders(true);
         googleDriveView.setSelectFolderEnabled(true);
       }
       pickerBuilder.addView(googleDriveView);
 
-      // ABA 2: Shared drives (DocsView com setEnableDrives habilitado explicitamente)
+      // ABA 2: Shared drives (DocsView - Drives Compartilhados com setEnableDrives)
       const sharedDrivesView = new window.google.picker.DocsView(window.google.picker.ViewId.DOCS);
-      sharedDrivesView.setEnableDrives(true);
+      sharedDrivesView.setEnableDrives(true); // Exibe os Drives Compartilhados e renomeia a aba no topo para "Shared drives"
+      sharedDrivesView.setIncludeFolders(true); // IMPORTANTE: Sempre habilitar pastas para navegar no Shared Drive
       if (type === 'folder') {
         sharedDrivesView.setMimeTypes('application/vnd.google-apps.folder');
-        sharedDrivesView.setSelectFolderEnabled(true);
-        sharedDrivesView.setIncludeFolders(true);
-      } else if (type === 'file') {
-        sharedDrivesView.setIncludeFolders(false);
-      } else {
-        sharedDrivesView.setIncludeFolders(true);
         sharedDrivesView.setSelectFolderEnabled(true);
       }
       pickerBuilder.addView(sharedDrivesView);
 
-      // ABA 3: Upload (apenas se não for seleção de pasta)
+      // ABA 3: Upload (Apenas para arquivos)
       if (type !== 'folder') {
         const uploadView = new window.google.picker.DocsUploadView();
         pickerBuilder.addView(uploadView);
       }
 
-      // ABA 4: Folders (Visão focada exclusivamente em pastas, idêntica à do print do ClickUp)
+      // ABA 4: Folders (Visão focada na estrutura de pastas - foldersView)
       const foldersView = new window.google.picker.DocsView(window.google.picker.ViewId.FOLDERS);
-      foldersView.setEnableDrives(true);
       if (type === 'folder') {
         foldersView.setMimeTypes('application/vnd.google-apps.folder');
         foldersView.setSelectFolderEnabled(true);
