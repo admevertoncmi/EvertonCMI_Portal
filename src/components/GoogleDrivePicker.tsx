@@ -87,13 +87,12 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
     const loadRecents = async () => {
       setSearching(true);
       try {
-        const query = type === 'folder'
-          ? `mimeType = 'application/vnd.google-apps.folder' and trashed = false`
-          : type === 'file'
+        // Se for do tipo 'file', busca apenas arquivos. Se for 'folder' ou 'all', busca ambos.
+        const query = type === 'file'
           ? `mimeType != 'application/vnd.google-apps.folder' and trashed = false`
           : `trashed = false`;
 
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&orderBy=modifiedTime desc&pageSize=10&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&orderBy=modifiedTime desc&pageSize=15&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -102,7 +101,15 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
 
         if (res.ok) {
           const data = await res.json();
-          setResults(data.files || []);
+          // Ordena as pastas para o topo se for exibição mista
+          const sorted = (data.files || []).sort((a: any, b: any) => {
+            const aIsFolder = a.mimeType === 'application/vnd.google-apps.folder';
+            const bIsFolder = b.mimeType === 'application/vnd.google-apps.folder';
+            if (aIsFolder && !bIsFolder) return -1;
+            if (!aIsFolder && bIsFolder) return 1;
+            return 0;
+          });
+          setResults(sorted);
         } else {
           console.error("Erro ao carregar recentes:", await res.text());
         }
@@ -125,13 +132,14 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
       try {
         // Escapa aspas simples simples para a query do drive
         const escapedSearch = searchTerm.replace(/'/g, "\\'");
-        const query = type === 'folder'
-          ? `mimeType = 'application/vnd.google-apps.folder' and name contains '${escapedSearch}' and trashed = false`
-          : type === 'file'
+        
+        // Se for do tipo 'file', busca apenas arquivos contendo o nome.
+        // Se for 'folder' ou 'all', faz busca ampla para achar tanto pastas quanto arquivos.
+        const query = type === 'file'
           ? `mimeType != 'application/vnd.google-apps.folder' and name contains '${escapedSearch}' and trashed = false`
           : `name contains '${escapedSearch}' and trashed = false`;
 
-        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&pageSize=15&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+        const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,thumbnailLink)&pageSize=25&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`
@@ -140,7 +148,15 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
 
         if (res.ok) {
           const data = await res.json();
-          setResults(data.files || []);
+          // Ordena as pastas para o topo
+          const sorted = (data.files || []).sort((a: any, b: any) => {
+            const aIsFolder = a.mimeType === 'application/vnd.google-apps.folder';
+            const bIsFolder = b.mimeType === 'application/vnd.google-apps.folder';
+            if (aIsFolder && !bIsFolder) return -1;
+            if (!aIsFolder && bIsFolder) return 1;
+            return 0;
+          });
+          setResults(sorted);
         } else {
           console.error("Erro na busca:", await res.text());
         }
