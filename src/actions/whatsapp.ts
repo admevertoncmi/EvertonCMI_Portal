@@ -66,7 +66,11 @@ export async function buscarGruposWhatsApp() {
     }
 
     const res = await fetch(url, { headers });
-    if (!res.ok) return { error: "Erro ao buscar grupos na Z-API" };
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("❌ Erro Z-API (Grupos):", res.status, errorText);
+      return { error: `Z-API retornou erro ${res.status}: ${errorText}` };
+    }
     
     const data = await res.json();
     
