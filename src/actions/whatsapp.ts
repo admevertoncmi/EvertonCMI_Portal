@@ -23,11 +23,18 @@ export async function notificarWhatsApp(mensagem: string, chatId: string) {
       headers["Client-Token"] = CLIENT_TOKEN;
     }
 
+    // Inteligência para auto-corrigir números brasileiros sem DDI (55)
+    // Se só tiver números e o tamanho for 10 ou 11 (DDD + Número), adiciona 55.
+    let finalPhone = chatId;
+    if (/^\d{10,11}$/.test(finalPhone)) {
+      finalPhone = `55${finalPhone}`;
+    }
+
     const response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        phone: chatId, // Na Z-API, o campo 'phone' aceita tanto números quanto IDs de grupos
+        phone: finalPhone, // Na Z-API, o campo 'phone' aceita tanto números quanto IDs de grupos
         message: mensagem
       }),
       cache: 'no-store'
@@ -39,7 +46,14 @@ export async function notificarWhatsApp(mensagem: string, chatId: string) {
       return { success: false, error: errorData };
     }
 
-    return { success: true };
+    const successData = await response.json().catch(() => ({}));
+    console.log("✅ Z-API Retorno Sucesso:", successData);
+
+    if (successData.error || successData.status === 'ERROR') {
+      return { success: false, error: JSON.stringify(successData) };
+    }
+
+    return { success: true, data: successData };
   } catch (error: any) {
     console.error("❌ Falha na comunicação com a Z-API:", error);
     return { success: false, error: error.message };

@@ -708,12 +708,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
     const textoMensagem = `Olá! Temos atualizações nos seus materiais do ${cicloLabel}. 🚀\n\nAcesse seu portal para verificar: ${linkPortal}`;
     
-    if (cliente.whatsapp_group_id) {
-       toast.info("Avisando cliente via grupo...");
-       await notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
+    toast.info("Avisando cliente no WhatsApp...");
+    const chatId = cliente.whatsapp_group_id ? cliente.whatsapp_group_id : cliente.telefone.replace(/\D/g, '');
+    const res = await notificarWhatsApp(textoMensagem, chatId);
+    
+    if (res?.success) {
+      toast.success("Mensagem entregue ao WhatsApp do cliente!");
     } else {
-       toast.info("Avisando cliente via WhatsApp...");
-       await notificarWhatsApp(textoMensagem, cliente.telefone.replace(/\D/g, ''));
+      toast.error(`Falha no envio Z-API: ${res?.error || 'Erro desconhecido'}`);
     }
   };
 
@@ -722,12 +724,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
     const textoMensagem = `Olá! O seu portal de acompanhamento já está disponível. 🚀\n\nAcesse aqui para ver os materiais: ${linkPortal}`;
     
-    if (cliente.whatsapp_group_id) {
-       toast.info("Avisando cliente via grupo...");
-       await notificarWhatsApp(textoMensagem, cliente.whatsapp_group_id);
+    toast.info("Avisando cliente no WhatsApp...");
+    const chatId = cliente.whatsapp_group_id ? cliente.whatsapp_group_id : cliente.telefone.replace(/\D/g, '');
+    const res = await notificarWhatsApp(textoMensagem, chatId);
+    
+    if (res?.success) {
+      toast.success("Mensagem entregue ao WhatsApp do cliente!");
     } else {
-       toast.info("Avisando cliente via WhatsApp...");
-       await notificarWhatsApp(textoMensagem, cliente.telefone.replace(/\D/g, ''));
+      toast.error(`Falha no envio Z-API: ${res?.error || 'Erro desconhecido'}`);
     }
   };
 
@@ -2038,7 +2042,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     name="whatsapp_group_id" 
                     placeholder="Ex: 123456789@g.us" 
                     className={`w-full p-4 ${theme === 'dark' ? 'bg-green-900/10 border-green-900/30 text-green-100' : 'bg-green-50 border-green-100'} rounded-2xl outline-none font-bold text-sm focus:border-green-400 transition-colors`} 
-                    value={wppGroupId}
+                    value={wppGroupId || ''}
                     onChange={e => setWppGroupId(e.target.value)}
                   />
                </div>
@@ -2919,10 +2923,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
             <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
               {(() => {
-                const filtrados = listagemGrupos.filter(g => 
-                  g.name?.toLowerCase().includes(buscaGrupo.toLowerCase()) || 
-                  g.id.toLowerCase().includes(buscaGrupo.toLowerCase())
-                );
+                const filtrados = listagemGrupos.filter(g => {
+                  const searchId = g.id || g.phone || g.groupId || '';
+                  return g.name?.toLowerCase().includes(buscaGrupo.toLowerCase()) || 
+                         searchId.toLowerCase().includes(buscaGrupo.toLowerCase());
+                });
                 
                 if (filtrados.length === 0) {
                   return <div className="py-10 text-center opacity-30 font-bold">Nenhum grupo encontrado.</div>;
@@ -2933,7 +2938,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     key={i} 
                     type="button"
                     onClick={() => { 
-                      setWppGroupId(g.id); 
+                      const extractedId = g.id || g.phone || g.groupId || '';
+                      setWppGroupId(extractedId); 
                       setIsGruposModalOpen(false);
                       setBuscaGrupo('');
                       toast.success(`Grupo selecionado: ${g.name}`);
@@ -2942,7 +2948,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   >
                     <div className="text-left">
                       <p className="font-bold text-sm uppercase group-hover:text-green-500 transition-colors truncate max-w-[200px] md:max-w-none">{g.name || 'Grupo sem nome'}</p>
-                      <p className={`text-[10px] font-mono ${tc.textMuted} truncate max-w-[200px] md:max-w-none`}>{g.id}</p>
+                      <p className={`text-[10px] font-mono ${tc.textMuted} truncate max-w-[200px] md:max-w-none`}>{g.id || g.phone || g.groupId || 'ID não encontrado'}</p>
                     </div>
                     <div className={`p-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-lg group-hover:bg-green-500 group-hover:text-white transition-colors`}>
                       <CheckCircle2 size={14} />
