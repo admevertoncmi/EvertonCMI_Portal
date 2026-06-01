@@ -1,30 +1,33 @@
 "use server"
 
 /**
- * Envia uma mensagem via Green API para um contato ou grupo.
+ * Envia uma mensagem via Z-API para um contato ou grupo.
  * @param mensagem O texto da mensagem
- * @param chatId O ID do chat (ex: 5511999999999@c.us para privado ou 123456789@g.us para grupo)
+ * @param chatId O ID do chat (ex: 5511999999999 para privado ou 123456789-123456@g.us para grupo)
  */
 export async function notificarWhatsApp(mensagem: string, chatId: string) {
-  const ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE;
-  const API_TOKEN = process.env.GREEN_API_TOKEN;
+  const ID_INSTANCE = process.env.ZAPI_INSTANCE_ID;
+  const API_TOKEN = process.env.ZAPI_TOKEN;
+  const CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
 
   if (!ID_INSTANCE || !API_TOKEN) {
-    console.warn("⚠️ AVISO: Green API não configurada no .env. Ignorando disparo automático.");
+    console.warn("⚠️ AVISO: Z-API não configurada no .env. Ignorando disparo automático.");
     return;
   }
 
   try {
-    const url = `https://api.green-api.com/waInstance${ID_INSTANCE}/sendMessage/${API_TOKEN}`;
+    const url = `https://api.z-api.io/instances/${ID_INSTANCE}/token/${API_TOKEN}/send-text`;
     
-    // Garante que o formato do chatId esteja correto
-    const finalChatId = chatId.includes("@") ? chatId : `${chatId}@c.us`;
+    const headers: any = { "Content-Type": "application/json" };
+    if (CLIENT_TOKEN) {
+      headers["Client-Token"] = CLIENT_TOKEN;
+    }
 
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
-        chatId: finalChatId,
+        phone: chatId, // Na Z-API, o campo 'phone' aceita tanto números quanto IDs de grupos
         message: mensagem
       }),
       cache: 'no-store'
@@ -32,13 +35,13 @@ export async function notificarWhatsApp(mensagem: string, chatId: string) {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("❌ Erro ao enviar mensagem via Green API:", errorData);
+      console.error("❌ Erro ao enviar mensagem via Z-API:", errorData);
       return { success: false, error: errorData };
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error("❌ Falha na comunicação com a Green API:", error);
+    console.error("❌ Falha na comunicação com a Z-API:", error);
     return { success: false, error: error.message };
   }
 }
@@ -48,19 +51,29 @@ export async function notificarWhatsApp(mensagem: string, chatId: string) {
  * (Pode ser usado no futuro em um seletor no painel)
  */
 export async function buscarGruposWhatsApp() {
-  const ID_INSTANCE = process.env.GREEN_API_ID_INSTANCE;
-  const API_TOKEN = process.env.GREEN_API_TOKEN;
+  const ID_INSTANCE = process.env.ZAPI_INSTANCE_ID;
+  const API_TOKEN = process.env.ZAPI_TOKEN;
+  const CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
 
   if (!ID_INSTANCE || !API_TOKEN) return { error: "Sem credenciais" };
 
   try {
-    const url = `https://api.green-api.com/waInstance${ID_INSTANCE}/getContacts/${API_TOKEN}`;
-    const res = await fetch(url);
-    if (!res.ok) return { error: "Erro ao buscar contatos" };
+    const url = `https://api.z-api.io/instances/${ID_INSTANCE}/token/${API_TOKEN}/groups`;
+    
+    const headers: any = {};
+    if (CLIENT_TOKEN) {
+      headers["Client-Token"] = CLIENT_TOKEN;
+    }
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) return { error: "Erro ao buscar grupos na Z-API" };
     
     const data = await res.json();
-    // Filtra apenas grupos
-    return { data: data.filter((c: any) => c.type === 'group') };
+    
+    // A Z-API costuma retornar a lista diretamente ou dentro de alguma propriedade.
+    // Mapeamos de forma segura para evitar que o array quebre se a estrutura mudar.
+    const listaGrupos = Array.isArray(data) ? data : (data.groups || data);
+    return { data: listaGrupos };
   } catch (err: any) {
     return { error: err.message };
   }
