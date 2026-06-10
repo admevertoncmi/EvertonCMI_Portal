@@ -79,19 +79,43 @@ export async function buscarGruposWhatsApp() {
       headers["Client-Token"] = CLIENT_TOKEN;
     }
 
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("❌ Erro Z-API (Grupos):", res.status, errorText);
-      return { error: `Z-API retornou erro ${res.status}: ${errorText}` };
+    let todosGrupos: any[] = [];
+    let page = 1;
+    const pageSize = 100;
+
+    // Fazendo um loop para buscar todas as páginas de grupos (limitado a 20 páginas por segurança)
+    while (page <= 20) {
+      const url = `https://api.z-api.io/instances/${ID_INSTANCE}/token/${API_TOKEN}/groups?page=${page}&pageSize=${pageSize}`;
+      const res = await fetch(url, { headers });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`❌ Erro Z-API (Grupos) - Pagina ${page}:`, res.status, errorText);
+        if (page === 1) {
+          // Só retorna erro se falhar na primeira página
+          return { error: `Z-API retornou erro ${res.status}: ${errorText}` };
+        } else {
+          break; // Se falhou nas próximas, só para de buscar e retorna o que já tem
+        }
+      }
+      
+      const data = await res.json();
+      const listaDaPagina = Array.isArray(data) ? data : (data.groups || data);
+      
+      if (Array.isArray(listaDaPagina) && listaDaPagina.length > 0) {
+        todosGrupos = todosGrupos.concat(listaDaPagina);
+        // Se a página retornou menos itens que o limite, significa que não há mais páginas
+        if (listaDaPagina.length < pageSize) {
+          break;
+        }
+      } else {
+        break; // Nenhuma lista retornada, finaliza
+      }
+      
+      page++;
     }
-    
-    const data = await res.json();
-    
-    // A Z-API costuma retornar a lista diretamente ou dentro de alguma propriedade.
-    // Mapeamos de forma segura para evitar que o array quebre se a estrutura mudar.
-    const listaGrupos = Array.isArray(data) ? data : (data.groups || data);
-    return { data: listaGrupos };
+
+    return { data: todosGrupos };
   } catch (err: any) {
     return { error: err.message };
   }
