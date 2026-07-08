@@ -791,9 +791,7 @@ export default function EditorDashboard() {
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${bgSecundario} hover:${bgPrincipal} ${textSecundario} hover:${textPrincipal} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className="p-5 md:p-8 overflow-y-auto">
-              <div className={`prose prose-sm max-w-none ${textPrincipal} whitespace-pre-wrap font-medium leading-relaxed break-words break-all`}>
-                {renderTextWithLinks(previewRoteiro.roteiro || "Roteiro não preenchido.")}
-              </div>
+              <div className={`prose prose-sm max-w-none font-medium leading-relaxed break-words break-all ${theme === 'dark' ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: (previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro : (previewRoteiro.roteiro || "Roteiro não preenchido.").replace(/\n/g, '<br/>') }} />
             </div>
           </div>
         </div>

@@ -11,6 +11,10 @@ import { useAdminData } from '@/hooks/useAdminData'
 import { getDriveFolderFiles } from '@/actions/google'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
+import dynamic from 'next/dynamic'
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
+import 'react-quill-new/dist/quill.snow.css'
+import { marked } from 'marked'
 import GoogleDrivePicker from '@/components/GoogleDrivePicker'
 import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 import {
@@ -925,7 +929,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       const novos = subtarefasCompletas.map((sub: any) => ({
         cliente_id: importClienteId,
         titulo: sub.name,
-        roteiro: sub.text_content || sub.description || 'Sem roteiro inserido no ClickUp.',
+        roteiro: marked.parse(sub.markdown_description || sub.description || sub.text_content || 'Sem roteiro inserido no ClickUp.') as string,
         status: 'analise_roteiro',
         clickup_task_id: sub.id,
         ciclo: parseInt(importCiclo) || 1,
@@ -1274,7 +1278,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
                                     </div>
                                     <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
-                                      <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
+                                      <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className="px-3 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Cliente</button>
                                     </div>
                                   </div>
@@ -1321,7 +1325,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
                                     </div>
                                     <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
-                                      <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
+                                      <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta OK' : 'Inserir Pasta'}</button>
                                     </div>
                                   </div>
@@ -1656,7 +1660,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                     {(!m.link_drive && !m.link_capa) ? (
                                       <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                        <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro || ''); setIsEditRoteiroModalOpen(true); }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
+                                        <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
                                         <button onClick={() => handleReenviarRoteiroAjustado(m)} disabled={actionLoading === m.id} className="flex-1 sm:flex-none px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Reenviar Cliente</button>
                                       </div>
                                     ) : (
@@ -2510,7 +2514,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {isLinkBrutoModalOpen && selectedMaterial && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Link Bruto</h3><button onClick={() => setIsLinkBrutoModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className="space-y-4">
@@ -2530,7 +2534,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {isResolveIssueModalOpen && selectedMaterial && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}>
@@ -2603,14 +2607,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {isEditRoteiroModalOpen && roteiroToEdit && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-5xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
             <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
               <div className="truncate pr-4"><h3 className="text-lg md:text-xl font-black uppercase flex items-center gap-3"><FileText size={20} className="text-pink-500" /> Editar Roteiro</h3></div>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
-            <div className={`p-0 md:p-8 overflow-y-auto ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
-              <textarea className={`w-full h-full max-w-3xl p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg text-[15px] md:text-base leading-relaxed font-medium outline-none focus:ring-0 resize-none transition-colors`} value={newRoteiroText} onChange={e => setNewRoteiroText(e.target.value)} placeholder="Escreva o roteiro aqui..." />
+            <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
+              <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
+                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
+              </div>
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`px-4 py-3 font-bold ${tc.textMuted} ${tc.bgHover} rounded-xl transition-colors`}>Cancelar</button>
@@ -2623,15 +2629,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {previewRoteiro && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-5xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
             <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
               <div className="min-w-0 flex-1 pr-4"><h3 className="text-lg md:text-xl font-black uppercase truncate break-words break-all flex items-center gap-2" title={previewRoteiro.titulo}><FileText size={20} className="text-purple-500" /> {previewRoteiro.titulo}</h3></div>
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
-            <div className={`p-0 md:p-8 overflow-y-auto ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
+            <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full max-w-3xl p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg overflow-y-auto`}>
-                <div className="prose prose-sm md:prose-base max-w-none whitespace-pre-wrap font-medium break-words break-all leading-relaxed">{renderTextWithLinks(previewRoteiro.roteiro || "Vazio.")}</div>
+                <div className={`prose prose-sm md:prose-base max-w-none font-medium break-words break-all leading-relaxed ${theme === 'dark' ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: (previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro : (previewRoteiro.roteiro || "Vazio.").replace(/\n/g, '<br/>') }} />
               </div>
             </div>
           </div>
@@ -2639,7 +2645,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {isVersionModalOpen && selectedMaterial && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Nova Versão</h3><button onClick={() => setIsVersionModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-blue-500 transition-colors`} placeholder="Novo link..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />

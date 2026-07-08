@@ -554,10 +554,10 @@ export default function DecupadorDashboard() {
                                       {/* 🔥 CORREÇÃO: break-words e overflow-hidden para evitar o bug da palavra infinita */}
                                       <div className={`w-full ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'} p-4 md:p-5 rounded-2xl border mb-6 overflow-hidden min-w-0`}>
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${textSecundario} mb-3 flex items-center gap-2`}><FileText size={14} /> Instrução / Roteiro:</p>
-                                        <p className={`${textPrincipal} font-medium whitespace-pre-wrap break-words break-all text-xs md:text-sm leading-relaxed`}>
+                                        <div className={`text-sm ${textPrincipal} whitespace-pre-wrap break-words break-all leading-relaxed p-4 bg-black/10 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5 font-medium shadow-inner min-h-[100px]`}>
                                           {m.feedback_admin && <span className="text-blue-500 font-bold block mb-2">[ADMIN]: {renderTextWithLinks(m.feedback_admin)}</span>}
-                                          {m.roteiro ? renderTextWithLinks(m.roteiro) : 'Nenhum roteiro fornecido.'}
-                                        </p>
+                                          {m.roteiro ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: (m.roteiro?.includes('<p>') || m.roteiro?.includes('<br>')) ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>') }} /> : 'Nenhum roteiro fornecido.'}
+                                        </div>
                                       </div>
 
                                       <div className="w-full flex justify-end">
