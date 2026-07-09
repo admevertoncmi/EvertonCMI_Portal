@@ -205,6 +205,7 @@ export default function DecupadorDashboard() {
       .from('materiais')
       .select(`*, cliente:clientes(nome)`)
       .eq('planner_id', user.id)
+      .order('ordem', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
 
     if (m) setMateriais(m as Material[])
@@ -556,7 +557,7 @@ export default function DecupadorDashboard() {
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${textSecundario} mb-3 flex items-center gap-2`}><FileText size={14} /> Instrução / Roteiro:</p>
                                         <div className={`text-sm ${textPrincipal} whitespace-pre-wrap break-words break-all leading-relaxed p-4 bg-black/10 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5 font-medium shadow-inner min-h-[100px]`}>
                                           {m.feedback_admin && <span className="text-blue-500 font-bold block mb-2">[ADMIN]: {renderTextWithLinks(m.feedback_admin)}</span>}
-                                          {m.roteiro ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: (m.roteiro?.includes('<p>') || m.roteiro?.includes('<br>')) ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>') }} /> : 'Nenhum roteiro fornecido.'}
+                                          {m.roteiro ? <div className="prose prose-sm max-w-none dark:prose-invert [&_p]:m-0" dangerouslySetInnerHTML={{ __html: (m.roteiro?.includes('<p>') || m.roteiro?.includes('<br>')) ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>') }} /> : 'Nenhum roteiro fornecido.'}
                                         </div>
                                       </div>
 

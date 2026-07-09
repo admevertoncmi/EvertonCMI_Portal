@@ -184,7 +184,7 @@ export default function EditorDashboard() {
     setUserId(user.id)
     const { data: profile } = await supabase.from('perfis_equipe').select('*').eq('id', user.id).single();
     if (profile) setUserProfile(profile as any);
-    const { data: m, error } = await supabase.from('materiais').select(`*, cliente:clientes(nome)`).or(`editor_id.eq.${user.id},designer_id.eq.${user.id}`).order('created_at', { ascending: false })
+    const { data: m, error } = await supabase.from('materiais').select(`*, cliente:clientes(nome)`).or(`editor_id.eq.${user.id},designer_id.eq.${user.id}`).order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
     if (m) setMateriais(m as Material[])
     setLoading(false)
   }, [supabase, router])

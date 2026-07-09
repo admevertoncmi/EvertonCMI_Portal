@@ -75,7 +75,7 @@ export async function getClickUpTaskAndSubtasks(taskId: string) {
 
   try {
     const cleanId = taskId.replace('https://app.clickup.com/t/', '').trim();
-    const res = await fetch(`https://api.clickup.com/api/v2/task/${cleanId}?include_subtasks=true`, { 
+    const res = await fetch(`https://api.clickup.com/api/v2/task/${cleanId}?include_subtasks=true&include_markdown_description=true`, { 
       headers: { Authorization: CLICKUP_TOKEN },
       cache: 'no-store'
     });
@@ -91,7 +91,7 @@ export async function getClickUpTaskAndSubtasks(taskId: string) {
 
     const subtarefasCompletas = await Promise.all(
       subtarefasBasicas.map(async (sub: any) => { 
-        const subRes = await fetch(`https://api.clickup.com/api/v2/task/${sub.id}`, { 
+        const subRes = await fetch(`https://api.clickup.com/api/v2/task/${sub.id}?include_markdown_description=true`, { 
           headers: { Authorization: CLICKUP_TOKEN },
           cache: 'no-store'
         }); 
@@ -112,7 +112,7 @@ export async function getClickUpTask(taskId: string) {
 
   try {
     const cleanId = taskId.replace('https://app.clickup.com/t/', '').trim();
-    const res = await fetch(`https://api.clickup.com/api/v2/task/${cleanId}`, { 
+    const res = await fetch(`https://api.clickup.com/api/v2/task/${cleanId}?include_markdown_description=true`, { 
       headers: { Authorization: CLICKUP_TOKEN },
       cache: 'no-store'
     });

@@ -12,10 +12,21 @@ import { getDriveFolderFiles } from '@/actions/google'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
 import dynamic from 'next/dynamic'
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
-import 'react-quill-new/dist/quill.snow.css'
+const ReactQuill = dynamic(() => import('@/components/Editor'), { ssr: false })
 import { marked } from 'marked'
 import GoogleDrivePicker from '@/components/GoogleDrivePicker'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
+
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }, { 'list': 'check' }],
+    ['link'],
+    ['clean']
+  ]
+};
 import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 import {
   LayoutDashboard, Users, Plus, LogOut, Phone, Link, Send,
@@ -24,7 +35,7 @@ import {
   ChevronRight, Calendar, Search, Folder, ShieldCheck,
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
   ListTodo, FileText, LayoutList, Archive, Edit3, AlertCircle, Menu, Loader2, Activity, Settings,
-  FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle
+  FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical
 } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
@@ -605,7 +616,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const handleSaveRoteiro = async () => {
     if (!roteiroToEdit) return; setLoading(true);
-    const { error } = await supabase.from('materiais').update({ roteiro: newRoteiroText }).eq('id', roteiroToEdit.id);
+    let textToSave = newRoteiroText;
+    textToSave = textToSave.replace(/<li data-list="checked">/gi, '<li class="task-list-item"><input type="checkbox" checked disabled> ');
+    textToSave = textToSave.replace(/<li data-list="unchecked">/gi, '<li class="task-list-item"><input type="checkbox" disabled> ');
+    const { error } = await supabase.from('materiais').update({ roteiro: textToSave }).eq('id', roteiroToEdit.id);
     if (!error) { toast.success("Roteiro atualizado!"); setIsEditRoteiroModalOpen(false); loadData(); } else { toast.error("Erro."); } setLoading(false);
   }
 
@@ -825,6 +839,62 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
   };
 
+  const handleDashboardDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+    const { source, destination } = result;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    
+    // Ignore delegation modal droppable
+    if (source.droppableId === 'delegation-list') return;
+
+    const parts = source.droppableId.split('-');
+    const type = parts[0];
+    const clienteId = parts[1];
+    const cicloLabel = parts.slice(2).join('-');
+    
+    let itemsGroup: Material[] = [];
+    if (type === 'analise' && groupedAnaliseRoteiro[clienteId]?.ciclos[cicloLabel]) {
+      itemsGroup = Array.from(groupedAnaliseRoteiro[clienteId].ciclos[cicloLabel].itens);
+    } else if (type === 'aprovado' && groupedRoteiros[clienteId]?.ciclos[cicloLabel]) {
+      itemsGroup = Array.from(groupedRoteiros[clienteId].ciclos[cicloLabel].itens);
+    } else {
+      return;
+    }
+    
+    const [reorderedItem] = itemsGroup.splice(source.index, 1);
+    itemsGroup.splice(destination.index, 0, reorderedItem);
+    
+    const newOrderMap = new Map<string, number>();
+    itemsGroup.forEach((item, index) => {
+      newOrderMap.set(item.id, index + 1); // Or maintain absolute ordering if needed. For now, 1 to N is fine for display
+    });
+    
+    // Optimistic UI update
+    setMateriais(prev => {
+      const newMateriais = [...prev];
+      for (let i = 0; i < newMateriais.length; i++) {
+        if (newOrderMap.has(newMateriais[i].id)) {
+          newMateriais[i] = { ...newMateriais[i], ordem: newOrderMap.get(newMateriais[i].id)! };
+        }
+      }
+      return newMateriais;
+    });
+    
+    // Update DB
+    const orderUpdates = itemsGroup.map((item, idx) => 
+      supabase.from('materiais').update({ ordem: idx + 1 }).eq('id', item.id)
+    );
+    await Promise.all(orderUpdates);
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination || !selectedCicloDelegation) return;
+    const items = Array.from(selectedCicloDelegation.itens);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setSelectedCicloDelegation({ ...selectedCicloDelegation, itens: items });
+  };
+
   const handleDelegarItems = async () => {
     if (delegationType === 'planner' && !selectedPlannerId) return toast.error("Selecione um Decupador!");
     if (delegationType === 'editor' && !selectedEditorId && !selectedDesignerId) return toast.error("Selecione pelo menos um Editor ou Designer!");
@@ -848,6 +918,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
 
     const { error } = await supabase.from('materiais').update(updateData).in('id', selectedItemsToDelegate);
+
+    if (!error && selectedCicloDelegation) {
+      const orderUpdates = selectedCicloDelegation.itens.map((item: any, idx: number) => 
+        supabase.from('materiais').update({ ordem: idx + 1 }).eq('id', item.id)
+      );
+      await Promise.all(orderUpdates);
+    }
 
     if (error) {
       toast.error("Erro ao delegar: " + error.message);
@@ -926,10 +1003,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         setLoading(false);
         return;
       }
+      const parseClickUpRoteiro = (sub: any) => {
+        let md = sub.markdown_description || sub.description || sub.text_content || 'Sem roteiro inserido no ClickUp.';
+        // Remove espaços perdidos no final das linhas
+        md = md.split('\n').map((l: string) => l.trimEnd()).join('\n');
+        // 1. Preserva espaços vazios REAIS (3 ou mais quebras) transformando-os em espaços não separáveis. 
+        // Se for apenas 2 quebras (\n\n), é apenas separação de blocos (títulos, listas), não cria linha visual extra.
+        md = md.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n&nbsp;\n\n');
+        // 2. Transforma quebras simples em duplas para gerar parágrafos (<p>) invés de <br>, evitando tags quebradas e problemas com ReactQuill
+        md = md.replace(/\n(?!\n)/g, '\n\n');
+        
+        return marked.parse(md, { breaks: true, gfm: true }) as string;
+      };
+
       const novos = subtarefasCompletas.map((sub: any) => ({
         cliente_id: importClienteId,
         titulo: sub.name,
-        roteiro: marked.parse(sub.markdown_description || sub.description || sub.text_content || 'Sem roteiro inserido no ClickUp.') as string,
+        roteiro: parseClickUpRoteiro(sub),
         status: 'analise_roteiro',
         clickup_task_id: sub.id,
         ciclo: parseInt(importCiclo) || 1,
@@ -1230,7 +1320,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </div>
       </div>
 
-      <main className={`flex-1 pt-24 safe-pt-main-admin pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
+      <DragDropContext onDragEnd={handleDashboardDragEnd}>
+        <main className={`flex-1 pt-24 safe-pt-main-admin pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
         {/* ABA: PLANEJAMENTO */}
         {activeTab === 'planejamento' && (
           <div className="max-w-5xl mx-auto space-y-8 md:space-y-12 text-left animate-in slide-in-from-bottom-4 duration-500">
@@ -1267,10 +1358,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                   {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Lote p/ Cliente
                                 </button>
                               </div>
-                              <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} md:ml-1`}>
-                                {data.itens.map((m: Material) => (
-                                  <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors`}>
-                                    <div className="flex-1 w-full text-left">
+                              <Droppable droppableId={`analise-${clienteId}-${cicloLabel}`}>
+                                {(provided) => (
+                                  <div ref={provided.innerRef} {...provided.droppableProps} className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} md:ml-1`}>
+                                {data.itens.map((m: Material, idx: number) => (
+                                  <Draggable key={m.id} draggableId={m.id} index={idx}>
+                                    {(provided, snapshot) => (
+                                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-pink-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
+                                        <div className="flex-1 w-full text-left">
                                       <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
@@ -1278,12 +1373,25 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <h5 className="font-bold text-sm">{m.titulo}</h5>
                                     </div>
                                     <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
-                                      <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
+                                      <button onClick={() => { 
+                                        setRoteiroToEdit(m); 
+                                        let txt = m.roteiro || '';
+                                        if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
+                                        txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
+                                        txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
+                                        setNewRoteiroText(txt); 
+                                        setIsEditRoteiroModalOpen(true); 
+                                      }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className="px-3 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Cliente</button>
                                     </div>
-                                  </div>
+                                      </div>
+                                    )}
+                                  </Draggable>
                                 ))}
+                                {provided.placeholder}
                               </div>
+                            )}
+                          </Droppable>
                             </div>
                           ))}
                         </div>
@@ -1314,10 +1422,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-xs text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                 <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                               </div>
-                              <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
-                                {data.itens.map((m: Material) => (
-                                  <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors`}>
-                                    <div className="flex-1 min-w-0 w-full text-left">
+                              <Droppable droppableId={`aprovado-${clienteId}-${cicloLabel}`}>
+                                {(provided) => (
+                                  <div ref={provided.innerRef} {...provided.droppableProps} className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
+                                {data.itens.map((m: Material, idx: number) => (
+                                  <Draggable key={m.id} draggableId={m.id} index={idx}>
+                                    {(provided, snapshot) => (
+                                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-orange-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
+                                        <div className="flex-1 min-w-0 w-full text-left">
                                       <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
@@ -1328,9 +1440,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                       <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta OK' : 'Inserir Pasta'}</button>
                                     </div>
-                                  </div>
+                                      </div>
+                                    )}
+                                  </Draggable>
                                 ))}
+                                {provided.placeholder}
                               </div>
+                            )}
+                          </Droppable>
                             </div>
                           ))}
                         </div>
@@ -1660,7 +1777,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                     {(!m.link_drive && !m.link_capa) ? (
                                       <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                        <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
+                                        <button onClick={() => { 
+                                          setRoteiroToEdit(m); 
+                                          let txt = m.roteiro || '';
+                                          if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
+                                          txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
+                                          txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
+                                          setNewRoteiroText(txt); 
+                                          setIsEditRoteiroModalOpen(true); 
+                                        }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
                                         <button onClick={() => handleReenviarRoteiroAjustado(m)} disabled={actionLoading === m.id} className="flex-1 sm:flex-none px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Reenviar Cliente</button>
                                       </div>
                                     ) : (
@@ -2426,7 +2551,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
           </div>
         )}
-      </main>
+        </main>
+      </DragDropContext>
 
       {/* MODAIS RESPONSIVOS */}
 
@@ -2435,15 +2561,41 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           <div className={`${tc.bgCard} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'}`}>
             <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Delegar</h3><button onClick={() => setIsDelegateModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className={`${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} p-4 rounded-2xl border mb-2`}>
-              <p className={`text-[10px] font-black uppercase ${tc.textMuted} mb-2`}>Selecione as subtarefas:</p>
-              <div className="max-h-32 md:max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                {selectedCicloDelegation.itens.map((item: any) => (
-                  <label key={item.id} className={`flex items-center gap-3 p-3 ${tc.bgCard} border ${tc.borderStrong} rounded-xl cursor-pointer`}>
-                    <input type="checkbox" className="w-4 h-4 accent-[#A25431] shrink-0" checked={selectedItemsToDelegate.includes(item.id)} onChange={(e) => { if (e.target.checked) setSelectedItemsToDelegate([...selectedItemsToDelegate, item.id]); else setSelectedItemsToDelegate(selectedItemsToDelegate.filter(id => id !== item.id)); }} />
-                    <span className="text-xs font-bold truncate">{item.titulo}</span>
-                  </label>
-                ))}
-              </div>
+              <p className={`text-[10px] font-black uppercase ${tc.textMuted} mb-2 flex items-center justify-between`}>
+                <span>Selecione e arraste para reordenar:</span>
+              </p>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="delegation-list">
+                  {(provided) => (
+                    <div 
+                      className="max-h-32 md:max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar"
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                    >
+                      {selectedCicloDelegation.itens.map((item: any, index: number) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`flex items-center gap-2 p-2 ${tc.bgCard} border ${snapshot.isDragging ? 'border-purple-500 shadow-lg scale-[1.02]' : tc.borderStrong} rounded-xl transition-all`}
+                            >
+                              <div {...provided.dragHandleProps} className="p-1 cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-600">
+                                <GripVertical size={16} />
+                              </div>
+                              <label className="flex items-center gap-3 flex-1 cursor-pointer min-w-0">
+                                <input type="checkbox" className="w-4 h-4 accent-[#A25431] shrink-0" checked={selectedItemsToDelegate.includes(item.id)} onChange={(e) => { if (e.target.checked) setSelectedItemsToDelegate([...selectedItemsToDelegate, item.id]); else setSelectedItemsToDelegate(selectedItemsToDelegate.filter(id => id !== item.id)); }} />
+                                <span className="text-xs font-bold truncate select-none">{item.titulo}</span>
+                              </label>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </div>
             <div className="space-y-3">
 
@@ -2614,8 +2766,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
-              <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
-                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
+              <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
+                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} modules={quillModules} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
               </div>
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
@@ -2637,7 +2789,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full max-w-3xl p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg overflow-y-auto`}>
-                <div className={`prose prose-sm md:prose-base max-w-none font-medium break-words break-all leading-relaxed ${theme === 'dark' ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: (previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro : (previewRoteiro.roteiro || "Vazio.").replace(/\n/g, '<br/>') }} />
+                <div className={`prose prose-sm md:prose-base max-w-none font-medium break-words break-all leading-relaxed [&_p]:m-0 ${theme === 'dark' ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: (previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro : (previewRoteiro.roteiro || "Vazio.").replace(/\n/g, '<br/>') }} />
               </div>
             </div>
           </div>
