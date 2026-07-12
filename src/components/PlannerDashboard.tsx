@@ -10,8 +10,9 @@ import useEmblaCarousel from 'embla-carousel-react'
 import {
   FolderDown, CheckSquare, LogOut, Users, FileText, X,
   ChevronDown, ChevronRight, AlertCircle, Clock, CheckCircle2, Eye, ExternalLink, Menu, Calendar,
-  Sun, Moon, Loader2
+  Sun, Moon, Loader2, Eraser
 } from 'lucide-react'
+import { cleanCopyOfPrefix } from '@/actions/google-mutations'
 import GoogleDrivePicker from './GoogleDrivePicker'
 import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 
@@ -135,6 +136,7 @@ export default function DecupadorDashboard() {
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
   const [newDriveLink, setNewDriveLink] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [cleaningFolders, setCleaningFolders] = useState<Record<string, boolean>>({})
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [zoomMode, setZoomMode] = useState<'fit' | 'fill'>('fit');
   const [aspectRatio, setAspectRatio] = useState<'9/16' | 'video' | 'square'>('9/16');
@@ -289,6 +291,63 @@ export default function DecupadorDashboard() {
       loadData();
     }
     setIsSubmitting(false)
+  }
+
+  const handleCleanCopies = async (url: string) => {
+    const driveId = getGoogleDriveId(url);
+    if (!driveId) {
+      toast.error("Não foi possível identificar o ID da pasta do Google Drive no link fornecido.");
+      return;
+    }
+
+    const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!CLIENT_ID) {
+      toast.error("Configurações do Google Drive (Client ID) não encontradas.");
+      return;
+    }
+
+    if (!window.google?.accounts?.oauth2) {
+      toast.error("Aguarde um momento. Os scripts do Google ainda estão carregando.");
+      return;
+    }
+
+    try {
+      setCleaningFolders(prev => ({ ...prev, [driveId]: true }));
+      
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive',
+        callback: async (response: any) => {
+          if (response.error) {
+            toast.error(`Erro na autorização do Google: ${response.error_description || response.error}`);
+            setCleaningFolders(prev => ({ ...prev, [driveId]: false }));
+            return;
+          }
+          
+          if (response.access_token) {
+            toast.loading("Limpando prefixos 'Cópia de'...");
+            const res = await cleanCopyOfPrefix(driveId, response.access_token);
+            toast.dismiss();
+            
+            if (res.success) {
+              if (res.count > 0) {
+                toast.success(res.message);
+              } else {
+                toast.info("A pasta já está limpa! Nenhum arquivo com prefixo encontrado.");
+              }
+            } else {
+              toast.error(res.error || "Falha ao renomear os arquivos.");
+            }
+            setCleaningFolders(prev => ({ ...prev, [driveId]: false }));
+          }
+        },
+      });
+      client.requestAccessToken();
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao iniciar autenticação com o Google.");
+      setCleaningFolders(prev => ({ ...prev, [driveId]: false }));
+    }
   }
 
   const renderPreviewContent = (url: string) => {
@@ -486,9 +545,23 @@ export default function DecupadorDashboard() {
                               <h4 className="font-black text-xs uppercase tracking-widest">{cicloLabel}</h4>
                             </div>
                             {cicloData.linkBrutoGlobal && (
-                              <a href={cicloData.linkBrutoGlobal} target="_blank" rel="noopener noreferrer" className={`w-full sm:w-auto px-4 py-3 sm:py-2 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${borderSecundario}`}>
-                                <FolderDown size={14} /> Pasta Bruta Geral
-                              </a>
+                              <div className="flex w-full sm:w-auto gap-2">
+                                <a href={cicloData.linkBrutoGlobal} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none px-4 py-3 sm:py-2 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${borderSecundario}`}>
+                                  <FolderDown size={14} /> Pasta Bruta Geral
+                                </a>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleCleanCopies(cicloData.linkBrutoGlobal); }}
+                                  disabled={cleaningFolders[getGoogleDriveId(cicloData.linkBrutoGlobal) || ''] }
+                                  title="Remover prefixo 'Cópia de' dos arquivos desta pasta e de todas as subpastas"
+                                  className={`px-3 py-3 sm:py-2 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} rounded-xl text-[10px] transition-all flex items-center justify-center border ${borderSecundario} disabled:opacity-50`}
+                                >
+                                  {cleaningFolders[getGoogleDriveId(cicloData.linkBrutoGlobal) || ''] ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                  ) : (
+                                    <Eraser size={14} />
+                                  )}
+                                </button>
+                              </div>
                             )}
                           </div>
 
@@ -548,6 +621,18 @@ export default function DecupadorDashboard() {
                                             <a href={linkBrutoAtual} target="_blank" rel="noopener noreferrer" className={`w-full sm:w-auto px-6 py-3 md:py-3 ${theme === 'dark' ? 'bg-zinc-800/50 hover:bg-zinc-700 text-zinc-400' : 'bg-white hover:bg-zinc-50 text-zinc-600'} rounded-xl text-[10px] font-black uppercase flex justify-center items-center gap-2 transition-all border ${borderSecundario} border-dashed`}>
                                               <ExternalLink size={16} /> Abrir Pasta (Navegador)
                                             </a>
+                                            <button 
+                                              onClick={(e) => { e.stopPropagation(); handleCleanCopies(linkBrutoAtual); }}
+                                              disabled={cleaningFolders[getGoogleDriveId(linkBrutoAtual) || ''] }
+                                              title="Remover prefixo 'Cópia de' dos arquivos nesta pasta"
+                                              className={`w-full sm:w-auto px-6 py-3 md:py-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} rounded-xl text-[10px] font-black uppercase flex justify-center items-center gap-2 transition-all border ${borderSecundario} disabled:opacity-50`}
+                                            >
+                                              {cleaningFolders[getGoogleDriveId(linkBrutoAtual) || ''] ? (
+                                                <><Loader2 size={16} className="animate-spin" /> Limpando...</>
+                                              ) : (
+                                                <><Eraser size={16} /> Limpar Cópia De</>
+                                              )}
+                                            </button>
                                           </>
                                         )}
                                       </div>

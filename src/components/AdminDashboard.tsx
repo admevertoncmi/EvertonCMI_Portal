@@ -9,6 +9,7 @@ import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from 
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
 import { getDriveFolderFiles } from '@/actions/google'
+import { createBatchFolders } from '@/actions/google-mutations'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
 import dynamic from 'next/dynamic'
@@ -238,6 +239,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [plannerTaskId, setPlannerTaskId] = useState('')
   const [importClienteId, setImportClienteId] = useState('')
   const [importCiclo, setImportCiclo] = useState('1')
+  const [createDriveFolders, setCreateDriveFolders] = useState(false)
+  const [parentFolderUrl, setParentFolderUrl] = useState('')
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false)
   const [newDriveLink, setNewDriveLink] = useState('')
@@ -986,9 +989,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setLoteItens([{ id: Date.now(), titulo: '', roteiro: '' }]); loadData(); setLoading(false);
   }
 
-  const handleImportPlanner = async () => {
-    if (!plannerTaskId || !importClienteId) return toast.error("Preencha os campos obrigatórios!");
-    setLoading(true)
+  const executeImport = async (accessToken?: string) => {
     try {
       const { data: subtarefasCompletas, error: clickupError } = await getClickUpTaskAndSubtasks(plannerTaskId);
 
@@ -1005,14 +1006,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       }
       const parseClickUpRoteiro = (sub: any) => {
         let md = sub.markdown_description || sub.description || sub.text_content || 'Sem roteiro inserido no ClickUp.';
-        // Remove espaços perdidos no final das linhas
         md = md.split('\n').map((l: string) => l.trimEnd()).join('\n');
-        // 1. Preserva espaços vazios REAIS (3 ou mais quebras) transformando-os em espaços não separáveis. 
-        // Se for apenas 2 quebras (\n\n), é apenas separação de blocos (títulos, listas), não cria linha visual extra.
         md = md.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n&nbsp;\n\n');
-        // 2. Transforma quebras simples em duplas para gerar parágrafos (<p>) invés de <br>, evitando tags quebradas e problemas com ReactQuill
         md = md.replace(/\n(?!\n)/g, '\n\n');
-
         return marked.parse(md, { breaks: true, gfm: true }) as string;
       };
 
@@ -1023,14 +1019,70 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         status: 'analise_roteiro',
         clickup_task_id: sub.id,
         ciclo: parseInt(importCiclo) || 1,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        link_bruto: '' // default empty
       }))
+
+      if (createDriveFolders && accessToken && parentFolderUrl) {
+        const driveId = getGoogleDriveId(parentFolderUrl);
+        if (driveId) {
+          toast.loading("Criando pastas no Google Drive...");
+          const res = await createBatchFolders(driveId, novos.map((n: any) => n.titulo), accessToken);
+          toast.dismiss();
+          if (res.success && res.links) {
+            novos.forEach((n: any) => {
+              if (res.links[n.titulo]) {
+                n.link_bruto = res.links[n.titulo];
+              }
+            });
+            toast.success("Pastas criadas no Drive com sucesso!");
+          } else {
+            toast.error(res.error || "Falha ao criar pastas no Drive, importando sem links...");
+          }
+        }
+      }
+
       const { error } = await supabase.from('materiais').insert(novos);
       if (error) { toast.error("Erro no Banco de Dados: " + error.message); setLoading(false); return; }
       setIsImportModalOpen(false);
       setPlannerTaskId(''); loadData();
+      setCreateDriveFolders(false); setParentFolderUrl('');
       toast.success(`${novos.length} Guias importados com status [Roteiro em Análise] para a aba de Planejamento!`);
     } catch (err) { toast.error("Erro na comunicação com o ClickUp."); } finally { setLoading(false) }
+  }
+
+  const handleImportPlanner = async () => {
+    if (!plannerTaskId || !importClienteId) return toast.error("Preencha os campos obrigatórios!");
+    if (createDriveFolders && !parentFolderUrl) return toast.error("Selecione a Pasta Mãe no Drive!");
+    
+    setLoading(true)
+
+    if (createDriveFolders) {
+      if (!window.google?.accounts?.oauth2) {
+        toast.error("Aguarde um momento. Os scripts do Google ainda estão carregando.");
+        setLoading(false);
+        return;
+      }
+
+      const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive',
+        callback: (response: any) => {
+          if (response.error) {
+            toast.error(`Erro na autorização do Google: ${response.error_description || response.error}`);
+            setLoading(false);
+            return;
+          }
+          if (response.access_token) {
+            executeImport(response.access_token);
+          }
+        }
+      });
+      client.requestAccessToken();
+    } else {
+      executeImport();
+    }
   }
 
   const handleSendNewVersion = async () => {
@@ -2092,6 +2144,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               )}
                                               {m.status === 'analise_roteiro' && (<button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 hover:bg-purple-600 hover:text-white' : 'text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Enviar Roteiro para o Cliente">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>)}
                                               <button onClick={() => setPreviewRoteiro(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={16} /></button>
+                                              <button onClick={() => {
+                                                setRoteiroToEdit(m);
+                                                let txt = m.roteiro || '';
+                                                txt = txt.replace(/<br\s*\/?>/gi, '\n');
+                                                setNewRoteiroText(txt);
+                                                setIsEditRoteiroModalOpen(true);
+                                              }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-orange-900/30 hover:text-orange-400' : 'text-zinc-500 bg-zinc-50 hover:bg-orange-50 hover:text-orange-600'} rounded-lg transition-colors`} title="Editar Roteiro"><Edit3 size={16} /></button>
 
                                               {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-blue-900/30 hover:text-blue-400' : 'text-zinc-500 bg-zinc-50 hover:bg-blue-50 hover:text-blue-600'} rounded-lg transition-colors`} title="Ver Vídeo/Carrossel"><FileVideo size={16} /></button>}
                                               {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-pink-900/30 hover:text-pink-400' : 'text-zinc-500 bg-zinc-50 hover:bg-pink-50 hover:text-pink-600'} rounded-lg transition-colors`} title="Ver Capa/Card"><ImageIcon size={16} /></button>}
@@ -2749,6 +2808,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="ID da Tarefa" value={plannerTaskId} onChange={e => setPlannerTaskId(e.target.value)} />
               <input type="number" min="1" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="Ciclo" value={importCiclo} onChange={e => setImportCiclo(e.target.value)} />
               <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={importClienteId} onChange={e => setImportClienteId(e.target.value)}><option value="">Selecionar Cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+              
+              <div className="flex items-center gap-3 pt-2">
+                <input type="checkbox" id="create-folders" className={`w-4 h-4 rounded accent-[#A25431] cursor-pointer`} checked={createDriveFolders} onChange={e => setCreateDriveFolders(e.target.checked)} />
+                <label htmlFor="create-folders" className="text-sm font-bold cursor-pointer">Criar pastas automaticamente no Drive</label>
+              </div>
+
+              {createDriveFolders && (
+                <div className="flex gap-2">
+                  <input className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-xs focus:border-[#A25431] transition-colors`} placeholder="Link da Pasta Mãe..." value={parentFolderUrl} readOnly />
+                  <GoogleDrivePicker onSelect={(url) => setParentFolderUrl(url)} type="folder" label="Selecionar Pasta" />
+                </div>
+              )}
             </div>
             <button onClick={handleImportPlanner} disabled={loading || !plannerTaskId} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-[#8a4729] transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Sincronizar
