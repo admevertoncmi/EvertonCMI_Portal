@@ -18,16 +18,7 @@ import { marked } from 'marked'
 import GoogleDrivePicker from '@/components/GoogleDrivePicker'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'color': [] }, { 'background': [] }],
-    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'list': 'check' }],
-    ['link'],
-    ['clean']
-  ]
-};
+
 import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
 import {
   LayoutDashboard, Users, Plus, LogOut, Phone, Link, Send,
@@ -399,7 +390,22 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       groups[m.cliente_id].ciclos[cicloLabel].total++
       if (m.status === 'aprovado' || m.status === 'roteiro_aprovado' || m.status === 'post_aprovado') groups[m.cliente_id].ciclos[cicloLabel].aprovados++
     })
+
+    Object.keys(groups).forEach(clientId => {
+      Object.keys(groups[clientId].ciclos).forEach(ciclo => {
+        groups[clientId].ciclos[ciclo].itens.sort((a: any, b: any) => {
+          const orderA = a.ordem ?? 999999;
+          const orderB = b.ordem ?? 999999;
+          if (orderA === orderB) {
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+          }
+          return orderA - orderB;
+        });
+      });
+    });
+
     return groups
+
   }, [applyFilters])
 
   const groupedVisaoGeral = useMemo(() => {
@@ -2837,7 +2843,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
-                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} modules={quillModules} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
+                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
               </div>
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
