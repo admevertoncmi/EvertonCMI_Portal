@@ -32,7 +32,7 @@ import {
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
-export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; }
+export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; ordem?: number; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
 interface Props { materials: Material[]; initialClientes?: Cliente[] }
 
@@ -856,10 +856,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     // Ignore delegation modal droppable
     if (source.droppableId === 'delegation-list') return;
 
-    const parts = source.droppableId.split('-');
+    const parts = source.droppableId.split('___');
     const type = parts[0];
     const clienteId = parts[1];
-    const cicloLabel = parts.slice(2).join('-');
+    const cicloLabel = parts[2];
 
     let itemsGroup: Material[] = [];
     if (type === 'analise' && groupedAnaliseRoteiro[clienteId]?.ciclos[cicloLabel]) {
@@ -1415,7 +1415,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Lote p/ Cliente
                                   </button>
                                 </div>
-                                <Droppable droppableId={`analise-${clienteId}-${cicloLabel}`}>
+                                <Droppable droppableId={`analise___${clienteId}___${cicloLabel}`}>
                                   {(provided) => (
                                     <div ref={provided.innerRef} {...provided.droppableProps} className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} md:ml-1`}>
                                       {data.itens.map((m: Material, idx: number) => (
@@ -1479,7 +1479,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                   <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-xs text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                   <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                                 </div>
-                                <Droppable droppableId={`aprovado-${clienteId}-${cicloLabel}`}>
+                                <Droppable droppableId={`aprovado___${clienteId}___${cicloLabel}`}>
                                   {(provided) => (
                                     <div ref={provided.innerRef} {...provided.droppableProps} className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
                                       {data.itens.map((m: Material, idx: number) => (
