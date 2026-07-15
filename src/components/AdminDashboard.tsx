@@ -623,6 +623,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     else { toast.error("Erro ao processar resolução."); } setLoading(false);
   }
 
+  const handleEditTitulo = async (m: Material) => {
+    const novoTitulo = window.prompt("Digite o novo título da subtarefa:", m.titulo);
+    if (novoTitulo && novoTitulo.trim() !== '' && novoTitulo !== m.titulo) {
+      setMateriais(prev => prev.map(item => item.id === m.id ? { ...item, titulo: novoTitulo } : item));
+      try {
+        const { error } = await supabase.from('materiais').update({ titulo: novoTitulo }).eq('id', m.id);
+        if (error) throw error;
+        toast.success("Título atualizado!");
+      } catch (err: any) {
+        toast.error("Erro ao atualizar título.");
+        loadData();
+      }
+    }
+  };
+
   const handleSaveRoteiro = async () => {
     if (!roteiroToEdit) return; setLoading(true);
     let textToSave = newRoteiroText;
@@ -1427,7 +1442,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 {m.data_limite && new Date(m.data_limite) < new Date() && (
                                                   <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                                 )}
-                                                <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                                <div className="flex items-center gap-1 group/title">
+                                                  <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                                  <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                                </div>
                                               </div>
                                               <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
                                                 <button onClick={() => {
@@ -1491,7 +1509,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 {m.data_limite && new Date(m.data_limite) < new Date() && (
                                                   <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                                 )}
-                                                <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                                <div className="flex items-center gap-1 group/title">
+                                                  <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                                  <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                                </div>
                                               </div>
                                               <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
                                                 <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
@@ -1539,7 +1560,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         {m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
                                           <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                         )}
-                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                        <div className="flex items-center gap-1 group/title">
+                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                          <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                        </div>
                                         {(() => {
                                           const author = getAuthorInfo(m.feedback);
                                           if (!author) return null;
@@ -1597,7 +1621,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         {m.data_limite && new Date(m.data_limite) < new Date() && (
                                           <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                         )}
-                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                        <div className="flex items-center gap-1 group/title">
+                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                          <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                        </div>
                                       </div>
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
                                         <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
@@ -1697,7 +1724,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                         )}
                                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                          <div className="flex items-center gap-1 group/title">
+                                            <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                            <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                          </div>
                                           {m.agendado_para && !m.wpp_enviado && (
                                             <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center gap-1">
                                               <Clock size={10} /> Agendado: {new Date(m.agendado_para).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -1784,7 +1814,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
-                                      <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                      <div className="flex items-center gap-1 group/title">
+                                        <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                        <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                      </div>
                                       {(() => {
                                         const author = getAuthorInfo(m.feedback);
                                         if (!author) return null;
@@ -1888,7 +1921,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
-                                    <div className="flex-1 min-w-0 w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span><h5 className="font-bold text-sm">{m.titulo}</h5></div>
+                                    <div className="flex-1 min-w-0 w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
+                                      <div className="flex items-center gap-1 group/title">
+                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
+                                        <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                      </div>
+                                    </div>
                                     <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
                                       <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
 
@@ -2102,7 +2140,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <div key={m.id} className={`flex flex-col md:flex-row items-start md:items-center justify-between ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors`}>
                                             <div className="flex-1 w-full">
                                               <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-bold text-sm break-words">{m.titulo}</span>
+                                                <div className="flex items-center gap-1 group/title">
+                                                  <span className="font-bold text-sm break-words">{m.titulo}</span>
+                                                  <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                                </div>
                                                 {(m.status === 'aprovado' || m.status === 'concluido') && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} px-1.5 py-0.5 rounded shadow-sm`}>Arquivado / Finalizado</span>)}
                                                 {m.status === 'post_aprovado' && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} px-1.5 py-0.5 rounded shadow-sm`}>Post Aprovado (Cliente)</span>)}
                                                 {m.status === 'roteiro_aprovado' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado (Cliente)</span>)}
@@ -2843,7 +2884,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
-                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
+                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-editor]:overflow-visible [&_.ql-editor]:h-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base overflow-y-auto" />
               </div>
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>

@@ -1,3 +1,4 @@
+import React, { useRef, useEffect } from 'react';
 import ReactQuill, { Quill } from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -29,7 +30,19 @@ export const quillModules = {
 };
 
 const EditorWrapper = (props: any) => {
-  return <ReactQuill {...props} modules={{ ...quillModules, ...props.modules }} />;
+  const quillRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      if (editor && editor.root) {
+        editor.root.setAttribute('spellcheck', 'true');
+        editor.root.setAttribute('lang', 'pt-BR'); // Força o idioma para português
+      }
+    }
+  }, []);
+
+  return <ReactQuill ref={quillRef} {...props} modules={{ ...quillModules, ...props.modules }} />;
 };
 
 export default EditorWrapper;
