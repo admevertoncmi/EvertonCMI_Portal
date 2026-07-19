@@ -103,6 +103,8 @@ export async function createBatchFolders(parentFolderId: string, folderNames: st
       if (response.ok) {
         const data = await response.json();
         if (data.files && data.files.length > 0) return data.files[0].id;
+      } else {
+        console.error(`Erro ao buscar pasta ${name}:`, await response.text());
       }
       return null;
     };
@@ -118,7 +120,8 @@ export async function createBatchFolders(parentFolderId: string, folderNames: st
         const data = await response.json();
         return data.id;
       }
-      throw new Error(`Falha ao criar a pasta ${name}`);
+      const errText = await response.text();
+      throw new Error(`Falha ao criar a pasta ${name}: ${errText}`);
     };
 
     // 2. Verificar ou criar as pastas FOTOS e VIDEOS
@@ -169,8 +172,8 @@ export async function createBatchFolders(parentFolderId: string, folderNames: st
 
     return { success: true, links: results };
 
-  } catch (error) {
-    console.error("Falha ao criar pastas em lote:", error);
-    return { success: false, error: "Failed to create folders" };
+  } catch (error: any) {
+    console.error("Falha ao criar pastas em lote detalhada:", error);
+    return { success: false, error: error.message || error.toString() || "Failed to create folders" };
   }
 }

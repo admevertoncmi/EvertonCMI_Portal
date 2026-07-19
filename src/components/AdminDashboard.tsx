@@ -90,6 +90,8 @@ const getGoogleDriveId = (url: string) => {
   if (driveMatch1?.[1]) return driveMatch1[1];
   const driveMatch2 = /id=([a-zA-Z0-9_-]+)/.exec(url);
   if (driveMatch2?.[1] && url.includes('drive.google.com')) return driveMatch2[1];
+  const driveMatch3 = /\/folders\/([a-zA-Z0-9_-]+)/.exec(url);
+  if (driveMatch3?.[1]) return driveMatch3[1];
   return null;
 }
 
