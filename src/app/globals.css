@@ -103,5 +103,65 @@
       padding-top: calc(env(safe-area-inset-top) + 16px) !important;
     }
   }
+
+  /* Estilização para links do Quill/Editor */
+  .prose a {
+    text-decoration: underline !important;
+    text-underline-offset: 3px;
+    color: #3b82f6 !important;
+    position: relative;
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+    text-decoration-color: rgba(59, 130, 246, 0.4) !important;
+    font-weight: 600;
+  }
+  
+  .prose a:hover {
+    color: #2563eb !important;
+    text-decoration-color: #2563eb !important;
+  }
+  
+  .dark .prose a {
+    color: #60a5fa !important;
+    text-decoration-color: rgba(96, 165, 250, 0.4) !important;
+  }
+  
+  .dark .prose a:hover {
+    color: #93c5fd !important;
+    text-decoration-color: #93c5fd !important;
+  }
+
+  /* Tooltip com URL do link */
+  .prose a[href]:hover::after {
+    content: attr(href);
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #f9fafb;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: normal;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 50;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    opacity: 0;
+    animation: fadeInTooltip 0.2s ease forwards 0.3s; /* Delay de 0.3s para nǜo piscar */
+  }
+
+  .dark .prose a[href]:hover::after {
+    background: #374151;
+    border: 1px solid #4b5563;
+  }
+
+  @keyframes fadeInTooltip {
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-2px);
+    }
+  }
 }
 

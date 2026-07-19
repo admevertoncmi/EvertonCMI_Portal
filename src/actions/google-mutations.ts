@@ -95,10 +95,51 @@ export async function createBatchFolders(parentFolderId: string, folderNames: st
   if (!accessToken) return { success: false, error: "Access token is required" };
   
   try {
+    // 1. Funções auxiliares para buscar e criar pastas
+    const findFolderByName = async (parentId: string, name: string) => {
+      const query = `'${parentId}' in parents and name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)`;
+      const response = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.files && data.files.length > 0) return data.files[0].id;
+      }
+      return null;
+    };
+
+    const createFolder = async (parentId: string, name: string) => {
+      const url = `https://www.googleapis.com/drive/v3/files`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.id;
+      }
+      throw new Error(`Falha ao criar a pasta ${name}`);
+    };
+
+    // 2. Verificar ou criar as pastas FOTOS e VIDEOS
+    let fotosFolderId = await findFolderByName(parentFolderId, 'FOTOS');
+    if (!fotosFolderId) fotosFolderId = await createFolder(parentFolderId, 'FOTOS');
+
+    let videosFolderId = await findFolderByName(parentFolderId, 'VIDEOS');
+    if (!videosFolderId) videosFolderId = await createFolder(parentFolderId, 'VIDEOS');
+
     const results: Record<string, string> = {};
 
-    // Promessas para criação paralela das pastas
+    // 3. Promessas para criação paralela das pastas das tarefas
     const createPromises = folderNames.map(async (name) => {
+      const isVideo = name.toLowerCase().includes('reel') || 
+                      name.toLowerCase().includes('vídeo') || 
+                      name.toLowerCase().includes('video') || 
+                      name.toLowerCase().includes('tiktok') || 
+                      name.toLowerCase().includes('shorts');
+
+      const targetParentId = isVideo ? videosFolderId : fotosFolderId;
+
       const url = `https://www.googleapis.com/drive/v3/files`;
       const response = await fetch(url, {
         method: 'POST',
@@ -109,17 +150,16 @@ export async function createBatchFolders(parentFolderId: string, folderNames: st
         body: JSON.stringify({
           name: name,
           mimeType: 'application/vnd.google-apps.folder',
-          parents: [parentFolderId]
+          parents: [targetParentId]
         })
       });
 
       if (!response.ok) {
         console.error(`Erro ao criar pasta ${name}:`, await response.text());
-        return null; // Pode retornar erro específico ou apenas falhar silenciosamente para esta
+        return null;
       }
 
       const data = await response.json();
-      // data.id será retornado, a URL visível padrão é:
       const folderLink = `https://drive.google.com/drive/folders/${data.id}`;
       
       results[name] = folderLink;

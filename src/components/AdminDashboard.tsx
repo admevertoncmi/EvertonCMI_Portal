@@ -256,6 +256,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isEditRoteiroModalOpen, setIsEditRoteiroModalOpen] = useState(false);
   const [roteiroToEdit, setRoteiroToEdit] = useState<Material | null>(null);
   const [newRoteiroText, setNewRoteiroText] = useState('');
+  const [isEditTituloModalOpen, setIsEditTituloModalOpen] = useState(false);
+  const [novoTituloText, setNovoTituloText] = useState('');
+  const [materialBeingEdited, setMaterialBeingEdited] = useState<Material | null>(null);
   const [isResolveIssueModalOpen, setIsResolveIssueModalOpen] = useState(false);
   const [resolveText, setResolveText] = useState('');
   const [resolveLinkBruto, setResolveLinkBruto] = useState('');
@@ -623,19 +626,30 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     else { toast.error("Erro ao processar resolução."); } setLoading(false);
   }
 
-  const handleEditTitulo = async (m: Material) => {
-    const novoTitulo = window.prompt("Digite o novo título da subtarefa:", m.titulo);
-    if (novoTitulo && novoTitulo.trim() !== '' && novoTitulo !== m.titulo) {
-      setMateriais(prev => prev.map(item => item.id === m.id ? { ...item, titulo: novoTitulo } : item));
-      try {
-        const { error } = await supabase.from('materiais').update({ titulo: novoTitulo }).eq('id', m.id);
-        if (error) throw error;
-        toast.success("Título atualizado!");
-      } catch (err: any) {
-        toast.error("Erro ao atualizar título.");
-        loadData();
-      }
+  const handleEditTitulo = (m: Material) => {
+    setMaterialBeingEdited(m);
+    setNovoTituloText(m.titulo);
+    setIsEditTituloModalOpen(true);
+  };
+
+  const handleSaveTitulo = async () => {
+    if (!materialBeingEdited || novoTituloText.trim() === '' || novoTituloText === materialBeingEdited.titulo) {
+      setIsEditTituloModalOpen(false);
+      return;
     }
+    setLoading(true);
+    setMateriais(prev => prev.map(item => item.id === materialBeingEdited.id ? { ...item, titulo: novoTituloText } : item));
+    try {
+      const { error } = await supabase.from('materiais').update({ titulo: novoTituloText }).eq('id', materialBeingEdited.id);
+      if (error) throw error;
+      toast.success("Título atualizado!");
+    } catch (err: any) {
+      toast.error("Erro ao atualizar título.");
+      loadData();
+    }
+    setLoading(false);
+    setIsEditTituloModalOpen(false);
+    setMaterialBeingEdited(null);
   };
 
   const handleSaveRoteiro = async () => {
@@ -2879,7 +2893,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-5xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
             <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
-              <div className="truncate pr-4"><h3 className="text-lg md:text-xl font-black uppercase flex items-center gap-3"><FileText size={20} className="text-pink-500" /> Editar Roteiro</h3></div>
+              <div className="truncate pr-4">
+                <h3 className="text-lg md:text-xl font-black uppercase flex items-center gap-3">
+                  <FileText size={20} className="text-pink-500" />
+                  Editar Roteiro
+                </h3>
+                <p className={`text-xs md:text-sm font-bold mt-1 truncate ${tc.textMuted}`}>{roteiroToEdit.titulo}</p>
+              </div>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
@@ -3257,6 +3277,28 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 Confirmar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {isEditTituloModalOpen && materialBeingEdited && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl md:text-2xl font-black uppercase flex items-center gap-2"><Edit3 size={24} className="text-[#A25431]" /> Editar Título</h3>
+              <button onClick={() => setIsEditTituloModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              <p className={`${tc.textMuted} text-sm font-medium`}>Altere o nome desta tarefa.</p>
+              <input 
+                className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} 
+                value={novoTituloText} 
+                onChange={e => setNovoTituloText(e.target.value)} 
+                autoFocus
+              />
+            </div>
+            <button onClick={handleSaveTitulo} disabled={loading || !novoTituloText.trim()} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-[#8a4729] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+              {loading ? <Loader2 size={16} className="animate-spin" /> : null} Salvar Alterações
+            </button>
           </div>
         </div>
       )}
