@@ -237,7 +237,8 @@ export default function DecupadorDashboard() {
     filaPendentes.forEach(m => {
       const cid = m.cliente_id;
       const cicloLabel = `CICLO ${m.ciclo || 1}`;
-      const linkBruto = m.link_bruto || m.link_drive || '';
+      const rawBruto = m.link_bruto || m.link_drive || '';
+      const linkBruto = rawBruto.split(' ')[0];
 
       if (!grupos[cid]) grupos[cid] = { clienteNome: m.cliente?.nome || 'S/N', ciclos: {} };
       if (!grupos[cid].ciclos[cicloLabel]) grupos[cid].ciclos[cicloLabel] = { itens: [], linkBrutoGlobal: linkBruto };
@@ -570,7 +571,9 @@ export default function DecupadorDashboard() {
                           <div className="grid gap-3 min-w-0">
                             {cicloData.itens.map(m => {
                               const isExpanded = expandedTasks.includes(m.id);
-                              const linkBrutoAtual = m.link_bruto || m.link_drive || cicloData.linkBrutoGlobal;
+                              const rawBrutoAtual = m.link_bruto || m.link_drive || '';
+                              const linkBrutoParts = rawBrutoAtual.split(' ');
+                              const linkBrutoAtual = linkBrutoParts[1] || linkBrutoParts[0] || cicloData.linkBrutoGlobal;
 
                               return (
                                 <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950 border-zinc-800/80' : 'bg-zinc-50 border-zinc-200'} border ${isExpanded ? (theme === 'dark' ? '!border-zinc-600' : '!border-zinc-400') : ''} rounded-[20px] transition-all min-w-0`}>

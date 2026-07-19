@@ -1069,7 +1069,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           if (res.success && res.links) {
             novos.forEach((n: any) => {
               if (res.links[n.titulo]) {
-                n.link_bruto = res.links[n.titulo];
+                n.link_bruto = `${parentFolderUrl} ${res.links[n.titulo]}`;
+              } else {
+                n.link_bruto = parentFolderUrl;
               }
             });
             toast.success("Pastas criadas no Drive com sucesso!");
