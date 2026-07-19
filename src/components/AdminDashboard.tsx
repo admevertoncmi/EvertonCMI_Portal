@@ -503,9 +503,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       updatePayload.planner_id = null;
       updatePayload.editor_id = null;
       updatePayload.designer_id = null;
-      // Ao voltar para o roteiro, limpamos os links para que a tarefa apareça no Planejamento (Roteiros Aprovados)
+      // Ao voltar para o roteiro, mantemos o link bruto pois as pastas físicas já foram criadas
       if (newStatus === 'roteiro_aprovado' || newStatus === 'aprovado') {
-        updatePayload.link_bruto = null;
         updatePayload.link_drive = null;
         updatePayload.link_capa = null;
       }
