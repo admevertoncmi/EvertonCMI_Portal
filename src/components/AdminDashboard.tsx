@@ -472,6 +472,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       }
     });
 
+    });
+
+    // Calcula Workload (Membros Atuais)
+    const workloadMap: Record<string, { nome: string, role: string, tarefas: { id: string, cliente: string, ciclo: number, titulo: string, status: string }[] }> = {};
+    membros.forEach(m => workloadMap[m.id] = { nome: m.nome || m.email, role: m.role, tarefas: [] });
+
+    materiais.forEach(m => {
+      if (['aprovado', 'post_aprovado', 'concluido', 'analise_roteiro', 'roteiro_pendente', 'roteiro_aprovado'].includes(m.status)) return;
+      const tInfo = { id: m.id, cliente: m.cliente?.nome || 'S/N', ciclo: Number(m.ciclo) || 1, titulo: m.titulo, status: m.status };
+      if (m.editor_id && workloadMap[m.editor_id]) workloadMap[m.editor_id].tarefas.push(tInfo);
+      if (m.designer_id && workloadMap[m.designer_id] && m.designer_id !== m.editor_id) workloadMap[m.designer_id].tarefas.push(tInfo);
+      if (m.planner_id && workloadMap[m.planner_id] && m.planner_id !== m.editor_id && m.planner_id !== m.designer_id) workloadMap[m.planner_id].tarefas.push(tInfo);
+    });
+    const activeWorkload = Object.values(workloadMap).filter(w => w.tarefas.length > 0).sort((a, b) => b.tarefas.length - a.tarefas.length);
+
     const topAjustesClientes = Object.values(clienteStats).sort((a, b) => b.ajustes - a.ajustes).slice(0, 5);
     const topPerformance = Object.values(performance).sort((a, b) => b.entregas - a.entregas);
     const topAjustesEquipe = Object.values(performance).filter(p => p.role !== 'admin' && p.ajustesHistoricos > 0).sort((a, b) => b.ajustesHistoricos - a.ajustesHistoricos);
@@ -482,7 +497,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       topClientes: Object.values(clienteStats).sort((a, b) => b.total - a.total).slice(0, 5),
       topAjustesClientes,
       topAjustesEquipe,
-      totalAtrasos
+      totalAtrasos,
+      workload: activeWorkload
     };
   }, [materiais, membros, groupItems]);
 
@@ -658,7 +674,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     let textToSave = newRoteiroText;
     textToSave = textToSave.replace(/<li data-list="checked">/gi, '<li class="task-list-item"><input type="checkbox" checked disabled> ');
     textToSave = textToSave.replace(/<li data-list="unchecked">/gi, '<li class="task-list-item"><input type="checkbox" disabled> ');
-    const { error } = await supabase.from('materiais').update({ roteiro: textToSave }).eq('id', roteiroToEdit.id);
+    const { error } = await supabase.from('materiais').update({ roteiro: textToSave, titulo: novoTituloText }).eq('id', roteiroToEdit.id);
     if (!error) { toast.success("Roteiro atualizado!"); setIsEditRoteiroModalOpen(false); loadData(); } else { toast.error("Erro."); } setLoading(false);
   }
 
@@ -1471,6 +1487,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                   if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
                                                   txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
                                                   txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
+                                                  setNovoTituloText(m.titulo);
                                                   setNewRoteiroText(txt);
                                                   setIsEditRoteiroModalOpen(true);
                                                 }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
@@ -1532,7 +1549,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 </div>
                                               </div>
                                               <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
-                                                <button onClick={() => { setRoteiroToEdit(m); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
+                                                <button onClick={() => { setRoteiroToEdit(m); setNovoTituloText(m.titulo); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
                                                 <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta inserida' : 'Inserir Pasta'}</button>
                                               </div>
                                             </div>
@@ -1890,6 +1907,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
                                             txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
                                             txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
+                                            setNovoTituloText(m.titulo);
                                             setNewRoteiroText(txt);
                                             setIsEditRoteiroModalOpen(true);
                                           }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
@@ -2212,6 +2230,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 setRoteiroToEdit(m);
                                                 let txt = m.roteiro || '';
                                                 txt = txt.replace(/<br\s*\/?>/gi, '\n');
+                                                setNovoTituloText(m.titulo);
                                                 setNewRoteiroText(txt);
                                                 setIsEditRoteiroModalOpen(true);
                                               }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-orange-900/30 hover:text-orange-400' : 'text-zinc-500 bg-zinc-50 hover:bg-orange-50 hover:text-orange-600'} rounded-lg transition-colors`} title="Editar Roteiro"><Edit3 size={16} /></button>
@@ -2654,7 +2673,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             </span>
                           </td>
                           <td className="p-6">
-                            <span className="text-[8px] font-black uppercase px-2 py-1 bg-red-100 text-red-600 rounded-md">Em Atraso</span>
+                            <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md ${getStatusColor(m.status)}`}>
+                              {{
+                                'analise_roteiro': 'Roteiro em Análise', 'roteiro_pendente': 'Aguardando Cliente', 'roteiro_aprovado': 'Roteiro Aprovado', 'planejamento': 'Aguardando Decupagem', 'em_organizacao': 'Decupagem em Andamento', 'faltando_material': 'Falta Material', 'verificar_material': 'Verificar Material', 'organizado': 'Aguardando Edição', 'em_edicao': 'Em Edição', 'aprovado': 'Aguardando Cliente', 'ajustes': 'Ajustes', 'revisao': 'Revisão Agência', 'post_aprovado': 'Post Aprovado', 'concluido': 'Finalizado'
+                              }[m.status] || m.status}
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -2666,6 +2689,50 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         <CheckCircle2 size={32} />
                       </div>
                       <p className="text-zinc-400 font-black text-[10px] uppercase tracking-[0.2em]">Sem atrasos. Tudo sob controle!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* CARGA DE TRABALHO DA EQUIPE */}
+              <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm card-report`}>
+                <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-blue-900/10' : 'bg-blue-50/50'} flex items-center justify-between`}>
+                  <div>
+                    <h3 className="font-black uppercase text-sm text-blue-600">Carga de Trabalho Atual da Equipe</h3>
+                    <p className="text-xs text-blue-400 font-medium mt-1">Materiais em produção destinados a cada membro da equipe.</p>
+                  </div>
+                  <ClipboardCheck size={20} className="text-blue-500" />
+                </header>
+                <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {relatorioData.workload.map((w, i) => (
+                    <div key={i} className={`p-5 rounded-2xl border ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'}`}>
+                      <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                        <div>
+                          <p className="font-black text-sm uppercase">{w.nome}</p>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{w.role}</p>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xs">
+                          {w.tarefas.length}
+                        </div>
+                      </div>
+                      <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        {w.tarefas.map(t => (
+                          <div key={t.id} className={`p-3 rounded-xl border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950' : 'border-zinc-200 bg-white'}`}>
+                            <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.cliente} - CICLO {t.ciclo}</p>
+                            <p className="text-xs font-black mt-1 mb-2 line-clamp-2">{t.titulo}</p>
+                            <span className={`inline-block text-[8px] font-black uppercase px-2 py-1 rounded-md ${getStatusColor(t.status)}`}>
+                              {{
+                                'analise_roteiro': 'Roteiro em Análise', 'roteiro_pendente': 'Aguardando Cliente', 'roteiro_aprovado': 'Roteiro Aprovado', 'planejamento': 'Aguardando Decupagem', 'em_organizacao': 'Decupagem em Andamento', 'faltando_material': 'Falta Material', 'verificar_material': 'Verificar Material', 'organizado': 'Aguardando Edição', 'em_edicao': 'Em Edição', 'aprovado': 'Aguardando Cliente', 'ajustes': 'Ajustes', 'revisao': 'Revisão Agência', 'post_aprovado': 'Post Aprovado', 'concluido': 'Finalizado'
+                              }[t.status] || t.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {relatorioData.workload.length === 0 && (
+                    <div className="col-span-full py-10 text-center text-zinc-400 font-bold text-xs uppercase">
+                      Nenhum material em produção no momento.
                     </div>
                   )}
                 </div>
@@ -2901,13 +2968,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <FileText size={20} className="text-pink-500" />
                   Editar Roteiro
                 </h3>
-                <p className={`text-xs md:text-sm font-bold mt-1 truncate ${tc.textMuted}`}>{roteiroToEdit.titulo}</p>
+                <input type="text" value={novoTituloText} onChange={(e) => setNovoTituloText(e.target.value)} className={`text-xs md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors ${tc.textMuted}`} placeholder="Título da Tarefa" />
               </div>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
-                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-editor]:overflow-visible [&_.ql-editor]:h-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base overflow-y-auto" />
+                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:h-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
               </div>
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
