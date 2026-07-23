@@ -2966,7 +2966,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <FileText size={20} className="text-pink-500" />
                   Editar Roteiro
                 </h3>
-                <textarea rows={2} value={novoTituloText} onChange={(e) => setNovoTituloText(e.target.value)} className={`text-xs md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors resize-none overflow-hidden ${tc.textMuted}`} placeholder="Título da Tarefa" />
+                <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-xs md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors resize-none overflow-hidden ${tc.textMuted}`} placeholder="Título da Tarefa" />
               </div>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
