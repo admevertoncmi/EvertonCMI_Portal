@@ -1838,7 +1838,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} md:ml-1`}>
                                 {data.itens.map((m) => (
-                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col lg:flex-row items-start lg:items-center gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
+                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col items-start gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
                                     <div className="flex-1 min-w-0 w-full text-left">
                                       <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
                                         {(!m.link_drive && !m.link_capa) ? '🔔 Ajuste Planejamento' : '🎬 Ajuste Produção'}
@@ -1895,10 +1895,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         </div>
                                       )}
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0 shrink-0">
+                                    <div className="flex flex-wrap items-center gap-2 w-full mt-2 shrink-0 justify-end">
                                       <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                       {(!m.link_drive && !m.link_capa) ? (
-                                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                                        <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                                           <button onClick={() => {
                                             setRoteiroToEdit(m);
                                             let txt = m.roteiro || '';
@@ -2671,7 +2671,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             </span>
                           </td>
                           <td className="p-6">
-                            <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md ${getStatusColor(m.status)}`}>
+                            <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md whitespace-nowrap ${getStatusColor(m.status)}`}>
                               {{
                                 'analise_roteiro': 'Roteiro em Análise', 'roteiro_pendente': 'Aguardando Cliente', 'roteiro_aprovado': 'Roteiro Aprovado', 'planejamento': 'Aguardando Decupagem', 'em_organizacao': 'Decupagem em Andamento', 'faltando_material': 'Falta Material', 'verificar_material': 'Verificar Material', 'organizado': 'Aguardando Edição', 'em_edicao': 'Em Edição', 'aprovado': 'Aguardando Cliente', 'ajustes': 'Ajustes', 'revisao': 'Revisão Agência', 'post_aprovado': 'Post Aprovado', 'concluido': 'Finalizado'
                               }[m.status] || m.status}
@@ -2966,7 +2966,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <FileText size={20} className="text-pink-500" />
                   Editar Roteiro
                 </h3>
-                <input type="text" value={novoTituloText} onChange={(e) => setNovoTituloText(e.target.value)} className={`text-xs md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors ${tc.textMuted}`} placeholder="Título da Tarefa" />
+                <textarea rows={2} value={novoTituloText} onChange={(e) => setNovoTituloText(e.target.value)} className={`text-xs md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors resize-none overflow-hidden ${tc.textMuted}`} placeholder="Título da Tarefa" />
               </div>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
