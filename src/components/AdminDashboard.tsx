@@ -2961,7 +2961,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-5xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
             <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
-              <div className="truncate pr-4">
+              <div className="flex-1 min-w-0 pr-4">
                 <h3 className="text-lg md:text-xl font-black uppercase flex items-center gap-3">
                   <FileText size={20} className="text-pink-500" />
                   Editar Roteiro
