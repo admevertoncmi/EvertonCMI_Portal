@@ -472,8 +472,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       }
     });
 
-    });
-
     // Calcula Workload (Membros Atuais)
     const workloadMap: Record<string, { nome: string, role: string, tarefas: { id: string, cliente: string, ciclo: number, titulo: string, status: string }[] }> = {};
     membros.forEach(m => workloadMap[m.id] = { nome: m.nome || m.email, role: m.role, tarefas: [] });
@@ -1840,7 +1838,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} md:ml-1`}>
                                 {data.itens.map((m) => (
-                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
+                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col lg:flex-row items-start lg:items-center gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
                                     <div className="flex-1 min-w-0 w-full text-left">
                                       <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
                                         {(!m.link_drive && !m.link_capa) ? '🔔 Ajuste Planejamento' : '🎬 Ajuste Produção'}
@@ -1848,7 +1846,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
-                                      <div className="flex items-center gap-1 group/title">
+                                      <div className="flex items-center gap-1 group/title min-w-0">
                                         <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
                                         <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
                                       </div>
@@ -1897,10 +1895,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         </div>
                                       )}
                                     </div>
-                                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto mt-4 md:mt-0 md:shrink-0">
+                                    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0 shrink-0">
                                       <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                       {(!m.link_drive && !m.link_capa) ? (
-                                        <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                                           <button onClick={() => {
                                             setRoteiroToEdit(m);
                                             let txt = m.roteiro || '';
