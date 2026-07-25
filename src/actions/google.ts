@@ -25,12 +25,18 @@ export async function getDriveFolderFiles(folderId: string) {
     }
 
     const data = await response.json();
+    let allLinks: string[] = [];
     
-    // Retornamos os links formatados para que o nosso visualizador consiga abrir
-    // Damos prioridade para imagens e vídeos
-    return (data.files || []).map((file: any) => {
-      return `https://drive.google.com/file/d/${file.id}/view`;
-    });
+    for (const file of data.files || []) {
+      if (file.mimeType === 'application/vnd.google-apps.folder') {
+        const subFiles = await getDriveFolderFiles(file.id);
+        allLinks = allLinks.concat(subFiles);
+      } else {
+        allLinks.push(`https://drive.google.com/file/d/${file.id}/view`);
+      }
+    }
+    
+    return allLinks;
   } catch (error) {
     console.error("Falha ao buscar arquivos da pasta:", error);
     return [];

@@ -1202,7 +1202,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     {isImg ? (
                       <img src={link} className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                     ) : (
-                      <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
+                      <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0" allowFullScreen></iframe>
                     )}
                   </div>
                 );
@@ -2971,7 +2971,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
-              <div className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
+              <div onClick={(e) => { const target = e.target as HTMLElement; if (target.tagName === 'A') { const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden`}>
                 <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:h-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
               </div>
             </div>
