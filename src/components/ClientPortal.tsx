@@ -706,7 +706,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                   {isRoteiro ? (
                     <div className="bg-zinc-50 border border-zinc-200 rounded-[16px] p-5 min-h-[200px] mb-5 overflow-hidden">
-                      <div className="text-zinc-700 font-medium break-words break-all leading-relaxed text-xs md:text-sm prose prose-sm max-w-none [&_p]:m-0" dangerouslySetInnerHTML={{ __html: (selectedMaterial.roteiro?.includes('<p>') || selectedMaterial.roteiro?.includes('<br>')) ? selectedMaterial.roteiro : (selectedMaterial.roteiro || "Nenhum Roteiro registado nesta tarefa.").replace(/\n/g, '<br/>') }}>
+                      <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className="text-zinc-700 font-medium break-words break-all leading-relaxed text-xs md:text-sm prose prose-sm max-w-none [&_p]:m-0 [&_a]:cursor-pointer [&_a]:text-blue-600 [&_a]:hover:underline" dangerouslySetInnerHTML={{ __html: (selectedMaterial.roteiro?.includes('<p>') || selectedMaterial.roteiro?.includes('<br>')) ? selectedMaterial.roteiro : (selectedMaterial.roteiro || "Nenhum Roteiro registado nesta tarefa.").replace(/\n/g, '<br/>') }}>
                       </div>
                     </div>
                   ) : (
