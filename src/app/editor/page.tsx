@@ -1,6 +1,9 @@
 "use client"
+import { isDateLate, isTaskLate } from "@/lib/utils";
+
 
 import { useRouter } from 'next/navigation'
+import { isMaterialAtrasado, linkifyHtml } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-browser'
 import { Toaster, toast } from 'sonner'
 import { getDriveFolderFiles } from '@/actions/google'
@@ -20,7 +23,7 @@ interface Material {
   id: string; cliente_id: string; titulo: string;
   ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string;
   data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean;
-  status: any; created_at: string; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null;
+  status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null;
   cliente?: { nome: string; };
 }
 
@@ -37,7 +40,7 @@ const renderTextWithLinks = (text: string) => {
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
       return (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-normal">
           {part}
         </a>
       );
@@ -59,6 +62,8 @@ const isGoogleDriveVideo = (url: string) => {
   if (!url) return false;
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
 }
+
+const AVAILABLE_TAGS = ['Urgente', 'Alta Prioridade', 'Revisão Necessária', 'Destaque', 'Em Atraso', 'Requer Atenção', 'Aprovado Internamente'];
 
 const getGoogleDriveId = (url: string) => {
   if (!url) return null;
@@ -100,7 +105,8 @@ export default function EditorDashboard() {
   const textPrincipal = tc.textMain; const textSecundario = tc.textMuted; const hoverSecundario = tc.bgHover;
 
   // --- ESTADOS ---
-  const [activeTab, setActiveTab] = useState<'ajustes' | 'revisao'>('ajustes')
+  const [activeTab, setActiveTab] = useState<'ajustes' | 'revisao'>('ajustes');
+  const [dateFilter, setDateFilter] = useState<'todas' | 'hoje' | 'semana' | 'futura'>('todas');
   const [materiais, setMateriais] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
@@ -201,6 +207,26 @@ export default function EditorDashboard() {
   }, [supabase, loadData, userId])
 
   const minhaFilaProducao = useMemo(() => materiais.filter(m => {
+
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+    const dayOfWeek = hoje.getDay() || 7;
+    const inicioSemana = new Date(hoje);
+    inicioSemana.setDate(hoje.getDate() - dayOfWeek + 1);
+    const fimSemana = new Date(inicioSemana);
+    fimSemana.setDate(inicioSemana.getDate() + 6);
+
+    if (dateFilter !== 'todas' && m.data_limite) {
+        const d = new Date(m.data_limite);
+        d.setHours(0,0,0,0);
+        if (dateFilter === 'hoje') {
+            if (d.getTime() !== hoje.getTime()) return false;
+        } else if (dateFilter === 'semana') {
+            if (d < inicioSemana || d > fimSemana) return false;
+        } else if (dateFilter === 'futura') {
+            if (d <= fimSemana) return false;
+        }
+    }
     // 🔥 AGORA INCLUI OS STATUS DE PROBLEMA PARA ELES NÃO SUMIREM DA TELA
     if (m.status !== 'ajustes' && m.status !== 'em_edicao' && m.status !== 'faltando_material' && m.status !== 'verificar_material') return false;
     const souEditor = m.editor_id === userId;
@@ -364,7 +390,7 @@ export default function EditorDashboard() {
     }
 
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) {
-      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-6xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     }
 
     const finalUrl = getEmbedUrl(url) || url;
@@ -373,7 +399,7 @@ export default function EditorDashboard() {
       <div 
         className={`w-full mx-auto bg-black rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
           aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
-          aspectRatio === 'video' ? 'aspect-video max-w-4xl' : 
+          aspectRatio === 'video' ? 'aspect-video max-w-6xl' : 
           'aspect-square max-w-2xl'
         }`}
         style={{ containerType: 'inline-size' }}
@@ -459,11 +485,25 @@ export default function EditorDashboard() {
 
         {/* ABA DE EDIÇÃO / DESIGN */}
         {activeTab === 'ajustes' && (
-          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
             <header>
               <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal}`}>Tarefas Pendentes</h2>
               <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Sua fila de produção de Vídeos e Designs.</p>
-            </header>
+
+            <div className="flex flex-wrap items-center gap-2 mt-4 mb-2">
+                <span className={`text-xs font-black uppercase ${textSecundario} mr-2`}>Filtrar:</span>
+                {['todas', 'hoje', 'semana', 'futura'].map(f => (
+                    <button 
+                        key={f}
+                        onClick={() => setDateFilter(f as any)}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${dateFilter === f ? 'bg-[#A25431] text-white shadow-md' : `${bgSecundario} ${textSecundario} border ${borderSecundario} hover:bg-[#A25431]/10`}`}
+                    >
+                        {f === 'todas' ? 'Todas' : f === 'semana' ? 'Esta Semana' : f === 'futura' ? 'Próximas Demandas' : f}
+                    </button>
+                ))}
+            </div>
+    
+</header>
 
             {loading ? (
               <div className={`${textSecundario} animate-pulse font-bold flex items-center gap-2`}>
@@ -535,7 +575,7 @@ export default function EditorDashboard() {
                                                   </span>
                                                 )}
                                               </div>
-                                              <h5 className={`text-base md:text-lg font-black tracking-tight ${textPrincipal} uppercase break-words ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
+                                              <h5 className={`text-base md:text-lg font-black tracking-tight ${textPrincipal} uppercase ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 md:gap-3 w-full">
@@ -577,7 +617,7 @@ export default function EditorDashboard() {
                                               {m.feedback_admin && (
                                                 <div className={`${theme === 'dark' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-blue-50 border-blue-100'} p-4 rounded-xl border overflow-hidden shadow-sm`}>
                                                   <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mb-2 flex items-center gap-2`}><MessageSquare size={12} /> Instrução Admin:</p>
-                                                  <p className={`${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{renderTextWithLinks(m.feedback_admin)}</p>
+                                                  <p className={`${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'} font-medium whitespace-normal text-sm`}>{renderTextWithLinks(m.feedback_admin)}</p>
                                                 </div>
                                               )}
 
@@ -589,7 +629,7 @@ export default function EditorDashboard() {
                                                     const isFbExpanded = expandedFeedbacks.includes(m.id);
                                                     return (
                                                       <div className="min-w-0">
-                                                        <p className={`${theme === 'dark' ? 'text-red-100' : 'text-red-900'} font-medium whitespace-pre-wrap break-words break-all text-sm`}>{renderTextWithLinks(fbs[0])}</p>
+                                                        <p className={`${theme === 'dark' ? 'text-red-100' : 'text-red-900'} font-medium whitespace-normal text-sm`}>{renderTextWithLinks(fbs[0])}</p>
 
                                                         {fbs.length > 1 && (
                                                           <div className="mt-3">
@@ -601,7 +641,7 @@ export default function EditorDashboard() {
                                                             {isFbExpanded && (
                                                               <div className={`mt-3 pt-3 border-t ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} space-y-2 animate-in fade-in duration-300 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar`}>
                                                                 {fbs.slice(1).map((hist, idx) => (
-                                                                  <div key={idx} className={`p-2.5 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900/30 text-red-200/70' : 'bg-white border border-red-100 text-red-800'} text-xs font-medium whitespace-pre-wrap break-words break-all`}>
+                                                                  <div key={idx} className={`p-2.5 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900/30 text-red-200/70' : 'bg-white border border-red-100 text-red-800'} text-xs font-medium whitespace-normal break-normal`}>
                                                                     {renderTextWithLinks(hist)}
                                                                   </div>
                                                                 ))}
@@ -660,7 +700,7 @@ export default function EditorDashboard() {
 
         {/* ABA DE REVISÃO (MEUS ENTREGUES) */}
         {activeTab === 'revisao' && (
-          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
             <header>
               <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal} flex items-center gap-3`}>
                 <Search className="text-purple-500" size={28} /> Meus Entregues
@@ -791,7 +831,7 @@ export default function EditorDashboard() {
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${bgSecundario} hover:${bgPrincipal} ${textSecundario} hover:${textPrincipal} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className="p-5 md:p-8 overflow-y-auto">
-              <div className={`prose prose-sm max-w-none font-medium leading-relaxed break-words break-all ${theme === 'dark' ? 'prose-invert' : ''}`} dangerouslySetInnerHTML={{ __html: (previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro : (previewRoteiro.roteiro || "Roteiro não preenchido.").replace(/\n/g, '<br/>') }} />
+              <div className={`max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_p]:m-0 [&_p]:mb-4 [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`} dangerouslySetInnerHTML={{ __html: linkifyHtml(((previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro : (previewRoteiro.roteiro || "Roteiro não preenchido.").replace(/\n/g, '<br/>')).replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ')) }} />
             </div>
           </div>
         </div>
@@ -808,7 +848,7 @@ export default function EditorDashboard() {
               <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
+          <div className="w-full h-[80vh] md:h-full max-w-7xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
             {renderPreviewContent(previewUrl)}
           </div>
         </div>

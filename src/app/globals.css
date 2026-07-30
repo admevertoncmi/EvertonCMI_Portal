@@ -165,3 +165,12 @@
   }
 }
 
+
+
+
+.word-wrap-safe, .word-wrap-safe * {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+}

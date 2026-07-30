@@ -1,6 +1,9 @@
 "use client"
+import { isDateLate, isTaskLate } from "@/lib/utils";
+
 
 import { useRouter } from 'next/navigation'
+import { isMaterialAtrasado, linkifyHtml } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-browser'
 import { Toaster, toast } from 'sonner'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
@@ -41,6 +44,8 @@ const isGoogleDriveVideo = (url: string) => {
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
 }
 
+const AVAILABLE_TAGS = ['Urgente', 'Alta Prioridade', 'Revisão Necessária', 'Destaque', 'Em Atraso', 'Requer Atenção', 'Aprovado Internamente'];
+
 const getGoogleDriveId = (url: string) => {
   if (!url) return null;
   const driveMatch1 = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url);
@@ -72,7 +77,7 @@ const renderTextWithLinks = (text: string | null | undefined) => {
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
       return (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-normal">
           {part}
         </a>
       );
@@ -127,7 +132,8 @@ export default function DecupadorDashboard() {
   const hoverSecundario = tc.bgHover;
 
   const [activeTab, setActiveTab] = useState<'pendentes' | 'entregues'>('pendentes')
-  const [materiais, setMateriais] = useState<Material[]>([])
+  const [materiais, setMateriais] = useState<Material[]>([]);
+  const [dateFilter, setDateFilter] = useState<'todas' | 'hoje' | 'semana' | 'futura'>('todas');
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<{ nome: string, role: string } | null>(null)
@@ -137,7 +143,18 @@ export default function DecupadorDashboard() {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false)
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
   const [newDriveLink, setNewDriveLink] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tagDropdownOpen, setTagDropdownOpen] = useState<string | null>(null);
+
+  const toggleMaterialTag = async (material: Material, tag: string) => {
+    const currentTags = material.tags || [];
+    const newTags = currentTags.includes(tag) 
+      ? currentTags.filter(t => t !== tag) 
+      : [...currentTags, tag];
+    setMateriais(prev => prev.map(m => m.id === material.id ? { ...m, tags: newTags } : m));
+    const { error } = await supabase.from('materiais').update({ tags: newTags }).eq('id', material.id);
+    if (error) { toast.error('Erro ao salvar tag'); loadData(); }
+  };
   const [cleaningFolders, setCleaningFolders] = useState<Record<string, boolean>>({})
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [zoomMode, setZoomMode] = useState<'fit' | 'fill'>('fit');
@@ -424,7 +441,7 @@ export default function DecupadorDashboard() {
     }
 
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) {
-      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-4xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-6xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
     }
 
     const finalUrl = getEmbedUrl(url) || url;
@@ -433,7 +450,7 @@ export default function DecupadorDashboard() {
       <div 
         className={`w-full mx-auto bg-black rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
           aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
-          aspectRatio === 'video' ? 'aspect-video max-w-4xl' : 
+          aspectRatio === 'video' ? 'aspect-video max-w-6xl' : 
           'aspect-square max-w-2xl'
         }`}
         style={{ containerType: 'inline-size' }}
@@ -516,7 +533,7 @@ export default function DecupadorDashboard() {
       <main className={`flex-1 pt-28 safe-pt-main-classic md:pt-10 pb-10 px-4 md:p-10 overflow-y-auto ${bgPrincipal}`}>
 
         {activeTab === 'pendentes' && (
-          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
             <header>
               <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal}`}>Fila de Trabalho</h2>
               <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Acesse os brutos, decupe o material e devolva a pasta pronta.</p>
@@ -593,7 +610,7 @@ export default function DecupadorDashboard() {
                                         </span>
                                       )}
 
-                                      <span className={`font-bold ${textPrincipal} uppercase text-xs sm:text-sm break-words block`}>{m.titulo}</span>
+                                      <span className={`font-bold ${textPrincipal} uppercase text-xs sm:text-sm block`}>{m.titulo}</span>
                                     </div>
 
                                     {/* SELECT BLINDADO */}
@@ -642,12 +659,12 @@ export default function DecupadorDashboard() {
                                         )}
                                       </div>
 
-                                      {/* 🔥 CORREÇÃO: break-words e overflow-hidden para evitar o bug da palavra infinita */}
+                                      {/* 🔥 CORREÇÃO: e overflow-hidden para evitar o bug da palavra infinita */}
                                       <div className={`w-full ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'} p-4 md:p-5 rounded-2xl border mb-6 overflow-hidden min-w-0`}>
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${textSecundario} mb-3 flex items-center gap-2`}><FileText size={14} /> Instrução / Roteiro:</p>
-                                        <div className={`text-sm ${textPrincipal} whitespace-pre-wrap break-words break-all leading-relaxed p-4 bg-black/10 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5 font-medium shadow-inner min-h-[100px]`}>
+                                        <div className={`text-sm ${textPrincipal} whitespace-normal leading-relaxed word-wrap-safe p-4 bg-black/10 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5 font-medium shadow-inner min-h-[100px]`}>
                                           {m.feedback_admin && <span className="text-blue-500 font-bold block mb-2">[ADMIN]: {renderTextWithLinks(m.feedback_admin)}</span>}
-                                          {m.roteiro ? <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className="prose prose-sm max-w-none dark:prose-invert [&_p]:m-0 [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline" dangerouslySetInnerHTML={{ __html: (m.roteiro?.includes('<p>') || m.roteiro?.includes('<br>')) ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>') }} /> : 'Nenhum roteiro fornecido.'}
+                                          {m.roteiro ? <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_p]:m-0 [&_p]:mb-4 [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`} dangerouslySetInnerHTML={{ __html: linkifyHtml(((m.roteiro?.includes('<p>') || m.roteiro?.includes('<br>')) ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')).replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ')) }} /> : 'Nenhum roteiro fornecido.'}
                                         </div>
                                       </div>
 
@@ -673,12 +690,12 @@ export default function DecupadorDashboard() {
         )}
 
         {activeTab === 'entregues' && (
-          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
+          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
             <header><h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal} flex items-center gap-3`}><CheckSquare className={textSecundario} size={28} /> Entregues</h2><p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Materiais decupados. Aguarde o Admin delegar ao editor.</p></header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {filaEntregues.map(m => (
                 <div key={m.id} className={`${bgSecundario} border ${borderSecundario} rounded-[20px] p-5 md:p-6 flex items-center justify-between shadow-sm`}>
-                  <div className="pr-4 min-w-0"><h3 className={`font-black text-base md:text-lg ${textPrincipal} tracking-tight uppercase break-words`}>{m.titulo}</h3><p className={`${textSecundario} font-bold text-xs mt-1 truncate`}>{m.cliente?.nome}</p></div>
+                  <div className="pr-4 min-w-0"><h3 className={`font-black text-base md:text-lg ${textPrincipal} tracking-tight uppercase break-normal`}>{m.titulo}</h3><p className={`${textSecundario} font-bold text-xs mt-1 truncate`}>{m.cliente?.nome}</p></div>
                   <div className={`${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200'} font-black text-[9px] uppercase px-3 py-2 rounded-xl border shrink-0`}>Entregue</div>
                 </div>
               ))}
@@ -735,7 +752,7 @@ export default function DecupadorDashboard() {
               <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
+          <div className="w-full h-[80vh] md:h-full max-w-7xl mx-auto flex items-center justify-center overflow-hidden p-2 md:p-10 mb-20 md:mb-0">
             {renderPreviewContent(previewUrl)}
           </div>
         </div>

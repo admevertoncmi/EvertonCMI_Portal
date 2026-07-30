@@ -1,4 +1,6 @@
 "use client"
+import { linkifyHtml } from '@/lib/utils';
+
 
 import { createClient } from '@/lib/supabase-browser'
 import { useState, useEffect, useMemo, useCallback, useRef, use } from 'react'
@@ -65,7 +67,7 @@ const renderTextWithLinks = (text: string) => {
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
       return (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-words">
           {part}
         </a>
       );
@@ -706,7 +708,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                   {isRoteiro ? (
                     <div className="bg-zinc-50 border border-zinc-200 rounded-[16px] p-5 min-h-[200px] mb-5 overflow-hidden">
-                      <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className="text-zinc-700 font-medium break-words break-all leading-relaxed text-xs md:text-sm prose prose-sm max-w-none [&_p]:m-0 [&_a]:cursor-pointer [&_a]:text-blue-600 [&_a]:hover:underline" dangerouslySetInnerHTML={{ __html: (selectedMaterial.roteiro?.includes('<p>') || selectedMaterial.roteiro?.includes('<br>')) ? selectedMaterial.roteiro : (selectedMaterial.roteiro || "Nenhum Roteiro registado nesta tarefa.").replace(/\n/g, '<br/>') }}>
+                      <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className="max-w-none text-zinc-700 font-medium whitespace-pre-wrap leading-relaxed text-xs md:text-sm [&_p]:m-0 [&_p]:mb-4 [&_a]:text-blue-500 [&_a]:underline [&_a]:cursor-pointer [&_a]:hover:underline break-words" dangerouslySetInnerHTML={{ __html: linkifyHtml(((selectedMaterial.roteiro?.includes('<p>') || selectedMaterial.roteiro?.includes('<br>')) ? selectedMaterial.roteiro : (selectedMaterial.roteiro || "Nenhum Roteiro registado nesta tarefa.").replace(/\n/g, '<br/>')).replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ')) }}>
                       </div>
                     </div>
                   ) : (
@@ -874,7 +876,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                             <div>
                               <div className="bg-white border border-orange-200 p-4 rounded-[16px] shadow-sm">
                                 <span className="text-[9px] font-black tracking-widest text-orange-400 uppercase block mb-1">Ajuste Pendente</span>
-                                <p className="text-zinc-800 font-medium text-sm leading-relaxed whitespace-pre-wrap break-words break-all">{renderTextWithLinks(currentFeedback)}</p>
+                                <p className="text-zinc-800 font-medium text-sm leading-relaxed whitespace-normal break-words">{renderTextWithLinks(currentFeedback)}</p>
                               </div>
 
                               {historicalFeedbacks.length > 0 && (
@@ -888,7 +890,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                     <div className="mt-3 space-y-2 animate-in fade-in duration-300 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
                                       {historicalFeedbacks.map((fbd: string, idx: number) => (
                                         <div key={idx} className="bg-orange-50/50 border border-orange-100 p-3 rounded-[12px]">
-                                          <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-pre-wrap break-words break-all opacity-80">{renderTextWithLinks(fbd)}</p>
+                                          <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-normal opacity-80">{renderTextWithLinks(fbd)}</p>
                                         </div>
                                       ))}
                                     </div>
@@ -1008,11 +1010,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
               <X size={20} /> Fechar
             </button>
           </div>
-          <div className="w-full h-[80vh] md:h-full max-w-5xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
+          <div className="w-full h-[80vh] md:h-full max-w-7xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div 
               className={`w-full bg-black rounded-[24px] overflow-hidden relative shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
                 modalAspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
-                modalAspectRatio === 'video' ? 'aspect-video max-w-4xl' : 
+                modalAspectRatio === 'video' ? 'aspect-video max-w-6xl' : 
                 'aspect-square max-w-2xl'
               }`}
               style={{ containerType: 'inline-size' }}
