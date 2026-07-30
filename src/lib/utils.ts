@@ -77,6 +77,9 @@ export function isDateLate(dateStr: string): boolean {
 
 export function linkifyHtml(html?: string): string {
   if (!html) return '';
+  // Convert non-breaking spaces to regular spaces FIRST so the urlRegex doesn't swallow them
+  html = html.replace(/&nbsp;/g, ' ').replace(/\u00A0/g, ' ');
+
   // Regex to match URLs not inside href="..." and not inside existing <a> tags
   // Using a simpler robust approach for JS:
   // First, extract all existing <a> tags so we don't mess with them
