@@ -87,7 +87,7 @@ const isGoogleDriveVideo = (url: string) => {
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
 }
 
-const AVAILABLE_TAGS = ['Urgente', 'Alta Prioridade', 'Revisão Necessária', 'Destaque', 'Em Atraso', 'Requer Atenção', 'Aprovado Internamente'];
+
 
 const getGoogleDriveId = (url: string) => {
   if (!url) return null;
@@ -191,7 +191,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [editingMembro, setEditingMembro] = useState<MembroComNome | null>(null);
-  const [activeTab, setActiveTab] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios'>('planejamento')
+  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios'>('planejamento')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab) setActiveTabState(tab as any);
+    }
+  }, []);
+
+  const setActiveTab = (tab: any) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('tab', tab);
+      window.history.replaceState(null, '', `?${params.toString()}`);
+    }
+  };
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
@@ -354,6 +371,47 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [materialToSchedule, setMaterialToSchedule] = useState<Material | null>(null);
+
+  const [systemTags, setSystemTags] = useState<{id: string, label: string, color: string}[]>([]);
+  const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
+  const [timelineMaterial, setTimelineMaterial] = useState<Material | null>(null);
+  const [newTagLabel, setNewTagLabel] = useState('');
+  const [newTagColor, setNewTagColor] = useState('red');
+
+  const TAG_COLORS = {
+    red: { bg: 'bg-red-500/20', text: 'text-red-700 dark:text-red-400', border: 'border-red-500/30' },
+    blue: { bg: 'bg-blue-500/20', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-500/30' },
+    green: { bg: 'bg-green-500/20', text: 'text-green-700 dark:text-green-400', border: 'border-green-500/30' },
+    yellow: { bg: 'bg-yellow-500/20', text: 'text-yellow-700 dark:text-yellow-400', border: 'border-yellow-500/30' },
+    purple: { bg: 'bg-purple-500/20', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-500/30' },
+    pink: { bg: 'bg-pink-500/20', text: 'text-pink-700 dark:text-pink-400', border: 'border-pink-500/30' },
+    orange: { bg: 'bg-orange-500/20', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-500/30' },
+    gray: { bg: 'bg-gray-500/20', text: 'text-gray-700 dark:text-gray-400', border: 'border-gray-500/30' }
+  };
+  const getTagStyle = (tagLabel: string) => {
+     const tag = systemTags.find(t => t.label === tagLabel);
+     const colorValue = tag?.color || '#eab308';
+     const hexMap: Record<string, string> = {
+       red: '#ef4444', blue: '#3b82f6', green: '#22c55e', yellow: '#eab308',
+       purple: '#a855f7', pink: '#ec4899', orange: '#f97316', gray: '#6b7280'
+     };
+     const hex = hexMap[colorValue] || colorValue;
+     return {
+       backgroundColor: hex + '33',
+       color: hex,
+       borderColor: hex + '4D'
+     };
+  };
+  const AVAILABLE_TAGS = systemTags.map(t => t.label);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      const { data } = await supabase.from('tags').select('*').order('created_at', { ascending: true });
+      if (data) setSystemTags(data);
+    };
+    fetchTags();
+  }, []);
+
 
   const {
     clientes, setClientes,
@@ -1399,6 +1457,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             {navItem('cadastro-clientes', 'Cadastro do Cliente', <Users size={20} />)}
             {navItem('equipe', 'Equipe', <ShieldCheck size={20} />)}
             {navItem('relatorios', 'Relatórios', <Activity size={20} />)}
+          <button onClick={() => { setIsTagsModalOpen(true); setIsMobileMenuOpen(false); }} className={`w-full flex items-center justify-between p-3 rounded-xl font-bold transition-all text-zinc-400 hover:bg-white/5 hover:text-white`}>
+            <div className="flex items-center gap-3"><Tag size={20} /> <span className="text-sm">Tags</span></div>
+          </button>
           </div>
         </nav>
 
@@ -1513,7 +1574,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           <span className={tc.textMain}>{tag}</span>
         </label>
       ))}
-    </div>
+</div>
   )}
 </div>
 </div>
@@ -1521,7 +1582,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1618,7 +1679,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1695,7 +1756,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1782,7 +1843,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1790,7 +1851,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 )}
                                       </div>
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
-                                        <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
+                                        <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
                                         <button onClick={() => setPreviewUrl(m.link_organizado)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Pasta (Organizada)"><Eye size={14} /> Ver Pasta</button>
 
                                         {/* NOVOS BOTÕES SOLICITADOS */}
@@ -1911,7 +1973,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1943,7 +2005,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       </div>
 
                                       <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
-                                        <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
+                                        <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
 
                                         {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
                                         {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
@@ -2027,7 +2090,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2047,7 +2110,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <div className="flex justify-between items-start gap-3">
                                           <p className={`text-xs font-bold whitespace-normal ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-400' : 'text-orange-700') : (theme === 'dark' ? 'text-red-400' : 'text-red-700')}`}>
                                             <span className="text-[9px] uppercase tracking-widest opacity-60 block mb-1">Ajuste Atual:</span>
-                                            {renderTextWithLinks(m.feedback?.split('\n\n')[0] || "Nenhum detalhe informado.")}
+                                            {m.feedback_admin && <div className={`${textSecundario} text-[10px] font-bold mb-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr Admin: {renderTextWithLinks(m.feedback_admin)}</div>}
+                      {renderTextWithLinks(m.feedback?.split('\n\n')[0] || "Nenhum detalhe informado.")}
                                           </p>
                                           {(m.feedback?.split('\n\n').length || 0) > 1 && (
                                             <button onClick={() => toggleFeedback(m.id)} className={`p-1.5 rounded-md shrink-0 transition-all ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-600 hover:bg-orange-200') : (theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-200')}`}><ChevronDown size={14} className={`transition-transform duration-300 ${expandedFeedbacks.includes(m.id) ? 'rotate-180' : ''}`} /></button>
@@ -2079,7 +2143,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       )}
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 w-full mt-2 shrink-0 justify-end">
-                                      <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
+                                      <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                       {(!m.link_drive && !m.link_capa) ? (
                                         <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                                           <button onClick={() => {
@@ -2162,7 +2227,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2170,7 +2235,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 )}
                                     </div>
                                     <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
-                                      <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
+                                      <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
 
                                       {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Ver Post</button>}
                                       {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa/Card"><ImageIcon size={14} /> Capa/Card</button>}
@@ -2398,6 +2464,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           <span className={tc.textMain}>{tag}</span>
         </label>
       ))}
+    
+      
     </div>
   )}
 </div>
@@ -2406,7 +2474,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 rounded-md text-[9px] font-black uppercase tracking-widest">
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2447,7 +2515,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 {actionLoading === m.id ? <Loader2 size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 animate-spin ${textSecundario}`} /> : <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${getStatusColor(m.status).split(' ')[1]}`} />}
                                               </div>
 
-                                              {m.feedback && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} p-3 rounded-lg whitespace-normal`}>💬 {renderTextWithLinks(m.feedback)}</p>}
+                                              {m.feedback_admin && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr: {renderTextWithLinks(m.feedback_admin)}</p>}
+                      {m.feedback && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} p-3 rounded-lg whitespace-normal`}>💬 {renderTextWithLinks(m.feedback)}</p>}
                                             </div>
 
                                             <div className={`flex items-center gap-2 flex-wrap md:opacity-0 md:group-hover/item:opacity-100 transition-all pt-2 md:pt-0 border-t md:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 md:mt-0 w-full md:w-auto shrink-0`}>
@@ -2458,7 +2527,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 <button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Devolver ao Decupador"><RotateCcw size={16} /></button>
                                               )}
                                               {m.status === 'analise_roteiro' && (<button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 hover:bg-purple-600 hover:text-white' : 'text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Enviar Roteiro para o Cliente">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>)}
-                                              <button onClick={() => setPreviewRoteiro(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={16} /></button>
+                                              <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={16} /></button>
                                               <button onClick={() => {
                                                 setRoteiroToEdit(m);
                                                 let txt = m.roteiro || '';
@@ -3528,8 +3598,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 });
 
                 if (filtrados.length === 0) {
-                  return <div className="py-10 text-center opacity-30 font-bold">Nenhum grupo encontrado.</div>;
-                }
+                  return <div className="py-10 text-center opacity-30 font-bold">Nenhum grupo encontrado.
+</div>}
 
                 return filtrados.map((g, i) => (
                   <button
@@ -3605,6 +3675,121 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </div>
         </div>
       )}
-    </div>
+    
+      {/* 🏷️ MODAL DE TAGS */}
+      
+        {isTagsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div onClick={() => setIsTagsModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className={`relative w-full max-w-md ${tc.bgCard} rounded-3xl p-6 shadow-2xl overflow-hidden border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-black uppercase tracking-widest">Gerenciar Tags</h2>
+                <button onClick={() => setIsTagsModalOpen(false)} className={`p-2 rounded-full hover:${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} transition-colors`}><X size={20} /></button>
+              </div>
+
+              <div className="mb-6 space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                {systemTags.length === 0 ? <p className={`text-center text-sm font-bold ${tc.textMuted}`}>Nenhuma tag cadastrada.</p> : systemTags.map(tag => (
+                  <div key={tag.id} className={`flex items-center justify-between p-3 rounded-xl border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                    <span className="px-2 py-1 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(tag.label)}>{tag.label}</span>
+                    <button onClick={async () => {
+                      setLoading(true);
+                      await supabase.from('tags').delete().eq('id', tag.id);
+                      setSystemTags(prev => prev.filter(t => t.id !== tag.id));
+                      setLoading(false);
+                      toast.success("Tag removida!");
+                    }} className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                  </div>
+                ))}
+              </div>
+
+              <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'}`}>
+                <h3 className="text-[10px] font-black uppercase tracking-widest mb-3">Criar Nova Tag</h3>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" value={newTagLabel} onChange={e => setNewTagLabel(e.target.value)} placeholder="Nome da Tag..." className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'} rounded-xl text-sm font-bold border outline-none focus:border-[#A25431] uppercase`} />
+                  <div className="flex items-center gap-3">
+  <input
+    name="cor_tag"
+    type="color"
+    className={`h-12 w-12 rounded-xl cursor-pointer ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} p-1 border`}
+    value={newTagColor.startsWith('#') ? newTagColor : '#eab308'}
+    onChange={e => setNewTagColor(e.target.value)}
+  />
+  <span className={`text-[10px] font-bold ${tc.textMuted} uppercase`}>Escolha a cor da tag</span>
+</div>
+                </div>
+                <button disabled={loading || !newTagLabel.trim()} onClick={async () => {
+                   setLoading(true);
+                   const { data, error } = await supabase.from('tags').insert([{ label: newTagLabel.toUpperCase(), color: newTagColor }]).select();
+                   if (!error && data) {
+                     setSystemTags(prev => [...prev, data[0]]);
+                     setNewTagLabel('');
+                     toast.success("Tag criada!");
+                   } else {
+                     toast.error("Erro: " + (error?.message || "Erro desconhecido")); console.error("SUPABASE ERROR:", error);
+                   }
+                   setLoading(false);
+                }} className="w-full py-3 bg-[#A25431] text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#8a4729] transition-colors disabled:opacity-50">Adicionar Tag</button>
+              </div>
+            </div>
+          </div>
+        )}
+    
+
+      {/* MODAL DE TIMELINE DE COMENTÁRIOS */}
+      {timelineMaterial && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-2xl rounded-[32px] p-5 md:p-8 shadow-2xl flex flex-col max-h-[85vh]`}>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><MessageSquare size={24} className="text-[#A25431]" /> Linha do Tempo</h3>
+                <p className={`${tc.textMuted} text-xs font-bold uppercase tracking-widest mt-1`}>{timelineMaterial.titulo}</p>
+              </div>
+              <button onClick={() => setTimelineMaterial(null)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+              {!timelineMaterial.feedback && !timelineMaterial.feedback_admin ? (
+                <div className="py-10 text-center opacity-40 font-bold uppercase text-xs">Nenhum comentário ou ajuste registrado.</div>
+              ) : (
+                <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-300 dark:before:via-zinc-700 before:to-transparent">
+                  {timelineMaterial.feedback_admin && (
+                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 bg-blue-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                        <ShieldCheck size={16} />
+                      </div>
+                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900/50">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-black text-[10px] uppercase text-blue-600 dark:text-blue-400">Instrução Interna</span>
+                        </div>
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-200 whitespace-pre-wrap">{renderTextWithLinks(timelineMaterial.feedback_admin)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {timelineMaterial.feedback && timelineMaterial.feedback.split('\n\n').map((comentario, idx) => {
+                    if (!comentario.trim()) return null;
+                    const isClient = !comentario.includes('[ID:'); // Simple heuristic: if it has an ID, it's usually an internal member, otherwise client (or just raw text).
+                    return (
+                      <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${isClient ? 'bg-[#A25431] text-white' : 'bg-zinc-600 text-white'}`}>
+                          <MessageSquare size={16} />
+                        </div>
+                        <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`font-black text-[10px] uppercase ${isClient ? 'text-[#A25431]' : 'text-zinc-500'}`}>Ajuste / Feedback</span>
+                          </div>
+                          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap break-words`}>{renderTextWithLinks(comentario)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+</div>
   )
 }
