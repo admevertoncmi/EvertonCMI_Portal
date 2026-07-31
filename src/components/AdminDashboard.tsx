@@ -13,7 +13,7 @@ import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
 import { getDriveFolderFiles } from '@/actions/google'
 import { createBatchFolders } from '@/actions/google-mutations'
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
 import dynamic from 'next/dynamic'
 const ReactQuill = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -202,7 +202,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   }, []);
 
   const setActiveTab = (tab: any) => {
-    setActiveTabState(tab);
+    startTransition(() => {
+      setActiveTabState(tab);
+    });
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       params.set('tab', tab);
