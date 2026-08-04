@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import ReactQuill, { Quill } from 'react-quill-new';
+import { createClient } from '@/lib/supabase-browser';
+import { toast } from 'sonner';
 import 'react-quill-new/dist/quill.snow.css';
 
 if (typeof window !== 'undefined') {
@@ -49,25 +51,49 @@ const EditorWrapper = (props: any) => {
             input.setAttribute('multiple', 'true'); // Allows selecting multiple images
             input.click();
 
-            input.onchange = () => {
+            input.onchange = async () => {
               if (input.files && input.files.length > 0) {
                 const quill = quillRef.current?.getEditor();
                 if (!quill) return;
                 const range = quill.getSelection(true);
                 let offset = range.index;
 
-                Array.from(input.files).forEach((file) => {
-                  const reader = new FileReader();
-                  reader.onload = (e) => {
-                    const base64ImageSrc = e.target?.result;
-                    if (base64ImageSrc) {
-                      quill.insertEmbed(offset, 'image', base64ImageSrc);
-                      offset++; // increment offset for the next image
-                      quill.setSelection(offset, 0); // move cursor after the inserted image
+                const supabase = createClient();
+                const files = Array.from(input.files);
+                
+                toast.promise(
+                  Promise.all(files.map(async (file) => {
+                    const ext = file.name.split('.').pop() || 'jpg';
+                    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+                    
+                    const { data, error } = await supabase.storage
+                      .from('roteiros-midia')
+                      .upload(fileName, file, { cacheControl: '3600', upsert: false });
+                      
+                    if (error) {
+                      console.error("Erro upload:", error);
+                      throw error;
                     }
-                  };
-                  reader.readAsDataURL(file);
-                });
+                    
+                    const { data: publicUrlData } = supabase.storage
+                      .from('roteiros-midia')
+                      .getPublicUrl(fileName);
+                      
+                    return publicUrlData.publicUrl;
+                  })),
+                  {
+                    loading: `Enviando ${files.length} imagem(ns)...`,
+                    success: (urls) => {
+                      urls.forEach(url => {
+                        quill.insertEmbed(offset, 'image', url);
+                        offset++;
+                        quill.setSelection(offset, 0);
+                      });
+                      return 'Imagens adicionadas com sucesso!';
+                    },
+                    error: 'Erro ao enviar imagens. O Bucket "roteiros-midia" existe e é público?'
+                  }
+                );
               }
             };
           }

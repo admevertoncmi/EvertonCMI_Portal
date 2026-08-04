@@ -186,8 +186,12 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   useEffect(() => {
     if (!cliente) return;
     const channel = supabase.channel('portal_cliente_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, () => {
-        loadPortal();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, (payload) => {
+        setTodosMateriais(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, () => loadPortal())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, (payload) => {
+        setTodosMateriais(prev => prev.filter(m => m.id !== payload.old.id));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };

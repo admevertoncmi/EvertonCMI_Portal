@@ -200,8 +200,16 @@ export default function EditorDashboard() {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase.channel('editor-realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais', filter: `editor_id=eq.${userId}` }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais', filter: `designer_id=eq.${userId}` }, () => loadData())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'materiais', filter: `editor_id=eq.${userId}` }, (payload) => {
+         setMateriais(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new, cliente: m.cliente } : m));
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'materiais', filter: `designer_id=eq.${userId}` }, (payload) => {
+         setMateriais(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new, cliente: m.cliente } : m));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'materiais' }, () => loadData())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'materiais' }, (payload) => {
+         setMateriais(prev => prev.filter(m => m.id !== payload.old.id));
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [supabase, loadData, userId])

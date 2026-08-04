@@ -238,9 +238,13 @@ export default function DecupadorDashboard() {
   useEffect(() => {
     if (!userId) return;
     const channel = supabase.channel('decupador-realtime-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais', filter: `planner_id=eq.${userId}` }, () => {
-        loadData();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'materiais', filter: `planner_id=eq.${userId}` }, (payload) => {
+        setMateriais(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new, cliente: m.cliente } : m));
         toast.info("A sua fila de decupagem foi atualizada.");
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'materiais', filter: `planner_id=eq.${userId}` }, () => loadData())
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'materiais', filter: `planner_id=eq.${userId}` }, (payload) => {
+        setMateriais(prev => prev.filter(m => m.id !== payload.old.id));
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }

@@ -55,8 +55,24 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
   useEffect(() => {
     loadData();
     const channel = supabase.channel('painel_admin_atualizacoes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materiais' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, () => loadData())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'materiais' }, (payload) => {
+        setMateriais(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new, cliente: m.cliente } : m));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'materiais' }, (payload) => {
+        setMateriais(prev => prev.filter(m => m.id !== payload.old.id));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'materiais' }, async (payload) => {
+        const { data } = await supabase.from('materiais').select('*, cliente:clientes(nome, token_magico, telefone, ciclos_contratados, whatsapp_group_id)').eq('id', payload.new.id).single();
+        if (data) setMateriais(prev => [data as Material, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'clientes' }, (payload) => {
+        setClientes(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c));
+        // Atualiza a referência de clientes dentro dos materiais já em cache
+        setMateriais(prev => prev.map(m => m.cliente_id === payload.new.id ? { ...m, cliente: { ...m.cliente, ...payload.new } } as Material : m));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clientes' }, (payload) => {
+        setClientes(prev => [...prev, payload.new as Cliente].sort((a, b) => a.nome.localeCompare(b.nome)));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadData, supabase]);
