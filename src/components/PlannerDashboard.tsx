@@ -641,9 +641,15 @@ export default function DecupadorDashboard() {
                                       <div className="flex flex-col sm:flex-row gap-3 mb-6">
                                         {linkBrutoAtual && (
                                           <>
-                                            <button onClick={() => setPreviewUrl(linkBrutoAtual)} className={`w-full sm:w-auto px-6 py-3 md:py-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800'} rounded-xl text-[10px] font-black uppercase flex justify-center items-center gap-2 transition-all border ${borderSecundario}`}>
-                                              <Eye size={16} /> Ver na Tela
-                                            </button>
+                                            {linkBrutoAtual ? (
+                                              <a href={linkBrutoAtual.startsWith('http') ? linkBrutoAtual : `https://${linkBrutoAtual}`} target="_blank" rel="noopener noreferrer" className={`w-full sm:w-auto px-6 py-3 md:py-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800'} rounded-xl text-[10px] font-black uppercase flex justify-center items-center gap-2 transition-all border ${borderSecundario}`}>
+                                                <Eye size={16} /> Ver na Tela
+                                              </a>
+                                            ) : (
+                                              <button disabled className={`w-full sm:w-auto px-6 py-3 md:py-3 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800'} rounded-xl text-[10px] font-black uppercase flex justify-center items-center gap-2 border ${borderSecundario} opacity-50 cursor-not-allowed`}>
+                                                <Eye size={16} /> Ver na Tela
+                                              </button>
+                                            )}
                                             <a href={linkBrutoAtual} target="_blank" rel="noopener noreferrer" className={`w-full sm:w-auto px-6 py-3 md:py-3 ${theme === 'dark' ? 'bg-zinc-800/50 hover:bg-zinc-700 text-zinc-400' : 'bg-white hover:bg-zinc-50 text-zinc-600'} rounded-xl text-[10px] font-black uppercase flex justify-center items-center gap-2 transition-all border ${borderSecundario} border-dashed`}>
                                               <ExternalLink size={16} /> Abrir Pasta (Navegador)
                                             </a>

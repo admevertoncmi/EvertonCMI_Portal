@@ -81,13 +81,12 @@ export function linkifyHtml(html?: string): string {
   html = html.replace(/&nbsp;/g, ' ').replace(/\u00A0/g, ' ');
 
   // Regex to match URLs not inside href="..." and not inside existing <a> tags
-  // Using a simpler robust approach for JS:
-  // First, extract all existing <a> tags so we don't mess with them
-  const aTagRegex = /<a\b[^>]*>(.*?)<\/a>/gi;
+  // Extract all existing HTML tags so we don't mess with their attributes
+  const htmlTagRegex = /(<[^>]+>)/g;
   const placeholders: string[] = [];
-  let tempHtml = html.replace(aTagRegex, (match) => {
+  let tempHtml = html.replace(htmlTagRegex, (match) => {
     placeholders.push(match);
-    return `__A_TAG_PLACEHOLDER_${placeholders.length - 1}__`;
+    return `__HTML_TAG_PLACEHOLDER_${placeholders.length - 1}__`;
   });
 
   // Now replace plain URLs with <a> tags
@@ -97,9 +96,9 @@ export function linkifyHtml(html?: string): string {
     return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all">${url}</a>`;
   });
 
-  // Restore the original <a> tags
+  // Restore the original HTML tags
   placeholders.forEach((tag, i) => {
-    tempHtml = tempHtml.replace(`__A_TAG_PLACEHOLDER_${i}__`, tag);
+    tempHtml = tempHtml.replace(`__HTML_TAG_PLACEHOLDER_${i}__`, tag);
   });
 
   return tempHtml;

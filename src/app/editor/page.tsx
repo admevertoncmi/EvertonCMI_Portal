@@ -224,9 +224,14 @@ export default function EditorDashboard() {
     const fimSemana = new Date(inicioSemana);
     fimSemana.setDate(inicioSemana.getDate() + 6);
 
-    if (dateFilter !== 'todas' && m.data_limite) {
-        const d = new Date(m.data_limite);
+    if (dateFilter !== 'todas') {
+        if (!m.data_limite) return false;
+        
+        // Parse the YYYY-MM-DD safely into local time midnight
+        const [year, month, day] = m.data_limite.split('-');
+        const d = new Date(Number(year), Number(month) - 1, Number(day));
         d.setHours(0,0,0,0);
+        
         if (dateFilter === 'hoje') {
             if (d.getTime() !== hoje.getTime()) return false;
         } else if (dateFilter === 'semana') {
@@ -587,9 +592,14 @@ export default function EditorDashboard() {
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 md:gap-3 w-full">
+                                              {m.link_bruto && (
+                                                <a href={m.link_bruto} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border-zinc-700' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border-zinc-300'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                                  <Folder size={14} /> Pasta Bruta
+                                                </a>
+                                              )}
                                               {m.link_organizado && (
                                                 <a href={m.link_organizado} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
-                                                  <Folder size={14} /> Drive (Brutos)
+                                                  <Folder size={14} /> Pasta Decupada
                                                 </a>
                                               )}
 

@@ -427,6 +427,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     gargalo,
     filaAnaliseRoteiro,
     filaRoteirosAprovados,
+    filaEmDecupagem,
     filaProblemasDecupagem,
     filaProducaoPronta,
     filaMateriaisAprovacao,
@@ -506,6 +507,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const groupedAnaliseRoteiro = useMemo(() => groupItems(filaAnaliseRoteiro), [filaAnaliseRoteiro, groupItems]);
   const groupedProblemasDecupagem = useMemo(() => groupItems(filaProblemasDecupagem), [filaProblemasDecupagem, groupItems]);
   const groupedRoteiros = useMemo(() => groupItems(filaRoteirosAprovados), [filaRoteirosAprovados, groupItems]);
+  const groupedEmDecupagem = useMemo(() => groupItems(filaEmDecupagem), [filaEmDecupagem, groupItems]);
   const groupedProducao = useMemo(() => groupItems(filaProducaoPronta), [filaProducaoPronta, groupItems]);
   const groupedMateriaisAprovacao = useMemo(() => groupItems(filaMateriaisAprovacao), [filaMateriaisAprovacao, groupItems]);
   const groupedAjustes = useMemo(() => groupItems(notificacoesAjustes), [notificacoesAjustes, groupItems]);
@@ -1443,7 +1445,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </p>
 
           <div className="space-y-1">
-            {navItem('planejamento', 'Planejamento', <ListTodo size={20} />, (filaProducaoPronta.length + filaRoteirosAprovados.length + filaAnaliseRoteiro.length + filaProblemasDecupagem.length), 'bg-white/10 text-zinc-300')}
+            {navItem('planejamento', 'Planejamento', <ListTodo size={20} />, (filaProducaoPronta.length + filaRoteirosAprovados.length + filaAnaliseRoteiro.length + filaProblemasDecupagem.length + filaEmDecupagem.length), 'bg-white/10 text-zinc-300')}
             {navItem('materiais-aprovacao', 'Materiais p/ Aprovação', <ClipboardCheck size={20} />, filaMateriaisAprovacao.length, 'bg-white/10 text-zinc-300')}
             {navItem('solicitacao-ajustes', 'Solicitação de Ajustes', <Bell size={20} />, notificacoesAjustes.length, 'bg-red-500/20 text-red-400')}
             {navItem('materiais-aprovados', 'Materiais Aprovados', <CheckCircle2 size={20} />, filaMateriaisAprovados.length, 'bg-green-500/20 text-green-400')}
@@ -1711,6 +1713,58 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 )}
               </div>
 
+              {/* EM DECUPAGEM (COM O PLANNER) */}
+              <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
+                <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><Folder className="text-blue-500" size={28} /> Em Decupagem</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>Tarefas que estão atualmente com o Decupador. Adicione o Link Bruto se tiver esquecido.</p></header>
+                {Object.keys(groupedEmDecupagem).length === 0 ? (
+                  <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhuma tarefa com o decupador no momento.</p></div>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(groupedEmDecupagem).map(([clienteId, group]) => (
+                      <div key={`emdec-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} shadow-sm overflow-visible`}>
+                        <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-blue-900/10 hover:bg-blue-900/20' : 'bg-blue-50/50 hover:bg-blue-50'} ${expandedClients.includes(`emdec-${clienteId}`) ? 'rounded-t-[23px]' : 'rounded-[23px]'} cursor-pointer flex items-center justify-between`} onClick={() => toggleClient(`emdec-${clienteId}`)}>
+                          <div className="flex items-center gap-3"><ChevronRight className={`text-blue-600 transition-transform ${expandedClients.includes(`emdec-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-blue-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
+                        </div>
+                        {expandedClients.includes(`emdec-${clienteId}`) && (
+                          <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
+                            {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                              <div key={`emdec-ciclo-${cicloLabel}`} className="space-y-3">
+                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} pb-2`}><Calendar size={14} className="text-blue-500" /><h4 className="font-black text-xs text-blue-500 uppercase tracking-widest">{cicloLabel}</h4></div>
+                                <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} md:ml-1`}>
+                                  {data.itens.map((m: Material) => (
+                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
+                                      <div className="flex-1 min-w-0 w-full"><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : 'Com o Decupador'}</span>
+                                        <div className="flex items-center gap-1 group/title">
+                                          <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                          <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
+                                        <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
+                                        <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
+                                        {m.link_organizado ? (
+                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
+                                        ) : m.link_bruto ? (
+                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
+                                        ) : (
+                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
+                                        )}
+                                        <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-3 ${!m.link_bruto ? 'bg-red-500 hover:bg-red-600 text-white animate-bounce shadow-[0_0_15px_rgba(239,68,68,0.5)]' : (theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white')} rounded-xl transition-all`} title={!m.link_bruto ? "Adicionar Link Bruto URGENTE!" : "Editar Link Bruto"}><Link size={18} /></button>
+                                        <button onClick={() => openResolveModal(m, 'planner')} className={`p-3 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-xl transition-colors`} title="Retirar do Decupador e Devolver p/ Aprovados"><RotateCcw size={18} /></button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* PROBLEMAS NA PRODUÇÃO */}
               {Object.keys(groupedProblemasDecupagem).length > 0 && (
                 <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
@@ -1856,7 +1910,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
                                         <button onClick={() => setTimelineMaterial(m)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={16} /></button>
               <button onClick={() => setPreviewRoteiro(m)} className={`p-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={18} /></button>
-                                        <button onClick={() => setPreviewUrl(m.link_organizado)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Pasta (Organizada)"><Eye size={14} /> Ver Pasta</button>
+                                        {m.link_organizado ? (
+                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
+                                        ) : m.link_bruto ? (
+                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
+                                        ) : (
+                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
+                                        )}
 
                                         {/* NOVOS BOTÕES SOLICITADOS */}
                                         <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-xl transition-colors`} title="Editar Link da Pasta (Decupagem)"><Link size={18} /></button>

@@ -123,6 +123,7 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
 
   const filaAnaliseRoteiro = useMemo(() => materiais.filter(m => m.status === 'analise_roteiro'), [materiais]);
   const filaRoteirosAprovados = useMemo(() => materiais.filter(m => (m.status === 'aprovado' || m.status === 'roteiro_aprovado') && !m.planner_id && !(m.link_drive || m.link_capa)), [materiais]);
+  const filaEmDecupagem = useMemo(() => materiais.filter(m => m.status === 'planejamento' || m.status === 'em_organizacao'), [materiais]);
   const filaProblemasDecupagem = useMemo(() => materiais.filter(m => m.status === 'faltando_material' || m.status === 'verificar_material'), [materiais]);
   const filaProducaoPronta = useMemo(() => materiais.filter(m => m.status === 'organizado'), [materiais]);
 
@@ -157,6 +158,7 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
     gargalo,
     filaAnaliseRoteiro,
     filaRoteirosAprovados,
+    filaEmDecupagem,
     filaProblemasDecupagem,
     filaProducaoPronta,
     filaMateriaisAprovacao,
