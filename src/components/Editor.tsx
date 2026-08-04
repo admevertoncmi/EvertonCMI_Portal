@@ -6,8 +6,6 @@ import 'react-quill-new/dist/quill.snow.css';
 
 if (typeof window !== 'undefined') {
   (window as any).Quill = Quill;
-  const ImageResize = require('quill-image-resize-module-react').default;
-  Quill.register('modules/imageResize', ImageResize);
   const MagicUrl = require('quill-magic-url').default;
   Quill.register('modules/magicUrl', MagicUrl);
 }
@@ -198,10 +196,6 @@ const EditorWrapper = (props: any) => {
             };
           }
         }
-      },
-      imageResize: {
-        parchment: Quill.import('parchment'),
-        modules: ['Resize', 'DisplaySize', 'Toolbar']
       },
       ...(props.modules || {})
     };

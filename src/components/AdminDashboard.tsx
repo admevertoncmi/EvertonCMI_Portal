@@ -13,6 +13,7 @@ import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
 import { getDriveFolderFiles } from '@/actions/google'
 import { createBatchFolders } from '@/actions/google-mutations'
+import { StorageWidget } from '@/components/StorageWidget'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
 import dynamic from 'next/dynamic'
@@ -2349,7 +2350,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     <button onClick={() => setShowArchived(!showArchived)} className={`flex-1 md:flex-none px-4 py-3 md:py-2 rounded-xl text-xs font-bold transition-colors ${showArchived ? (theme === 'dark' ? 'bg-white text-black' : 'bg-zinc-900 text-white') : (theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-500')}`}>{showArchived ? 'Ver Ativos' : 'Ver Arquivados'}</button>
                   </div>
                 </div>
-                {showArchived && <StorageManager materiais={materiais} theme={theme} />}
+                {showArchived && <StorageWidget materiais={materiais} theme={theme} />}
 
                 {/* FILTROS RÁPIDOS GLOBAIS */}
                 <div className="flex gap-2 overflow-x-hidden pb-2 no-scrollbar py-2">

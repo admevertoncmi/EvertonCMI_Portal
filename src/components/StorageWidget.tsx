@@ -3,11 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import { HardDrive, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Material } from '@/types'; // Assuming Material type is available, or use any
 
 const MAX_STORAGE_BYTES = 1000 * 1024 * 1024; // 1GB
 
-export function StorageManager({ materiais, theme }: { materiais: any[], theme: 'light' | 'dark' }) {
+export function StorageWidget({ materiais, theme }: { materiais: any[], theme: 'light' | 'dark' }) {
   const supabase = createClient();
   const [usedBytes, setUsedBytes] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -102,15 +101,15 @@ export function StorageManager({ materiais, theme }: { materiais: any[], theme: 
             </div>
             <div className="text-right">
               <span className={`font-black text-sm ${isNearLimit ? 'text-red-500' : (theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}`}>
-                {loading ? <Loader2 size={14} className="inline animate-spin" /> : \`\${usedMB} MB\`}
+                {loading ? <Loader2 size={14} className="inline animate-spin" /> : `${usedMB} MB`}
               </span>
               <span className={`text-[10px] uppercase font-bold ml-1 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>/ 1000 MB</span>
             </div>
           </div>
           <div className={`w-full h-2.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
             <div 
-              className={\`h-full rounded-full transition-all duration-1000 \${isNearLimit ? 'bg-red-500' : 'bg-blue-500'}\`} 
-              style={{ width: \`\${percent}%\` }}
+              className={`h-full rounded-full transition-all duration-1000 ${isNearLimit ? 'bg-red-500' : 'bg-blue-500'}`} 
+              style={{ width: `${percent}%` }}
             />
           </div>
         </div>
@@ -119,7 +118,7 @@ export function StorageManager({ materiais, theme }: { materiais: any[], theme: 
       <button 
         onClick={handleCleanArchived} 
         disabled={cleaning || loading}
-        className={\`w-full md:w-auto px-5 py-3 rounded-xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all \${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} border \${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'} disabled:opacity-50\`}
+        className={`w-full md:w-auto px-5 py-3 rounded-xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} border ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'} disabled:opacity-50`}
       >
         {cleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
         Liberar Espaço
