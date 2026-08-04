@@ -27,6 +27,106 @@ const EditorWrapper = (props: any) => {
       if (editor && editor.root) {
         editor.root.setAttribute('spellcheck', 'true');
         editor.root.setAttribute('lang', 'pt-BR'); // Força o idioma para português
+        
+        // --- INTERCEPTADOR DE PASTE (Copiar e Colar) ---
+        const handlePaste = async (e: ClipboardEvent) => {
+          if (e.clipboardData && e.clipboardData.items) {
+            const items = Array.from(e.clipboardData.items);
+            const imageItems = items.filter(item => item.type.indexOf('image') === 0);
+            
+            if (imageItems.length > 0) {
+              e.preventDefault(); // Impede o Quill de colar como Base64 gigante
+              
+              const files = imageItems.map(item => item.getAsFile()).filter(f => f) as File[];
+              if (files.length === 0) return;
+
+              const range = editor.getSelection(true);
+              let offset = range.index;
+              
+              const supabase = createClient();
+              
+              toast.promise(
+                Promise.all(files.map(async (file) => {
+                  const ext = file.name.split('.').pop() || 'jpg';
+                  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+                  
+                  const { error } = await supabase.storage
+                    .from('roteiros-midia')
+                    .upload(fileName, file, { cacheControl: '3600', upsert: false });
+                    
+                  if (error) throw error;
+                  
+                  const { data: publicUrlData } = supabase.storage.from('roteiros-midia').getPublicUrl(fileName);
+                  return publicUrlData.publicUrl;
+                })),
+                {
+                  loading: 'Fazendo upload da imagem colada...',
+                  success: (urls) => {
+                    urls.forEach(url => {
+                      editor.insertEmbed(offset, 'image', url);
+                      offset++;
+                      editor.setSelection(offset, 0);
+                    });
+                    return 'Imagem colada e enviada com sucesso!';
+                  },
+                  error: 'Erro ao fazer upload da imagem colada.'
+                }
+              );
+            }
+          }
+        };
+
+        // --- INTERCEPTADOR DE DROP (Arrastar e Soltar) ---
+        const handleDrop = async (e: DragEvent) => {
+          if (e.dataTransfer && e.dataTransfer.files) {
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.indexOf('image') === 0);
+            if (files.length > 0) {
+              e.preventDefault();
+              
+              const range = editor.getSelection(true);
+              let offset = range.index;
+              
+              const supabase = createClient();
+              
+              toast.promise(
+                Promise.all(files.map(async (file) => {
+                  const ext = file.name.split('.').pop() || 'jpg';
+                  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+                  
+                  const { error } = await supabase.storage
+                    .from('roteiros-midia')
+                    .upload(fileName, file, { cacheControl: '3600', upsert: false });
+                    
+                  if (error) throw error;
+                  
+                  const { data: publicUrlData } = supabase.storage.from('roteiros-midia').getPublicUrl(fileName);
+                  return publicUrlData.publicUrl;
+                })),
+                {
+                  loading: `Fazendo upload de ${files.length} imagem(ns) arrastada(s)...`,
+                  success: (urls) => {
+                    urls.forEach(url => {
+                      editor.insertEmbed(offset, 'image', url);
+                      offset++;
+                      editor.setSelection(offset, 0);
+                    });
+                    return 'Imagens arrastadas e enviadas com sucesso!';
+                  },
+                  error: 'Erro ao fazer upload da imagem arrastada.'
+                }
+              );
+            }
+          }
+        };
+
+        editor.root.addEventListener('paste', handlePaste, true);
+        editor.root.addEventListener('drop', handleDrop, true);
+
+        // Cleanup
+        return () => {
+          editor.root.removeEventListener('paste', handlePaste, true);
+          editor.root.removeEventListener('drop', handleDrop, true);
+        };
       }
     }
   }, []);
