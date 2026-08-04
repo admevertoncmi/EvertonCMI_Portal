@@ -247,7 +247,7 @@ export default function EditorDashboard() {
     if (souEditor && !m.video_entregue) return true;
     if (souDesigner && !m.design_entregue) return true;
     return false;
-  }), [materiais, userId]);
+  }), [materiais, userId, dateFilter]);
 
   const ajustesAgrupadosPorCliente = useMemo(() => {
     const grupos: Record<string, { clienteNome: string, tarefasMae: Record<string, { itens: Material[], videosOk: number, capasOk: number }> }> = {};
