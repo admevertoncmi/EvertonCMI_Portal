@@ -1829,7 +1829,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             </div>
                                           );
                                         })()}
-                                        <div className={`mt-3 p-4 ${tc.bgCard} rounded-xl border ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'}`}><p className="text-[10px] font-black uppercase text-red-400 tracking-widest mb-1">Motivo:</p><p className={`${tc.textMuted} font-medium text-sm whitespace-normal break-normal`}>"{renderTextWithLinks(m.feedback || '')}"</p></div>
+
                                       </div>
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-center items-center md:shrink-0">
                                         <button onClick={() => openResolveModal(m)} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
@@ -2170,24 +2170,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         );
                                       })()}
                                       <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
-                                        <div className="flex justify-between items-start gap-3">
-                                          <p className={`text-xs font-bold whitespace-normal ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-400' : 'text-orange-700') : (theme === 'dark' ? 'text-red-400' : 'text-red-700')}`}>
-                                            <span className="text-[9px] uppercase tracking-widest opacity-60 block mb-1">Ajuste Atual:</span>
-                                            {m.feedback_admin && <div className={`${textSecundario} text-[10px] font-bold mb-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr Admin: {renderTextWithLinks(m.feedback_admin)}</div>}
-                      {renderTextWithLinks(m.feedback?.split('\n\n')[0] || "Nenhum detalhe informado.")}
-                                          </p>
-                                          {(m.feedback?.split('\n\n').length || 0) > 1 && (
-                                            <button onClick={() => toggleFeedback(m.id)} className={`p-1.5 rounded-md shrink-0 transition-all ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-600 hover:bg-orange-200') : (theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-200')}`}><ChevronDown size={14} className={`transition-transform duration-300 ${expandedFeedbacks.includes(m.id) ? 'rotate-180' : ''}`} /></button>
-                                          )}
-                                        </div>
-                                        {expandedFeedbacks.includes(m.id) && (m.feedback?.split('\n\n').length || 0) > 1 && (
-                                          <div className={`mt-3 pt-3 border-t space-y-2 animate-in fade-in duration-300 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/20' : 'border-orange-50') : (theme === 'dark' ? 'border-red-900/20' : 'border-red-50')}`}>
-                                            <p className={`text-[9px] uppercase tracking-widest font-black ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'text-orange-500' : 'text-orange-400') : (theme === 'dark' ? 'text-red-500' : 'text-red-400')}`}>Histórico Anterior:</p>
-                                            {m.feedback?.split('\n\n').slice(1).map((hist, idx) => (
-                                              <div key={idx} className={`p-2.5 rounded-lg text-xs font-medium whitespace-normal opacity-80 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/10 text-orange-300' : 'bg-orange-50/50 text-orange-800') : (theme === 'dark' ? 'bg-red-900/10 text-red-300' : 'bg-red-50/50 text-red-800')}`}>{renderTextWithLinks(hist)}</div>
-                                            ))}
-                                          </div>
-                                        )}
+
+
+
+                                      {m.feedback_admin && <div className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr Admin: {renderTextWithLinks(m.feedback_admin)}</div>}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                                       </div>
                                       {/* 🔥 BOTÕES DE VISUALIZAÇÃO DA VERSÃO ENVIADA */}
                                       {(m.link_drive || m.link_capa) && (
@@ -2581,7 +2581,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               </div>
 
                                               {m.feedback_admin && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr: {renderTextWithLinks(m.feedback_admin)}</p>}
-                      {m.feedback && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} p-3 rounded-lg whitespace-normal`}>💬 {renderTextWithLinks(m.feedback)}</p>}
+
                                             </div>
 
                                             <div className={`flex items-center gap-2 flex-wrap md:opacity-0 md:group-hover/item:opacity-100 transition-all pt-2 md:pt-0 border-t md:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 md:mt-0 w-full md:w-auto shrink-0`}>
@@ -3255,7 +3255,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   return <span className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">Reportado por: {author.nome}</span>;
                 })()}
               </div>
-              <p className={`font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-900'} text-sm whitespace-normal break-normal`}>"{renderTextWithLinks(selectedMaterial.feedback || '')}"</p>
+
             </div>
 
             <div className="space-y-4">
@@ -3833,7 +3833,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   
                   {timelineMaterial.feedback && timelineMaterial.feedback.split('\n\n').map((comentario, idx) => {
                     if (!comentario.trim()) return null;
-                    const isClient = !comentario.includes('[ID:'); // Simple heuristic: if it has an ID, it's usually an internal member, otherwise client (or just raw text).
+                    const isClient = !comentario.includes('[ID:');
+                    const authorInfo = getAuthorInfo(comentario);
+                    const authorName = isClient ? (timelineMaterial.cliente?.nome || 'Cliente') : (authorInfo ? authorInfo.nome : 'Membro da Equipe');
+                    const authorRole = isClient ? 'Ajuste / Feedback' : (authorInfo ? authorInfo.role : 'Ajuste Interno');
                     return (
                       <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                         <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${isClient ? 'bg-[#A25431] text-white' : 'bg-zinc-600 text-white'}`}>
@@ -3841,7 +3844,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         </div>
                         <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className={`font-black text-[10px] uppercase ${isClient ? 'text-[#A25431]' : 'text-zinc-500'}`}>Ajuste / Feedback</span>
+                            <span className={`font-black text-[10px] uppercase ${isClient ? 'text-[#A25431]' : 'text-zinc-500'}`}>{authorRole}: {authorName}</span>
                           </div>
                           <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap break-words`}>{renderTextWithLinks(comentario)}</p>
                         </div>
