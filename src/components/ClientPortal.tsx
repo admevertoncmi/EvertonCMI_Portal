@@ -836,9 +836,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                             className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black cursor-zoom-in"
                                           >
                                             {isImg ? (
-                                              <img src={link} className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                                              <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                                             ) : (
-                                              <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
+                                              <iframe title={`Slide ${idx + 1}`} src={emb || link} loading="lazy" className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
                                             )}
                                           </div>
                                         );
