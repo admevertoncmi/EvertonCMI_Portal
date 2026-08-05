@@ -9,7 +9,7 @@ import { notificarClickUpChat } from '@/actions/clickup'
 import { getDriveFolderFiles } from '@/actions/google'
 import {
   CheckCircle2, ExternalLink, Calendar,
-  AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown, Play
+  AlertCircle, Loader2, PlayCircle, Clock, MessageSquare, FileText, X, MessageCircle, Image as ImageIcon, Send, ChevronDown, ChevronUp, Play
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -918,6 +918,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                   ) : (
                     !isRequestingAjuste ? (
                       <div className="flex flex-col sm:flex-row gap-3">
+                        <button onClick={() => { setSelectedMaterial(null); if (window.innerWidth < 1024) { window.scrollTo({ top: 0, behavior: 'smooth' }) } }} className="w-full sm:flex-1 py-4 bg-zinc-800 text-zinc-300 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-700 transition-all active:scale-95 flex justify-center items-center gap-2 shadow-sm">
+                          <ChevronUp size={16} /> Fechar
+                        </button>
                         <button onClick={() => setIsRequestingAjuste(true)} className="w-full sm:flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all active:scale-95 flex justify-center items-center gap-2">
                           <AlertCircle size={16} /> Solicitar {isRoteiro ? 'Alteração' : 'Ajuste'}
                         </button>
