@@ -629,7 +629,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
             {/* LISTA DE MATERIAIS */}
             <div className="lg:col-span-4 space-y-4 md:space-y-6 w-full">
-              {Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0], undefined, { numeric: true })).map(([cicloLabel, itens]) => (
+              {Object.entries(grouped).sort((a, b) => { const aApp = collapsedCycles.includes(a[0]); const bApp = collapsedCycles.includes(b[0]); if (aApp && !bApp) return 1; if (!aApp && bApp) return -1; return b[0].localeCompare(a[0], undefined, { numeric: true }); }).map(([cicloLabel, itens]) => (
                 <div key={cicloLabel} className="space-y-2 md:space-y-3">
                   <div className="flex items-center justify-between px-1 cursor-pointer select-none" onClick={() => toggleCycle(cicloLabel)}>
                     <div className="flex items-center gap-2">
@@ -836,9 +836,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                             className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black cursor-zoom-in"
                                           >
                                             {isImg ? (
-                                              <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                                              <img src={link}  className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                                             ) : (
-                                              <iframe title={`Slide ${idx + 1}`} src={emb || link} loading="lazy" className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
+                                              <iframe title={`Slide ${idx + 1}`} src={emb || link}  className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
                                             )}
                                           </div>
                                         );

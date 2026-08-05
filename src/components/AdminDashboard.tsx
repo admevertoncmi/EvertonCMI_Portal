@@ -1287,9 +1287,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black"
                   >
                     {isImg ? (
-                      <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      <img src={link}  className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                     ) : (
-                      <iframe title={`Slide ${idx + 1}`} src={emb || link} loading="lazy" className="w-full h-full border-0" allowFullScreen></iframe>
+                      <iframe title={`Slide ${idx + 1}`} src={emb || link}  className="w-full h-full border-0" allowFullScreen></iframe>
                     )}
                   </div>
                 );
