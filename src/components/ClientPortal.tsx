@@ -112,8 +112,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const [useIframeFallback, setUseIframeFallback] = useState(false);
   const [collapsedCycles, setCollapsedCycles] = useState<string[]>([]);
   const toggleCycle = (cicloLabel: string) => setCollapsedCycles(prev => prev.includes(cicloLabel) ? prev.filter(c => c !== cicloLabel) : [...prev, cicloLabel]);
-  const [collapsedCycles, setCollapsedCycles] = useState<string[]>([]);
-  const toggleCycle = (cicloLabel: string) => setCollapsedCycles(prev => prev.includes(cicloLabel) ? prev.filter(c => c !== cicloLabel) : [...prev, cicloLabel]);
 
   useEffect(() => {
     setUseIframeFallback(false);
