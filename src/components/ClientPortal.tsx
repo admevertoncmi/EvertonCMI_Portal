@@ -312,7 +312,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
         });
         if (allApproved) fullyApproved.push(cicloLabel);
       });
-      setCollapsedCycles(prev => Array.from(new Set([...prev, ...fullyApproved])));
+      setCollapsedCycles(fullyApproved);
     }
   }, [grouped, activeTab]);
   
