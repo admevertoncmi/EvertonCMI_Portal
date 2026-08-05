@@ -111,6 +111,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   const [useIframeFallback, setUseIframeFallback] = useState(false);
   const [collapsedCycles, setCollapsedCycles] = useState<string[]>([]);
+
+  
   const toggleCycle = (cicloLabel: string) => setCollapsedCycles(prev => prev.includes(cicloLabel) ? prev.filter(c => c !== cicloLabel) : [...prev, cicloLabel]);
 
   useEffect(() => {
@@ -292,6 +294,28 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     })
     return groups
   }, [currentList])
+
+  useEffect(() => {
+    if (Object.keys(grouped).length > 0) {
+      const fullyApproved: string[] = [];
+      Object.entries(grouped).forEach(([cicloLabel, itens]) => {
+        let allApproved = true;
+        itens.forEach(m => {
+          const s = m.status?.toLowerCase();
+          let isItemAprovado = false;
+          if (activeTab === 'roteiros') {
+            isItemAprovado = ['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(s || '') || (s === 'ajustes' && !!(m.link_drive || m.link_capa));
+          } else {
+            isItemAprovado = ['aprovado', 'post_aprovado', 'concluido'].includes(s || '') && !!(m.link_drive || m.link_capa);
+          }
+          if (!isItemAprovado) allApproved = false;
+        });
+        if (allApproved) fullyApproved.push(cicloLabel);
+      });
+      setCollapsedCycles(prev => Array.from(new Set([...prev, ...fullyApproved])));
+    }
+  }, [grouped, activeTab]);
+  
 
   const postsPendentesCount = useMemo(() => {
     return videosList.filter(m => m.status === 'pendente').length;
@@ -611,7 +635,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     <div className="flex items-center gap-2">
                       <Calendar size={12} className="text-zinc-400" />
                       <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
-                      <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(cicloLabel) ? '-rotate-90' : ''}`} />
                       <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(cicloLabel) ? '-rotate-90' : ''}`} />
                     </div>
                     {isRoteiro && itens.some(m => !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(m.status?.toLowerCase()) || (m.status?.toLowerCase() === 'ajustes' && !!(m.link_drive || m.link_capa)))) && (
