@@ -110,6 +110,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const materiaisVisualizados = useRef<Set<string>>(new Set());
 
   const [useIframeFallback, setUseIframeFallback] = useState(false);
+  const [collapsedCycles, setCollapsedCycles] = useState<string[]>([]);
+  const toggleCycle = (cicloLabel: string) => setCollapsedCycles(prev => prev.includes(cicloLabel) ? prev.filter(c => c !== cicloLabel) : [...prev, cicloLabel]);
+  const [collapsedCycles, setCollapsedCycles] = useState<string[]>([]);
+  const toggleCycle = (cicloLabel: string) => setCollapsedCycles(prev => prev.includes(cicloLabel) ? prev.filter(c => c !== cicloLabel) : [...prev, cicloLabel]);
 
   useEffect(() => {
     setUseIframeFallback(false);
@@ -167,7 +171,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       if (clientError || !c) { setLoading(false); return; }
       setCliente(c)
 
-      const { data: allM } = await supabase.from('materiais').select('*').eq('cliente_id', c.id).neq('status', 'concluido').order('created_at', { ascending: false })
+      const { data: allM } = await supabase.from('materiais').select('*').eq('cliente_id', c.id).neq('status', 'concluido').order('ordem', { ascending: true, nullsFirst: false }).order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
       setTodosMateriais(allM || [])
 
       setSelectedMaterial((prevSelected: any) => {
@@ -603,12 +607,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
             {/* LISTA DE MATERIAIS */}
             <div className="lg:col-span-4 space-y-4 md:space-y-6 w-full">
-              {Object.entries(grouped).map(([cicloLabel, itens]) => (
+              {Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0], undefined, { numeric: true })).map(([cicloLabel, itens]) => (
                 <div key={cicloLabel} className="space-y-2 md:space-y-3">
-                  <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center justify-between px-1 cursor-pointer select-none" onClick={() => toggleCycle(cicloLabel)}>
                     <div className="flex items-center gap-2">
                       <Calendar size={12} className="text-zinc-400" />
                       <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
+                      <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(cicloLabel) ? '-rotate-90' : ''}`} />
+                      <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(cicloLabel) ? '-rotate-90' : ''}`} />
                     </div>
                     {isRoteiro && itens.some(m => !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(m.status?.toLowerCase()) || (m.status?.toLowerCase() === 'ajustes' && !!(m.link_drive || m.link_capa)))) && (
                       <button 

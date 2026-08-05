@@ -13,7 +13,7 @@ import useEmblaCarousel from 'embla-carousel-react'
 import {
   FolderDown, CheckSquare, LogOut, Users, FileText, X,
   ChevronDown, ChevronRight, AlertCircle, Clock, CheckCircle2, Eye, ExternalLink, Menu, Calendar,
-  Sun, Moon, Loader2, Eraser
+  Sun, Moon, Loader2, Eraser, ChevronUp
 } from 'lucide-react'
 import { cleanCopyOfPrefix } from '@/actions/google-mutations'
 import GoogleDrivePicker from './GoogleDrivePicker'
