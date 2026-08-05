@@ -626,6 +626,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     )}
                   </div>
 
+                  {!collapsedCycles.includes(cicloLabel) && (
                   <div className="space-y-2">
                     {itens.map((m: any) => {
                       const isSelected = selectedMaterial?.id === m.id
@@ -692,6 +693,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                       )
                     })}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
