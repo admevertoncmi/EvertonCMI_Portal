@@ -1287,9 +1287,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black"
                   >
                     {isImg ? (
-                      <img src={link}  className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      <img src={link} loading="lazy"  className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                     ) : (
-                      <iframe title={`Slide ${idx + 1}`} src={emb || link}  className="w-full h-full border-0" allowFullScreen></iframe>
+                                              (Math.abs(idx - currentSlide) <= 1 || (idx === 0 && currentSlide === links.length - 1) || (idx === links.length - 1 && currentSlide === 0)) ? (
+                                                <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0" allowFullScreen></iframe>
+                                              ) : (
+                                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Carregando...</span></div>
+                                              )
                     )}
                   </div>
                 );
