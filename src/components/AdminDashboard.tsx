@@ -2170,9 +2170,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         );
                                       })()}
                                       <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
-
-
-
+                                        {(() => {
+                                          const latestFeedback = m.feedback ? m.feedback.split('\n\n')[0].replace(/\[ID:.*?\]/g, '').trim() : '';
+                                          return latestFeedback ? (
+                                            <div className={`text-[10px] font-bold ${textSecundario} whitespace-pre-wrap`}>
+                                              {renderTextWithLinks(latestFeedback)}
+                                            </div>
+                                          ) : (
+                                            <div className={`text-[10px] font-bold ${textSecundario} italic opacity-50`}>
+                                              Motivo não detalhado no campo principal. Consulte os ajustes no botão da linha do tempo.
+                                            </div>
+                                          );
+                                        })()}
                                       {m.feedback_admin && <div className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr Admin: {renderTextWithLinks(m.feedback_admin)}</div>}
 
 
