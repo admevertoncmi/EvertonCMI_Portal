@@ -1735,7 +1735,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
                                       <div className="flex-1 min-w-0 w-full"><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : 'Com o Decupador'}</span>
                                         <div className="flex items-center gap-1 group/title">
-                                          <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
                                           <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
                                         </div>
                                       </div>
@@ -2130,7 +2130,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
                                       )}
                                       <div className="flex items-center gap-1 group/title min-w-0">
-                                        <h5 className="font-bold text-sm truncate">{m.titulo}</h5>
+                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
                                         <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
 <div className="relative inline-block opacity-0 group-hover/title:opacity-100">
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
