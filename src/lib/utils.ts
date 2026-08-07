@@ -90,7 +90,7 @@ export function linkifyHtml(html?: string): string {
   });
 
   // Now replace plain URLs with <a> tags
-  const urlRegex = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+  const urlRegex = /((?:https?:\/\/|www\.)(?:(?!__HTML_TAG_PLACEHOLDER_)[^\s<])+)/gi;
   tempHtml = tempHtml.replace(urlRegex, (url) => {
     const href = url.startsWith('http') ? url : `https://${url}`;
     return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all">${url}</a>`;
@@ -98,7 +98,7 @@ export function linkifyHtml(html?: string): string {
 
   // Restore the original HTML tags
   placeholders.forEach((tag, i) => {
-    tempHtml = tempHtml.replace(`__HTML_TAG_PLACEHOLDER_${i}__`, tag);
+    tempHtml = tempHtml.split(`__HTML_TAG_PLACEHOLDER_${i}__`).join(tag);
   });
 
   return tempHtml;
