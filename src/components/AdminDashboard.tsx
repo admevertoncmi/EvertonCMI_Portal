@@ -31,7 +31,7 @@ import {
   ChevronRight, Calendar, Search, Folder, ShieldCheck,
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
   ListTodo, FileText, LayoutList, Archive, Edit3, Tag, AlertCircle, Menu, Loader2, Activity, Settings,
-  FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical
+  FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical, List
 } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
@@ -312,6 +312,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
   const [isArchiveCycleModalOpen, setIsArchiveCycleModalOpen] = useState(false)
   const [cycleToArchive, setCycleToArchive] = useState<{ itens: Material[], cicloLabel: string } | null>(null)
+
+  const [delegacaoModalAberto, setDelegacaoModalAberto] = useState(false);
+  const [delegacaoLogsAtuais, setDelegacaoLogsAtuais] = useState<any[]>([]);
+  const [nomeMaterialDelegacao, setNomeMaterialDelegacao] = useState('');
+
+  const registrarLogAdmin = async (materialId: string, evento: string) => {
+    await supabase.from('logs_acesso').insert([{ material_id: materialId, evento }]);
+  };
+
+  const abrirHistoricoDelegacao = async (materialId: string, titulo: string) => {
+    setNomeMaterialDelegacao(titulo);
+    const { data, error } = await supabase.from('logs_acesso')
+      .select('*')
+      .eq('material_id', materialId)
+      .order('created_at', { ascending: false });
+      
+    if (!error && data) {
+      const filtered = data.filter(log => !log.evento.startsWith('👀 Cliente visualizou'));
+      setDelegacaoLogsAtuais(filtered);
+      setDelegacaoModalAberto(true);
+    }
+  };
+
   const [logsModalAberto, setLogsModalAberto] = useState(false);
   const [logsAtuais, setLogsAtuais] = useState<any[]>([]);
   const [nomeMaterialLog, setNomeMaterialLog] = useState('');
@@ -1070,6 +1093,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       toast.error("Erro ao delegar: " + error.message);
     } else {
       toast.success(`Delegado com sucesso! (${selectedItemsToDelegate.length} materiais)`);
+      
+      // LOG
+      selectedItemsToDelegate.forEach(mId => {
+        if (delegationType === 'planner') {
+          const pName = membros.find(m => m.id === selectedPlannerId)?.nome || 'Decupador';
+          registrarLogAdmin(mId, `🔄 Delegado para Decupador: ${pName}`);
+        } else {
+          if (selectedEditorId) {
+            const eName = membros.find(m => m.id === selectedEditorId)?.nome || 'Editor';
+            registrarLogAdmin(mId, `🔄 Delegado para Editor: ${eName}`);
+          }
+          if (selectedDesignerId) {
+            const dName = membros.find(m => m.id === selectedDesignerId)?.nome || 'Designer';
+            registrarLogAdmin(mId, `🔄 Delegado para Designer: ${dName}`);
+          }
+        }
+      });
 
       const firstItem = materiais.find(m => selectedItemsToDelegate.includes(m.id));
       const clienteNome = firstItem?.cliente?.nome || 'CLIENTE NÃO IDENTIFICADO';
@@ -1745,6 +1785,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       </div>
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
                                         <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              {/* NEW DELEGATION HISTORY BUTTON */}
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
                                         <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                         {m.link_organizado ? (
                                           <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
@@ -1913,6 +1955,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       </div>
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
                                         <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              {/* NEW DELEGATION HISTORY BUTTON */}
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                         {m.link_organizado ? (
                                           <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
@@ -2073,6 +2117,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                                       <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
                                         <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              {/* NEW DELEGATION HISTORY BUTTON */}
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
 
                                         {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
@@ -2220,6 +2266,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 w-full mt-2 shrink-0 justify-end">
                                       <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              {/* NEW DELEGATION HISTORY BUTTON */}
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
                                       {(!m.link_drive && !m.link_capa) ? (
                                         <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
@@ -2312,6 +2360,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     </div>
                                     <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
                                       <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              {/* NEW DELEGATION HISTORY BUTTON */}
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
 
                                       {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Ver Post</button>}
@@ -2606,6 +2656,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               )}
                                               {m.status === 'analise_roteiro' && (<button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 hover:bg-purple-600 hover:text-white' : 'text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Enviar Roteiro para o Cliente">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>)}
                                               <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              {/* NEW DELEGATION HISTORY BUTTON */}
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                               <button onClick={() => {
                                                 setRoteiroToEdit(m);
@@ -3497,6 +3549,40 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <button onClick={() => { handleAprovarParaCliente(incompleteApprovalData.material.id); setIncompleteApprovalData(null); }} disabled={actionLoading === incompleteApprovalData.material.id} className="w-full sm:flex-1 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2">
                 {actionLoading === incompleteApprovalData.material.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Enviar Mesmo Assim</>}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
+      {/* MODAL DE HISTÓRICO DE DELEGAÇÕES (COMPLETO) */}
+      {delegacaoModalAberto && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-[24px] p-6 w-full max-w-md shadow-2xl text-left`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`font-bold text-lg uppercase ${tc.textMain}`}>Histórico da Tarefa</h3>
+              <button onClick={() => setDelegacaoModalAberto(false)} className={`${tc.textMuted} ${tc.bgHover} p-2 rounded-full transition-colors`}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className={`text-sm ${tc.textMuted} mb-4 truncate font-medium border-b ${tc.borderStrong} pb-2`}>{nomeMaterialDelegacao}</p>
+            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
+              {delegacaoLogsAtuais.length === 0 ? (
+                <p className={`text-center text-sm ${tc.textMuted} py-4 font-bold`}>Nenhum registro de delegação encontrado para esta tarefa.</p>
+              ) : (
+                delegacaoLogsAtuais.map((log, index) => {
+                  const dataFormatada = new Date(log.created_at).toLocaleString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  });
+                  return (
+                    <div key={index} className={`flex flex-col p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border rounded-xl`}>
+                      <span className={`text-sm font-bold ${tc.textMain}`}>{log.evento}</span>
+                      <span className={`text-[10px] font-black tracking-widest uppercase ${tc.textMuted} mt-1`}>{dataFormatada}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
