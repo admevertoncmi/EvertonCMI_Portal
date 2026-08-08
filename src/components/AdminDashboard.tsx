@@ -1327,7 +1327,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black"
                   >
                     {isImg ? (
-                      <img src={link} loading="lazy"  className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      {(Math.abs(idx - currentSlide) <= 2 || (idx === 0 && currentSlide >= links.length - 2) || (idx === links.length - 1 && currentSlide <= 1)) ? (
+                        <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Aguardando...</span></div>
+                      )}
                     ) : (
                                               (Math.abs(idx - currentSlide) <= 1 || (idx === 0 && currentSlide === links.length - 1) || (idx === links.length - 1 && currentSlide === 0)) ? (
                                                 <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0" allowFullScreen></iframe>
@@ -1783,11 +1787,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
                                         </div>
                                       </div>
-                                      <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
-                                        <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                      <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
+                                        <button onClick={() => setTimelineMaterial(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-                                        <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
+                                        <button onClick={() => setPreviewRoteiro(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                         {m.link_organizado ? (
                                           <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
                                         ) : m.link_bruto ? (
@@ -1953,11 +1957,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </div>
 )}
                                       </div>
-                                      <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-end">
-                                        <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                      <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
+                                        <button onClick={() => setTimelineMaterial(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                         {m.link_organizado ? (
                                           <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
                                         ) : m.link_bruto ? (
@@ -2221,10 +2225,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       })()}
                                       <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
                                         {(() => {
-                                          const latestFeedback = m.feedback ? m.feedback.split('\n\n')[0].replace(/\[ID:.*?\]/g, '').trim() : '';
-                                          return latestFeedback ? (
-                                            <div className={`text-[10px] font-bold ${textSecundario} whitespace-pre-wrap`}>
-                                              {renderTextWithLinks(latestFeedback)}
+                                          const feedbacks = m.feedback ? m.feedback.split('\n\n').map(f => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
+                                          return feedbacks.length > 0 ? (
+                                            <div className={`text-[10px] font-bold ${textSecundario} whitespace-pre-wrap flex flex-col gap-2`}>
+                                              {feedbacks.map((fb, idx) => (
+                                                <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-zinc-200 dark:border-zinc-800' : ''}>
+                                                  {renderTextWithLinks(fb)}
+                                                </div>
+                                              ))}
                                             </div>
                                           ) : (
                                             <div className={`text-[10px] font-bold ${textSecundario} italic opacity-50`}>

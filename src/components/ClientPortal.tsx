@@ -113,7 +113,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const [collapsedCycles, setCollapsedCycles] = useState<string[]>([]);
 
   
-  const toggleCycle = (cicloLabel: string) => setCollapsedCycles(prev => prev.includes(cicloLabel) ? prev.filter(c => c !== cicloLabel) : [...prev, cicloLabel]);
+  const toggleCycle = (cicloLabel: string) => {
+    const key = `${activeTab}-${cicloLabel}`;
+    setCollapsedCycles(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
+  };
 
   useEffect(() => {
     setUseIframeFallback(false);
@@ -629,13 +632,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
             {/* LISTA DE MATERIAIS */}
             <div className="lg:col-span-4 space-y-4 md:space-y-6 w-full">
-              {Object.entries(grouped).sort((a, b) => { const aApp = collapsedCycles.includes(a[0]); const bApp = collapsedCycles.includes(b[0]); if (aApp && !bApp) return 1; if (!aApp && bApp) return -1; return b[0].localeCompare(a[0], undefined, { numeric: true }); }).map(([cicloLabel, itens]) => (
+              {Object.entries(grouped).sort((a, b) => { const aApp = collapsedCycles.includes(`${activeTab}-${a[0]}`); const bApp = collapsedCycles.includes(`${activeTab}-${b[0]}`); if (aApp && !bApp) return 1; if (!aApp && bApp) return -1; return b[0].localeCompare(a[0], undefined, { numeric: true }); }).map(([cicloLabel, itens]) => (
                 <div key={cicloLabel} className="space-y-2 md:space-y-3">
                   <div className="flex items-center justify-between px-1 cursor-pointer select-none" onClick={() => toggleCycle(cicloLabel)}>
                     <div className="flex items-center gap-2">
                       <Calendar size={12} className="text-zinc-400" />
                       <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
-                      <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(cicloLabel) ? '-rotate-90' : ''}`} />
+                      <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(`${activeTab}-${cicloLabel}`) ? '-rotate-90' : ''}`} />
                     </div>
                     {isRoteiro && itens.some(m => !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(m.status?.toLowerCase()) || (m.status?.toLowerCase() === 'ajustes' && !!(m.link_drive || m.link_capa)))) && (
                       <button 
@@ -649,7 +652,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     )}
                   </div>
 
-                  {!collapsedCycles.includes(cicloLabel) && (
+                  {!collapsedCycles.includes(`${activeTab}-${cicloLabel}`) && (
                   <div className="space-y-2">
                     {itens.map((m: any) => {
                       const isSelected = selectedMaterial?.id === m.id
@@ -836,7 +839,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                             className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black cursor-zoom-in"
                                           >
                                             {isImg ? (
-                                              <img src={link} loading="lazy"  className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                                              {(Math.abs(idx - currentSlide) <= 2 || (idx === 0 && currentSlide >= links.length - 2) || (idx === links.length - 1 && currentSlide <= 1)) ? (
+                        <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Aguardando...</span></div>
+                      )}
                                             ) : (
                                               (Math.abs(idx - currentSlide) <= 1 || (idx === 0 && currentSlide === links.length - 1) || (idx === links.length - 1 && currentSlide === 0)) ? (
                                                 <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>

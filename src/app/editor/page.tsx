@@ -83,6 +83,10 @@ const getRawVideoUrl = (url: string) => {
 
 export default function EditorDashboard() {
   const router = useRouter()
+  
+  const registrarLog = async (materialId: string, evento: string) => {
+    await supabase.from('logs_acesso').insert([{ material_id: materialId, evento }]);
+  };
   const supabase = createClient()
 
   // --- TEMA ---
@@ -307,7 +311,9 @@ export default function EditorDashboard() {
         const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
         const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n👤: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo?.toUpperCase()}`;
         await notificarClickUpChat(msgAdmin);
-      } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando."); }
+      } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando.");
+        const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
+        registrarLog(selectedMaterial.id, `✅ ${roleTag} (${userProfile?.nome || 'Equipe'}) entregou a parte dele(a)`); }
       setIsVersionModalOpen(false)
       loadData()
     }
@@ -319,6 +325,9 @@ export default function EditorDashboard() {
     setIsSubmitting(true);
     const feedbackComAutor = `[ID:${userId}] ${issueText}`;
     const { error } = await supabase.from('materiais').update({ status: issueType, feedback: feedbackComAutor }).eq('id', selectedMaterial.id);
+    if (!error) {
+      registrarLog(selectedMaterial.id, `❌ Devolvido por ${userProfile?.role === 'designer' ? 'Designer' : 'Editor'} (${userProfile?.nome || 'Equipe'}): ${issueText}`);
+    }
     if (!error) {
       toast.success("Problema reportado ao Admin!");
       const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';

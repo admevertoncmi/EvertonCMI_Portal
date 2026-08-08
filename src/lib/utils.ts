@@ -78,28 +78,42 @@ export function isDateLate(dateStr: string): boolean {
 export function linkifyHtml(html?: string): string {
   if (!html) return '';
   // Convert non-breaking spaces to regular spaces FIRST so the urlRegex doesn't swallow them
-  html = html.replace(/&nbsp;/g, ' ').replace(/\u00A0/g, ' ');
+  let tempHtml = html.replace(/&nbsp;/g, ' ').replace(/\u00A0/g, ' ');
 
-  // Regex to match URLs not inside href="..." and not inside existing <a> tags
-  // Extract all existing HTML tags so we don't mess with their attributes
-  const htmlTagRegex = /(<[^>]+>)/g;
   const placeholders: string[] = [];
-  let tempHtml = html.replace(htmlTagRegex, (match) => {
+  
+  // 1. Protect existing <a> elements entirely so we don't nest links
+  tempHtml = tempHtml.replace(/<a\b[^>]*>(.*?)<\/a>/gi, (match) => {
+      placeholders.push(match);
+      return `__HTML_TAG_PLACEHOLDER_${placeholders.length - 1}__`;
+  });
+
+  // 2. Protect all other HTML tags
+  const htmlTagRegex = /(<[^>]+>)/g;
+  tempHtml = tempHtml.replace(htmlTagRegex, (match) => {
     placeholders.push(match);
     return `__HTML_TAG_PLACEHOLDER_${placeholders.length - 1}__`;
   });
 
-  // Now replace plain URLs with <a> tags
+  // 3. Now replace plain URLs with <a> tags
   const urlRegex = /((?:https?:\/\/|www\.)(?:(?!__HTML_TAG_PLACEHOLDER_)[^\s<])+)/gi;
   tempHtml = tempHtml.replace(urlRegex, (url) => {
-    const href = url.startsWith('http') ? url : `https://${url}`;
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all">${url}</a>`;
+    // Strip trailing punctuation if it got caught
+    let cleanUrl = url;
+    let trailing = '';
+    if (/[.,;:!?]$/.test(cleanUrl)) {
+        trailing = cleanUrl.slice(-1);
+        cleanUrl = cleanUrl.slice(0, -1);
+    }
+    const href = cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all">${cleanUrl}</a>${trailing}`;
   });
 
-  // Restore the original HTML tags
+  // 4. Restore the original HTML tags
   placeholders.forEach((tag, i) => {
     tempHtml = tempHtml.split(`__HTML_TAG_PLACEHOLDER_${i}__`).join(tag);
   });
 
   return tempHtml;
 }
+

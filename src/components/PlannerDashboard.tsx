@@ -90,6 +90,10 @@ export default function DecupadorDashboard() {
   const router = useRouter()
   const supabase = createClient()
 
+  const registrarLog = async (materialId: string, evento: string) => {
+    await supabase.from('logs_acesso').insert([{ material_id: materialId, evento }]);
+  };
+
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   const [useIframeFallback, setUseIframeFallback] = useState<Record<string, boolean>>({})
 
@@ -280,7 +284,8 @@ export default function DecupadorDashboard() {
     } else {
       setMateriais(prev => prev.map(item => item.id === m.id ? { ...item, status: newStatus as any } : item));
       const { error } = await supabase.from('materiais').update({ status: newStatus }).eq('id', m.id);
-      if (error) { toast.error("Erro ao atualizar."); loadData(); } else { toast.success("Status atualizado!"); }
+      if (error) { toast.error("Erro ao atualizar."); loadData(); } else { toast.success("Status atualizado!");
+        registrarLog(m.id, `🔄 Status alterado para: ${newStatus} (por ${userProfile?.nome || 'Decupador'})`); }
     }
   }
 
@@ -293,6 +298,7 @@ export default function DecupadorDashboard() {
     if (error) { toast.error("Erro: " + error.message); }
     else {
       toast.success("Problema reportado ao Admin!");
+      registrarLog(selectedMaterial.id, `⚠️ Devolvido com problema pelo DECUPADOR (${userProfile?.nome || 'Equipe'}): ${issueText}`);
       const msgErro = `🔔 PROBLEMA NA DECUPAGEM\n\n👤: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo.toUpperCase()}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false);
@@ -308,6 +314,7 @@ export default function DecupadorDashboard() {
     if (error) { toast.error("Erro: " + error.message) }
     else {
       toast.success("Pasta entregue!");
+      registrarLog(selectedMaterial.id, `📁 Pasta entregue pelo DECUPADOR (${userProfile?.nome || 'Equipe'})`);
       const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n👤: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo.toUpperCase()}`;
       await notificarClickUpChat(msgSucesso);
       setIsSubmitModalOpen(false);
@@ -401,7 +408,11 @@ export default function DecupadorDashboard() {
                     className="flex-[0_0_100%] min-w-0 h-full relative flex items-center justify-center bg-black"
                   >
                     {isImg ? (
-                      <img src={link} className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      {(Math.abs(idx - currentSlide) <= 2 || (idx === 0 && currentSlide >= links.length - 2) || (idx === links.length - 1 && currentSlide <= 1)) ? (
+                        <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Aguardando...</span></div>
+                      )}
                     ) : (
                       <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
                     )}
