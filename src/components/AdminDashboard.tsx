@@ -1020,6 +1020,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       itemsGroup = Array.from(groupedAnaliseRoteiro[clienteId].ciclos[cicloLabel].itens);
     } else if (type === 'aprovado' && groupedRoteiros[clienteId]?.ciclos[cicloLabel]) {
       itemsGroup = Array.from(groupedRoteiros[clienteId].ciclos[cicloLabel].itens);
+    } else if (type === 'visaogeral' && groupedVisaoGeral[clienteId]?.ciclos[cicloLabel]) {
+      itemsGroup = Array.from(groupedVisaoGeral[clienteId].ciclos[cicloLabel].itens);
     } else {
       return;
     }
@@ -2318,7 +2320,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <>
                                           {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
                                           {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
-                                          {m.tags?.includes('_ajuste_delegado') ? (
+                                          {(m.editor_id || m.designer_id) ? (
                                             <div className="flex w-full sm:w-auto items-center gap-2">
                                               <span className={`flex-1 text-center px-4 py-2 ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} rounded-lg font-black text-[10px] uppercase`}>Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'Equipe'}</span>
                                               <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoAjuste(m); }} className="p-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition-colors" title="Cancelar Delegação"><X size={14}/></button>
@@ -2609,9 +2611,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     </div>
 
                                     {expandedCiclos.includes(`${clienteId}-${cicloLabel}`) && (
-                                      <div className="pl-4 md:pl-12 pr-2 md:pr-6 py-2 space-y-3">
-                                        {data.itens.map((m: Material) => (
-                                          <div key={m.id} className={`flex flex-col md:flex-row items-start md:items-center justify-between ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors`}>
+                                      <Droppable droppableId={`visaogeral___${clienteId}___${cicloLabel}`}>
+                                        {(provided) => (
+                                          <div ref={provided.innerRef} {...provided.droppableProps} className="pl-4 md:pl-12 pr-2 md:pr-6 py-2 space-y-3">
+                                            {data.itens.map((m: Material, idx: number) => (
+                                              <Draggable key={m.id} draggableId={m.id} index={idx}>
+                                                {(provided) => (
+                                                  <div
+                                                    ref={provided.innerRef}
+                                                    {...provided.draggableProps}
+                                                    {...provided.dragHandleProps}
+                                                    className={`flex flex-col md:flex-row items-start md:items-center justify-between ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors mb-2`}
+                                                  >
                                             <div className="flex-1 w-full">
                                               <div className="flex items-center gap-2 flex-wrap">
                                                 <div className="flex items-center gap-1 group/title">
@@ -2716,9 +2727,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               {m.status !== 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'concluido')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-500 bg-zinc-800 hover:text-amber-400 hover:bg-amber-900/30' : 'text-zinc-400 bg-zinc-50 hover:text-amber-600 hover:bg-amber-50'} rounded-lg disabled:opacity-50 transition-colors`} title="Arquivar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}</button>)}
                                               <button onClick={() => openConfirm('Excluir Tarefa', 'Esta ação é permanente. Deseja excluir?', () => { setActionLoading(m.id); supabase.from('materiais').delete().eq('id', m.id).then(() => { loadData(); setActionLoading(null); }) }, 'danger')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:text-red-300' : 'text-red-400 bg-red-50 hover:text-red-600'} rounded-lg ml-auto md:ml-0 disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button>
                                             </div>
+                                                  </div>
+                                                )}
+                                              </Draggable>
+                                            ))}
+                                            {provided.placeholder}
                                           </div>
-                                        ))}
-                                      </div>
+                                        )}
+                                      </Droppable>
                                     )}
                                   </div>
                                 );
