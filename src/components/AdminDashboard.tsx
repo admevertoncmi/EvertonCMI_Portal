@@ -1058,18 +1058,32 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setSelectedCicloDelegation({ ...selectedCicloDelegation, itens: items });
   };
 
+  
+  const handleCancelarDelegacaoAjuste = async (m: Material) => {
+    if (!confirm("Tem certeza que deseja cancelar a delegação e voltar para a fila de ajustes?")) return;
+    const newTags = (m.tags || []).filter(t => t !== '_ajuste_delegado');
+    const { error } = await supabase.from('materiais').update({ editor_id: null, designer_id: null, tags: newTags }).eq('id', m.id);
+    if (!error) { toast.success("Delegação cancelada!"); loadData(); registrarLogAdmin(m.id, "❌ Delegação de ajuste cancelada"); }
+  };
+  const handleCancelarDelegacaoDecupagem = async (m: Material) => {
+    if (!confirm("Tem certeza que deseja cancelar a delegação e voltar para a fila de planejamento?")) return;
+    const { error } = await supabase.from('materiais').update({ planner_id: null, status: 'roteiro_aprovado' }).eq('id', m.id);
+    if (!error) { toast.success("Delegação cancelada!"); loadData(); registrarLogAdmin(m.id, "❌ Delegação de decupagem cancelada"); }
+  };
+
   const handleDelegarItems = async () => {
     if (delegationType === 'planner' && !selectedPlannerId) return toast.error("Selecione um Decupador!");
     if (delegationType === 'editor' && !selectedEditorId && !selectedDesignerId) return toast.error("Selecione pelo menos um Editor ou Designer!");
     if (selectedItemsToDelegate.length === 0) return toast.error("Selecione pelo menos 1 material!");
     setLoading(true);
 
+    const isAjusteDelegation = materiais.find(m => selectedItemsToDelegate.includes(m.id))?.status === 'ajustes';
     const updateData: any = delegationType === 'planner'
       ? { planner_id: selectedPlannerId, status: 'planejamento', feedback_admin: adminFeedback, data_limite: delegationDeadline || null }
       : {
         editor_id: selectedEditorId || null,
         designer_id: selectedDesignerId || null,
-        status: 'em_edicao',
+        status: isAjusteDelegation ? 'ajustes' : 'em_edicao',
         video_entregue: !selectedEditorId,
         design_entregue: !selectedDesignerId,
         feedback_admin: adminFeedback,
@@ -1080,6 +1094,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       updateData.link_bruto = newLinkBruto;
     }
 
+    if (isAjusteDelegation) {
+      const firstMat = materiais.find(m => selectedItemsToDelegate.includes(m.id));
+      const tags = firstMat?.tags || [];
+      if (!tags.includes('_ajuste_delegado')) tags.push('_ajuste_delegado');
+      updateData.tags = tags;
+    }
     const { error } = await supabase.from('materiais').update(updateData).in('id', selectedItemsToDelegate);
 
     if (!error && selectedCicloDelegation) {
@@ -1781,7 +1801,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
-                                      <div className="flex-1 min-w-0 w-full"><span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : 'Com o Decupador'}</span>
+                                      <div className="flex-1 min-w-0 w-full"><div className="flex flex-col items-start gap-1 mb-2">
+  <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : (m.planner_id ? `Delegado para: ${membros.find(mb => mb.id === m.planner_id)?.nome || 'Decupador'}` : 'Com o Decupador')}</span>
+  {m.planner_id && <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoDecupagem(m); }} className="text-[9px] font-bold text-red-500 hover:underline flex items-center gap-1"><X size={10}/> Cancelar Delegação</button>}
+</div>
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
                                           <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
@@ -2295,7 +2318,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <>
                                           {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
                                           {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
-                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
+                                          {m.tags?.includes('_ajuste_delegado') ? (
+                                            <div className="flex w-full sm:w-auto items-center gap-2">
+                                              <span className={`flex-1 text-center px-4 py-2 ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} rounded-lg font-black text-[10px] uppercase`}>Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'Equipe'}</span>
+                                              <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoAjuste(m); }} className="p-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition-colors" title="Cancelar Delegação"><X size={14}/></button>
+                                            </div>
+                                          ) : (
+                                            <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
+                                          )}
                                         </>
                                       )}
                                     </div>
