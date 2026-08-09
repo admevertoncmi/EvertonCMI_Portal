@@ -21,7 +21,7 @@ import {
 interface Cliente { id: string; nome: string; }
 interface Material {
   id: string; cliente_id: string; titulo: string;
-  ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string;
+  ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string;
   data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean;
   status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null;
   cliente?: { nome: string; };
@@ -309,7 +309,7 @@ export default function EditorDashboard() {
       if (isGlobalComplete && statusFinal === 'revisao') {
         toast.success("✅ Tudo entregue! Material enviado para a revisão da Agência.")
         const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
-        const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n👤: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo?.toUpperCase()}`;
+        const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n👤: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 **${selectedMaterial.cliente?.nome}**\n🎬 ${selectedMaterial.titulo}`;
         await notificarClickUpChat(msgAdmin);
       } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando.");
         const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
@@ -331,7 +331,7 @@ export default function EditorDashboard() {
     if (!error) {
       toast.success("Problema reportado ao Admin!");
       const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
-      const msgErro = `🔔 PROBLEMA NA PRODUÇÃO\n\n👤: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo?.toUpperCase()}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
+      const msgErro = `🔔 PROBLEMA NA PRODUÇÃO\n\n👤: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 **${selectedMaterial.cliente?.nome}**\n🎬 ${selectedMaterial.titulo}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false);
       loadData();

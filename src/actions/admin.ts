@@ -23,7 +23,7 @@ export async function updateMaterialStatus(materialId: string, newStatus: Materi
     // Fetch material for notification
     const { data } = await supabaseAdmin.from('materiais').select('*, cliente(nome)').eq('id', materialId).single()
     if (data) {
-      await notificarTelegram(`✅ APROVADO PELO ADMIN\n\n${data.cliente?.nome}\n${data.titulo.toUpperCase()}`)
+      await notificarTelegram(`✅ APROVADO PELO ADMIN\n\n**${data.cliente?.nome}**\n${data.titulo}`)
     }
   }
 

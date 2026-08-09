@@ -642,18 +642,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (material) {
       if (newStatus === 'faltando_material' || newStatus === 'verificar_material') {
         const p = membros.find(m => m.id === material.planner_id);
-        await notificarClickUpChat(`🔔 PROBLEMA NA PRODUÇÃO\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
+        await notificarClickUpChat(`🔔 PROBLEMA NA PRODUÇÃO\n\n**${material.cliente?.nome}**\n${material.titulo}\n🔔 VERIFICAR PASTA OU ARQUIVOS`, (p as any)?.telegram_thread_id);
       }
       else if (newStatus === 'revisao') {
-        await notificarClickUpChat(`🎬 EDIÇÃO PRONTA\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}\n🔔 AGUARDANDO REVISÃO AGÊNCIA`);
+        await notificarClickUpChat(`🎬 EDIÇÃO PRONTA\n\n**${material.cliente?.nome}**\n${material.titulo}\n🔔 AGUARDANDO REVISÃO AGÊNCIA`);
       }
       else if (newStatus === 'organizado') {
-        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}`);
+        await notificarClickUpChat(`📁 PASTA PRONTA (DECUPAGEM)\n\n**${material.cliente?.nome}**\n${material.titulo}`);
       }
       else if (['aprovado', 'roteiro_aprovado', 'post_aprovado'].includes(newStatus)) {
         const label = newStatus === 'roteiro_aprovado' ? 'ROTEIRO APROVADO' : 'POST APROVADO';
         const icon = newStatus === 'roteiro_aprovado' ? '📝✅' : '✅';
-        await notificarClickUpChat(`${icon} ${label}\n\n${material.cliente?.nome}\n${material.titulo?.toUpperCase()}`);
+        await notificarClickUpChat(`${icon} ${label}\n\n**${material.cliente?.nome}**\n${material.titulo}`);
       }
     }
 
@@ -727,7 +727,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
 
-      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo?.toUpperCase()}\n\n📝 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
+      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n**${selectedMaterial.cliente?.nome}**\n${selectedMaterial.titulo}\n\n📝 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
 
       if (resolveType === 'planner') {
         const p = membros.find(x => x.id === selectedMaterial.planner_id);
@@ -1268,7 +1268,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!selectedMaterial || !newDriveLink) return
     setLoading(true)
     await supabase.from('materiais').update({ link_drive: newDriveLink, status: 'pendente', feedback: null }).eq('id', selectedMaterial.id)
-    await notificarClickUpChat(`🎬 REEDIÇÃO\n\n${selectedMaterial.cliente?.nome}\n${selectedMaterial.titulo}`);
+    await notificarClickUpChat(`🎬 REEDIÇÃO\n\n**${selectedMaterial.cliente?.nome}**\n${selectedMaterial.titulo}`);
     setIsVersionModalOpen(false); setNewDriveLink(''); loadData(); setLoading(false); toast.success("Versão atualizada!");
   }
 

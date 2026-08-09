@@ -366,7 +366,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', finalId)
     await registrarLogAcesso(finalId, `✅ POST Aprovado`);
 
-    const msg = `✅ POST APROVADO\n\n${cliente.nome}\n${mat.titulo.toUpperCase()}`;
+    const msg = `✅ POST APROVADO\n\n**${cliente.nome}**\n${mat.titulo}`;
     await notificarClickUpChat(msg);
     toast.success("Post aprovado com sucesso!");
     setIsApprovalModalOpen(false);
@@ -385,7 +385,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', finalId)
     await registrarLogAcesso(finalId, `✅ Roteiro Aprovado`);
 
-    const msg = `📝✅ ROTEIRO APROVADO\n\n${cliente.nome}\n${mat.titulo.toUpperCase()}`;
+    const msg = `📝✅ ROTEIRO APROVADO\n\n**${cliente.nome}**\n${mat.titulo}`;
     await notificarClickUpChat(msg);
     toast.success("Roteiro aprovado! A equipe de produção foi notificada.");
     setIsApprovalModalOpen(false);
@@ -428,7 +428,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       await Promise.all(ids.map(id => registrarLogAcesso(id, `✅ Roteiro Aprovado (Lote)`)));
 
       // 4. Notificar no ClickUp (mensagem única para o lote)
-      const listaTitulos = roteirosPendentes.map(m => `• ${m.titulo.toUpperCase()}`).join('\n');
+      const listaTitulos = roteirosPendentes.map(m => `• ${m.titulo}`).join('\n');
       const msg = `📝✅ LOTE DE ROTEIROS APROVADOS (${cicloLabel.toUpperCase()})\n\nCLIENTE: ${cliente.nome.toUpperCase()}\n\nMATERIAIS:\n${listaTitulos}\n\n🚀 A equipe de produção pode iniciar os trabalhos.`;
       await notificarClickUpChat(msg);
 
@@ -484,7 +484,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
     await registrarLogAcesso(id, `⚠️ Pedido de Ajuste`);
 
-    const msg = `🔔 SOLICITAÇÃO DE AJUSTE\n\n${cliente.nome}\n${selectedMaterial.titulo.toUpperCase()}\n🔔 INSTRUÇÃO: ${textoBase.toUpperCase()}`;
+    const msg = `🔔 SOLICITAÇÃO DE AJUSTE\n\n**${cliente.nome}**\n${selectedMaterial.titulo}\n🔔 INSTRUÇÃO: ${textoBase.toUpperCase()}`;
     await notificarClickUpChat(msg);
 
     setFeedbackText('');

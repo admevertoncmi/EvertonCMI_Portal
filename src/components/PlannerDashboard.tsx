@@ -27,6 +27,7 @@ interface Material {
   status: any;
   created_at: string; roteiro?: string | null; planner_id?: string | null;
   feedback?: string | null; feedback_admin?: string | null; ciclo?: number;
+  tags?: string[];
   cliente?: { nome: string; };
 }
 
@@ -299,7 +300,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Problema reportado ao Admin!");
       registrarLog(selectedMaterial.id, `⚠️ Devolvido com problema pelo DECUPADOR (${userProfile?.nome || 'Equipe'}): ${issueText}`);
-      const msgErro = `🔔 PROBLEMA NA DECUPAGEM\n\n👤: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo.toUpperCase()}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
+      const msgErro = `🔔 PROBLEMA NA DECUPAGEM\n\n👤: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 **${selectedMaterial.cliente?.nome}**\n🎬 ${selectedMaterial.titulo}\n\n🔔 MOTIVO: ${issueText.toUpperCase()}`;
       await notificarClickUpChat(msgErro);
       setIsIssueModalOpen(false);
       loadData();
@@ -315,7 +316,7 @@ export default function DecupadorDashboard() {
     else {
       toast.success("Pasta entregue!");
       registrarLog(selectedMaterial.id, `📁 Pasta entregue pelo DECUPADOR (${userProfile?.nome || 'Equipe'})`);
-      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n👤: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 ${selectedMaterial.cliente?.nome}\n🎬 ${selectedMaterial.titulo.toUpperCase()}`;
+      const msgSucesso = `📁 PASTA PRONTA (DECUPAGEM)\n\n👤: DECUPADOR\n${userProfile?.nome || 'Equipe'}\n\n📍 **${selectedMaterial.cliente?.nome}**\n🎬 ${selectedMaterial.titulo}`;
       await notificarClickUpChat(msgSucesso);
       setIsSubmitModalOpen(false);
       setNewDriveLink('');
