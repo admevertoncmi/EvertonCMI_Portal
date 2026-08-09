@@ -312,10 +312,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
   const [isArchiveCycleModalOpen, setIsArchiveCycleModalOpen] = useState(false)
   const [cycleToArchive, setCycleToArchive] = useState<{ itens: Material[], cicloLabel: string } | null>(null)
-
   const [delegacaoModalAberto, setDelegacaoModalAberto] = useState(false);
   const [delegacaoLogsAtuais, setDelegacaoLogsAtuais] = useState<any[]>([]);
   const [nomeMaterialDelegacao, setNomeMaterialDelegacao] = useState('');
+  const [materialLogContext, setMaterialLogContext] = useState<Material | null>(null);
 
   const registrarLogAdmin = async (materialId: string, evento: string) => {
     await supabase.from('logs_acesso').insert([{ material_id: materialId, evento }]);
@@ -323,13 +323,47 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const abrirHistoricoDelegacao = async (materialId: string, titulo: string) => {
     setNomeMaterialDelegacao(titulo);
+    const m = materiais.find(m => m.id === materialId);
+
     const { data, error } = await supabase.from('logs_acesso')
       .select('*')
       .eq('material_id', materialId)
       .order('created_at', { ascending: false });
       
     if (!error && data) {
-      const filtered = data.filter(log => !log.evento.startsWith('👀 Cliente visualizou'));
+      let filtered = data.filter(log => !log.evento.startsWith('👀 Cliente visualizou'));
+      
+      if (m) {
+        // Preenche delegações antigas que ocorreram antes da implementação dos logs
+        const hasPlannerLog = filtered.some(f => f.evento.includes('Delegado para Decupador'));
+        const hasEditorLog = filtered.some(f => f.evento.includes('Delegado para Editor'));
+        const hasDesignerLog = filtered.some(f => f.evento.includes('Delegado para Designer'));
+
+        if (m.planner_id && !hasPlannerLog) {
+          const pName = membros.find(mem => mem.id === m.planner_id)?.nome || 'Decupador';
+          filtered.push({ evento: `🔄 Delegado para Decupador: ${pName}`, created_at: m.created_at, material_id: m.id } as any);
+        }
+        if (m.editor_id && !hasEditorLog) {
+          const eName = membros.find(mem => mem.id === m.editor_id)?.nome || 'Editor';
+          filtered.push({ evento: `🔄 Delegado para Editor: ${eName}`, created_at: m.created_at, material_id: m.id } as any);
+        }
+        if (m.designer_id && !hasDesignerLog) {
+          const dName = membros.find(mem => mem.id === m.designer_id)?.nome || 'Designer';
+          filtered.push({ evento: `🔄 Delegado para Designer: ${dName}`, created_at: m.created_at, material_id: m.id } as any);
+        }
+
+        filtered.push({ evento: '✅ Tarefa Criada no Sistema', created_at: m.created_at, material_id: m.id } as any);
+        
+        // Remove duplicates and sort by date descending
+        const uniqueEvents = new Set();
+        filtered = filtered.filter(f => {
+           if (uniqueEvents.has(f.evento)) return false;
+           uniqueEvents.add(f.evento);
+           return true;
+        });
+        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      }
+      
       setDelegacaoLogsAtuais(filtered);
       setDelegacaoModalAberto(true);
     }
@@ -638,6 +672,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
 
     await supabase.from('materiais').update(updatePayload).eq('id', id);
+
+    const statusNames: Record<string, string> = {
+      'analise_roteiro': 'Roteiro em Análise',
+      'roteiro_pendente': 'Aguardando Cliente (Roteiro)',
+      'roteiro_aprovado': 'Roteiro Aprovado',
+      'planejamento': 'Aguardando Decupagem',
+      'em_organizacao': 'Decupagem em Andamento',
+      'faltando_material': 'Falta Material Bruto',
+      'verificar_material': 'Verificar Material',
+      'organizado': 'Pasta Pronta',
+      'em_edicao': 'Em Edição / Design',
+      'pendente': 'Aguardando Aprovação Cliente',
+      'ajustes': 'Ajustes Solicitados',
+      'revisao': 'Revisão Agência',
+      'post_aprovado': 'Post Aprovado',
+      'concluido': 'Arquivado / Finalizado'
+    };
+    registrarLogAdmin(id, `🔄 Status alterado para: ${statusNames[newStatus] || newStatus}`);
 
     if (material) {
       if (newStatus === 'faltando_material' || newStatus === 'verificar_material') {
@@ -3323,12 +3375,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               <div className="space-y-1">
                 <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega</label>
-                <input
-                  type="date"
-                  className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-xs md:text-sm transition-colors [color-scheme:dark] min-w-0`}
-                  value={delegationDeadline}
-                  onChange={e => setDelegationDeadline(e.target.value)}
-                />
+                <div className="relative group w-full" onClick={(e) => {
+                  const input = e.currentTarget.querySelector('input');
+                  if (input && 'showPicker' in input) {
+                    try { (input as any).showPicker(); } catch (e) { }
+                  }
+                }}>
+                  <input
+                    type="date"
+                    className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-xs md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                    value={delegationDeadline}
+                    onChange={e => setDelegationDeadline(e.target.value)}
+                  />
+                  <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+                </div>
               </div>
 
               <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções..." value={adminFeedback} onChange={e => setAdminFeedback(e.target.value)} />
@@ -3612,31 +3672,36 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       {/* MODAL DE HISTÓRICO DE DELEGAÇÕES (COMPLETO) */}
       {delegacaoModalAberto && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-[24px] p-6 w-full max-w-md shadow-2xl text-left`}>
-            <div className="flex justify-between items-center mb-4">
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-[24px] p-6 w-full max-w-md shadow-2xl text-left flex flex-col max-h-[90vh]`}>
+            <div className="flex justify-between items-center mb-4 shrink-0">
               <h3 className={`font-bold text-lg uppercase ${tc.textMain}`}>Histórico da Tarefa</h3>
               <button onClick={() => setDelegacaoModalAberto(false)} className={`${tc.textMuted} ${tc.bgHover} p-2 rounded-full transition-colors`}>
                 <X size={18} />
               </button>
             </div>
-            <p className={`text-sm ${tc.textMuted} mb-4 truncate font-medium border-b ${tc.borderStrong} pb-2`}>{nomeMaterialDelegacao}</p>
-            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
-              {delegacaoLogsAtuais.length === 0 ? (
-                <p className={`text-center text-sm ${tc.textMuted} py-4 font-bold`}>Nenhum registro de delegação encontrado para esta tarefa.</p>
-              ) : (
-                delegacaoLogsAtuais.map((log, index) => {
-                  const dataFormatada = new Date(log.created_at).toLocaleString('pt-BR', {
-                    day: '2-digit', month: '2-digit', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
-                  });
-                  return (
-                    <div key={index} className={`flex flex-col p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border rounded-xl`}>
-                      <span className={`text-sm font-bold ${tc.textMain}`}>{log.evento}</span>
-                      <span className={`text-[10px] font-black tracking-widest uppercase ${tc.textMuted} mt-1`}>{dataFormatada}</span>
-                    </div>
-                  );
-                })
-              )}
+            
+            <p className={`text-sm ${tc.textMuted} mb-4 truncate font-medium border-b ${tc.borderStrong} pb-2 shrink-0`}>{nomeMaterialDelegacao}</p>
+            
+            <div className="overflow-y-auto space-y-4 pr-2 flex-1">
+              <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Linha do Tempo</div>
+                {delegacaoLogsAtuais.length === 0 ? (
+                  <p className={`text-center text-sm ${tc.textMuted} py-4 font-bold`}>Nenhum registro encontrado.</p>
+                ) : (
+                  delegacaoLogsAtuais.map((log, index) => {
+                    const dataFormatada = new Date(log.created_at).toLocaleString('pt-BR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit'
+                    });
+                    return (
+                      <div key={index} className={`flex flex-col p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border rounded-xl relative`}>
+                        <span className={`text-sm font-bold ${tc.textMain}`}>{log.evento}</span>
+                        <span className={`text-[10px] font-black tracking-widest uppercase ${tc.textMuted} mt-1`}>{dataFormatada}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
