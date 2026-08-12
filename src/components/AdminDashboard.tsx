@@ -2133,7 +2133,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                                   return (
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4`}>
-                                      <div className="flex-1 w-full">
+                                      <div className="flex-1 min-w-[200px] w-full">
                                         <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isPartial ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
                                           {isPartial ? 'Entrega Parcial' : 'Edição Pronta'}
                                         </span>
@@ -2196,7 +2196,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         </div>
                                       </div>
 
-                                      <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
+                                      <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap">
                                         <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
@@ -2418,7 +2418,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
-                                    <div className="flex-1 min-w-0 w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
+                                    <div className="flex-1 min-w-[200px] w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
                                       <div className="flex items-center gap-1 group/title">
                                         <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
@@ -2450,7 +2450,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </div>
 )}
                                     </div>
-                                    <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap shrink-0">
+                                    <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap">
                                       <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
