@@ -640,7 +640,7 @@ export default function EditorDashboard() {
                                               )}
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                            <div className="flex flex-col gap-4 mt-4">
                                               {m.feedback_admin && (
                                                 <div className={`${theme === 'dark' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-blue-50 border-blue-100'} p-4 rounded-xl border overflow-hidden shadow-sm`}>
                                                   <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mb-2 flex items-center gap-2`}><MessageSquare size={12} /> Instrução Admin:</p>
