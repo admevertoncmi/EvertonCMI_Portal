@@ -32,7 +32,7 @@ import {
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
   ListTodo, FileText, LayoutList, Archive, Edit3, Tag, AlertCircle, Menu, Loader2, Activity, Settings,
   FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical, List
-} from 'lucide-react'
+, Save } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
@@ -87,6 +87,30 @@ const isGoogleDriveVideo = (url: string) => {
   if (!url) return false;
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
 }
+
+const CollapsibleInstruction = ({ children, theme, textSecundario, isLong, onEdit }: any) => {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg flex flex-col group`}>
+      <div className="flex justify-between items-center mb-1">
+        <span className="opacity-70 font-black uppercase">📝 Instruções</span>
+        {onEdit && (
+           <button onClick={onEdit} className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400" title="Editar Instrução">
+             <Edit3 size={12} />
+           </button>
+        )}
+      </div>
+      <div className={`whitespace-pre-wrap break-words text-xs ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
+        {children}
+      </div>
+      {isLong && (
+        <button onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} className="mt-2 self-start text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors">
+          {expanded ? 'Ver Menos' : 'Ver Mais'}
+        </button>
+      )}
+    </div>
+  );
+};
 
 
 
@@ -428,6 +452,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [carregandoGrupos, setCarregandoGrupos] = useState(false);
   const [buscaGrupo, setBuscaGrupo] = useState('');
   const [wppGroupId, setWppGroupId] = useState('');
+  const [isEditInstructionModalOpen, setIsEditInstructionModalOpen] = useState(false);
+  const [materialToEditInstruction, setMaterialToEditInstruction] = useState<Material | null>(null);
+  const [instructionEditText, setInstructionEditText] = useState('');
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [materialToSchedule, setMaterialToSchedule] = useState<Material | null>(null);
@@ -1357,6 +1384,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       loadData()
     } catch (err) { console.error(err) } finally { setSyncing(false) }
   }
+
+  const handleSaveInstruction = async () => {
+    if (!materialToEditInstruction) return;
+    setLoading(true);
+    const { error } = await supabase.from('materiais').update({ feedback_admin: instructionEditText }).eq('id', materialToEditInstruction.id);
+    if (!error) {
+      toast.success("Instrução atualizada!");
+      loadData();
+      setIsEditInstructionModalOpen(false);
+    } else {
+      toast.error("Erro ao atualizar instrução.");
+    }
+    setLoading(false);
+  };
 
   const toggleClient = (id: string) => setExpandedClients(prev => prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id])
   const toggleCiclo = (cid: string, ciclo: string) => { const k = `${cid}-${ciclo}`; setExpandedCiclos(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]) }
@@ -2317,9 +2358,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             </div>
                                           );
                                         })()}
-                                      {m.feedback_admin && <div className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr Admin: {renderTextWithLinks(m.feedback_admin)}</div>}
-
-
 
 
 
@@ -2744,7 +2782,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 {actionLoading === m.id ? <Loader2 size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 animate-spin ${textSecundario}`} /> : <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${getStatusColor(m.status).split(' ')[1]}`} />}
                                               </div>
 
-                                              {m.feedback_admin && <p className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg whitespace-normal`}>📝 Instr: {renderTextWithLinks(m.feedback_admin)}</p>}
+                                              {m.feedback_admin && (
+                                                <CollapsibleInstruction
+                                                  theme={theme}
+                                                  textSecundario={textSecundario}
+                                                  isLong={m.feedback_admin.length > 200}
+                                                  onEdit={(e: any) => {
+                                                     e.stopPropagation();
+                                                     setMaterialToEditInstruction(m);
+                                                     setInstructionEditText(m.feedback_admin || '');
+                                                     setIsEditInstructionModalOpen(true);
+                                                  }}
+                                                >
+                                                  {renderTextWithLinks(m.feedback_admin)}
+                                                </CollapsibleInstruction>
+                                              )}
 
                                             </div>
 
@@ -3502,6 +3554,34 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <button onClick={handleImportPlanner} disabled={loading || !plannerTaskId} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-[#8a4729] transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Sincronizar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR INSTRUÇÃO */}
+      {isEditInstructionModalOpen && materialToEditInstruction && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} border w-full max-w-2xl rounded-3xl p-6 shadow-2xl flex flex-col`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                <Edit3 size={20} />
+                Editar Instrução
+              </h3>
+              <button onClick={() => setIsEditInstructionModalOpen(false)} className={`p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full`}><X size={18} /></button>
+            </div>
+            <p className="text-xs font-bold uppercase text-zinc-500 mb-4">{materialToEditInstruction.titulo}</p>
+            <textarea
+              className={`w-full h-64 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-blue-500 outline-none resize-none font-medium text-sm mb-4 whitespace-pre-wrap custom-scrollbar`}
+              value={instructionEditText}
+              onChange={e => setInstructionEditText(e.target.value)}
+              placeholder="Digite as instruções para a equipe aqui..."
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setIsEditInstructionModalOpen(false)} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold uppercase text-xs transition-colors">Cancelar</button>
+              <button onClick={handleSaveInstruction} disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase text-xs flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar Instrução
+              </button>
+            </div>
           </div>
         </div>
       )}
