@@ -2376,12 +2376,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <div className="flex flex-wrap gap-2 mt-3">
                                           {m.link_drive && (
                                             <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' : 'bg-blue-50 text-blue-600 border-blue-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest`}>
-                                              <FileVideo size={14} /> Ver Vídeo Enviado
+                                              <FileVideo size={14} /> Visualizar Video
                                             </button>
                                           )}
                                           {m.link_capa && (
                                             <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/30' : 'bg-pink-50 text-pink-600 border-pink-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest`}>
-                                              <ImageIcon size={14} /> Ver Capa Enviada
+                                              <ImageIcon size={14} /> Visualizar Imagem
                                             </button>
                                           )}
                                         </div>
