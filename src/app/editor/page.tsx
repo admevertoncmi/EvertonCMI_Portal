@@ -27,6 +27,23 @@ interface Material {
   cliente?: { nome: string; };
 }
 
+const CollapsibleInstruction = ({ children, theme, isLong, title, icon: Icon, colorClass, borderClass, bgClass, textClass }: any) => {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={`${bgClass} border ${borderClass} p-4 rounded-xl shadow-sm flex flex-col`}>
+      <p className={`text-[9px] font-black uppercase tracking-widest ${colorClass} mb-2 flex items-center gap-2`}><Icon size={12} /> {title}</p>
+      <div className={`${textClass} font-medium whitespace-pre-wrap text-sm break-words ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
+        {children}
+      </div>
+      {isLong && (
+        <button onClick={() => setExpanded(!expanded)} className="mt-2 self-start text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors">
+          {expanded ? 'Ver Menos' : 'Ver Mais'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const getCleanText = (text: string | null | undefined) => {
   if (!text) return "";
   return text.replace(/\[ID:[^\]]+\]\s*/g, '');
@@ -642,44 +659,33 @@ export default function EditorDashboard() {
 
                                             <div className="flex flex-col gap-4 mt-4">
                                               {m.feedback_admin && (
-                                                <div className={`${theme === 'dark' ? 'bg-blue-950/40 border-blue-900/50' : 'bg-blue-50 border-blue-100'} p-4 rounded-xl border overflow-hidden shadow-sm`}>
-                                                  <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} mb-2 flex items-center gap-2`}><MessageSquare size={12} /> Instrução Admin:</p>
-                                                  <p className={`${theme === 'dark' ? 'text-blue-100' : 'text-blue-900'} font-medium whitespace-normal text-sm`}>{renderTextWithLinks(m.feedback_admin)}</p>
-                                                </div>
+                                                <CollapsibleInstruction
+                                                  theme={theme}
+                                                  isLong={m.feedback_admin.length > 200}
+                                                  title="Instrução Admin:"
+                                                  icon={MessageSquare}
+                                                  colorClass={theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}
+                                                  borderClass={theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'}
+                                                  bgClass={theme === 'dark' ? 'bg-blue-950/40' : 'bg-blue-50'}
+                                                  textClass={theme === 'dark' ? 'text-blue-100' : 'text-blue-900'}
+                                                >
+                                                  {renderTextWithLinks(m.feedback_admin)}
+                                                </CollapsibleInstruction>
                                               )}
 
                                               {m.feedback && (
-                                                <div className={`${theme === 'dark' ? 'bg-red-950/40 border-red-900/50' : 'bg-red-50 border-red-100'} p-4 rounded-xl border overflow-hidden min-w-0 shadow-sm`}>
-                                                  <p className={`text-[9px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} mb-2 flex items-center gap-2`}><AlertCircle size={12} /> {m.status === 'ajustes' ? 'Cliente Pediu Ajuste:' : 'Detalhe do Problema:'}</p>
-                                                  {(() => {
-                                                    const fbs = m.feedback.split('\n\n').filter(Boolean);
-                                                    const isFbExpanded = expandedFeedbacks.includes(m.id);
-                                                    return (
-                                                      <div className="min-w-0">
-                                                        <p className={`${theme === 'dark' ? 'text-red-100' : 'text-red-900'} font-medium whitespace-normal text-sm`}>{renderTextWithLinks(fbs[0])}</p>
-
-                                                        {fbs.length > 1 && (
-                                                          <div className="mt-3">
-                                                            <button onClick={() => toggleFeedback(m.id)} className={`flex items-center gap-1.5 text-[10px] ${theme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-800'} font-bold uppercase tracking-widest transition-colors`}>
-                                                              <ChevronDown size={14} className={`transition-transform duration-300 ${isFbExpanded ? 'rotate-180' : ''}`} />
-                                                              {isFbExpanded ? 'Ocultar Histórico' : `Ver Histórico Antigo (${fbs.length - 1})`}
-                                                            </button>
-
-                                                            {isFbExpanded && (
-                                                              <div className={`mt-3 pt-3 border-t ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} space-y-2 animate-in fade-in duration-300 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar`}>
-                                                                {fbs.slice(1).map((hist, idx) => (
-                                                                  <div key={idx} className={`p-2.5 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900/30 text-red-200/70' : 'bg-white border border-red-100 text-red-800'} text-xs font-medium whitespace-normal break-normal`}>
-                                                                    {renderTextWithLinks(hist)}
-                                                                  </div>
-                                                                ))}
-                                                              </div>
-                                                            )}
-                                                          </div>
-                                                        )}
-                                                      </div>
-                                                    );
-                                                  })()}
-                                                </div>
+                                                <CollapsibleInstruction
+                                                  theme={theme}
+                                                  isLong={m.feedback.length > 200}
+                                                  title={m.status === 'ajustes' ? 'Cliente Pediu Ajuste:' : 'Detalhe do Problema:'}
+                                                  icon={AlertCircle}
+                                                  colorClass={theme === 'dark' ? 'text-red-400' : 'text-red-600'}
+                                                  borderClass={theme === 'dark' ? 'border-red-900/50' : 'border-red-100'}
+                                                  bgClass={theme === 'dark' ? 'bg-red-950/40' : 'bg-red-50'}
+                                                  textClass={theme === 'dark' ? 'text-red-100' : 'text-red-900'}
+                                                >
+                                                  {renderTextWithLinks(m.feedback)}
+                                                </CollapsibleInstruction>
                                               )}
                                             </div>
                                           </div>
