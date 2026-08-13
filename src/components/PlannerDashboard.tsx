@@ -13,7 +13,7 @@ import useEmblaCarousel from 'embla-carousel-react'
 import {
   FolderDown, CheckSquare, LogOut, Users, FileText, X,
   ChevronDown, ChevronRight, AlertCircle, Clock, CheckCircle2, Eye, ExternalLink, Menu, Calendar,
-  Sun, Moon, Loader2, Eraser, ChevronUp
+  Sun, Moon, Loader2, Eraser, ChevronUp, MessageSquare
 } from 'lucide-react'
 import { cleanCopyOfPrefix } from '@/actions/google-mutations'
 import GoogleDrivePicker from './GoogleDrivePicker'
@@ -30,6 +30,23 @@ interface Material {
   tags?: string[];
   cliente?: { nome: string; };
 }
+
+const CollapsibleInstruction = ({ children, theme, isLong, title, icon: Icon, colorClass, borderClass, bgClass, textClass }: any) => {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={`${bgClass} border ${borderClass} p-4 rounded-xl shadow-sm flex flex-col mb-4`}>
+      <p className={`text-[9px] font-black uppercase tracking-widest ${colorClass} mb-2 flex items-center gap-2`}><Icon size={12} /> {title}</p>
+      <div className={`${textClass} font-medium whitespace-pre-wrap text-sm break-words ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
+        {children}
+      </div>
+      {isLong && (
+        <button onClick={() => setExpanded(!expanded)} className="mt-2 self-start text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors">
+          {expanded ? 'Ver Menos' : 'Ver Mais'}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const getEmbedUrl = (url: string) => {
   if (url.includes('drive.google.com')) {
@@ -681,11 +698,25 @@ export default function DecupadorDashboard() {
                                         )}
                                       </div>
 
+                                      {m.feedback_admin && (
+                                        <CollapsibleInstruction
+                                          theme={theme}
+                                          isLong={m.feedback_admin.length > 200}
+                                          title="Instrução Admin:"
+                                          icon={MessageSquare}
+                                          colorClass={theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}
+                                          borderClass={theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'}
+                                          bgClass={theme === 'dark' ? 'bg-blue-950/40' : 'bg-blue-50'}
+                                          textClass={theme === 'dark' ? 'text-blue-100' : 'text-blue-900'}
+                                        >
+                                          {renderTextWithLinks(m.feedback_admin)}
+                                        </CollapsibleInstruction>
+                                      )}
+
                                       {/* 🔥 CORREÇÃO: e overflow-hidden para evitar o bug da palavra infinita */}
                                       <div className={`w-full ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'} p-4 md:p-5 rounded-2xl border mb-6 overflow-hidden min-w-0`}>
-                                        <p className={`text-[10px] font-black uppercase tracking-widest ${textSecundario} mb-3 flex items-center gap-2`}><FileText size={14} /> Instrução / Roteiro:</p>
+                                        <p className={`text-[10px] font-black uppercase tracking-widest ${textSecundario} mb-3 flex items-center gap-2`}><FileText size={14} /> Roteiro de Apoio:</p>
                                         <div className={`text-sm ${textPrincipal} whitespace-normal leading-relaxed word-wrap-safe p-4 bg-black/10 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/5 font-medium shadow-inner min-h-[100px]`}>
-                                          {m.feedback_admin && <span className="text-blue-500 font-bold block mb-2">[ADMIN]: {renderTextWithLinks(m.feedback_admin)}</span>}
                                           {m.roteiro ? <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_p]:m-0 [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`} dangerouslySetInnerHTML={{ __html: linkifyHtml(((m.roteiro?.includes('<p>') || m.roteiro?.includes('<br>')) ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')).replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ')) }} /> : 'Nenhum roteiro fornecido.'}
                                         </div>
                                       </div>
