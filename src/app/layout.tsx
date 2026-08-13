@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Open_Sans } from 'next/font/google'
 import '@/app/globals.css'
+import 'react-quill-new/dist/quill.snow.css';
 
 // 1. Configuração da Fonte (Adicionamos os pesos para os textos em Negrito e Black funcionarem perfeitamente)
 const openSans = Open_Sans({ 
