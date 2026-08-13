@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       if (material.cliente?.telefone && material.cliente?.token_magico) {
         // Formatar Link do Portal
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-        const linkPortal = `${baseUrl}/portal/${material.cliente.token_magico}`;
+        const linkPortal = `${baseUrl}/portal/${material.cliente.token_magico}?tab=videos`;
         
         // Formatar Mensagem
         const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui: ${linkPortal}`;

@@ -877,7 +877,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success("Enviado para aprovação do cliente!");
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
+        const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}?tab=roteiros`;
         const textoMensagem = `Olá! O roteiro do material "${material.titulo}" já está disponível para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui: ${linkPortal}`;
 
         const groupId = material.cliente.whatsapp_group_id;
@@ -900,7 +900,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success("Roteiro devolvido para o cliente!");
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
+        const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}?tab=roteiros`;
         const textoMensagem = `Olá! O roteiro do material "${material.titulo}" foi revisado e ajustado conforme as suas pontuações. 📝✨\n\nPor favor, acesse o portal para reanalisar: ${linkPortal}`;
 
         const groupId = material.cliente.whatsapp_group_id;
@@ -924,7 +924,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       toast.success(`${ids.length} roteiros enviados para aprovação do cliente!`);
       const primeiroItem = itens[0];
       if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}`;
+        const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}?tab=roteiros`;
         const textoMensagem = `Olá! Novos roteiros foram disponibilizados para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui: ${linkPortal}`;
 
         const groupId = primeiroItem.cliente.whatsapp_group_id;
@@ -947,7 +947,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       toast.success(`${ids.length} materiais aprovados para o cliente!`);
       const primeiroItem = itens[0];
       if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}`;
+        const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}?tab=roteiros`;
         const textoMensagem = `Olá! Novas edições/designs foram concluídos e estão disponíveis para a sua avaliação. 🎉\n\nAcesse o seu portal aqui: ${linkPortal}`;
 
         const groupId = primeiroItem.cliente.whatsapp_group_id;
@@ -965,7 +965,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const handleAvisarCicloWhatsApp = async (cliente?: Cliente, cicloLabel?: string) => {
     if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
-    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
+    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}?tab=videos`;
     const textoMensagem = `Olá! Temos atualizações nos seus materiais do ${cicloLabel}. 🚀\n\nAcesse seu portal para verificar: ${linkPortal}`;
 
     toast.info("Avisando cliente no WhatsApp...");
@@ -981,7 +981,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const handleAvisarPortalWhatsApp = async (cliente: Cliente) => {
     if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
-    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}`;
+    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}?tab=videos`;
     const textoMensagem = `Olá! O seu portal de acompanhamento já está disponível. 🚀\n\nAcesse aqui para ver os materiais: ${linkPortal}`;
 
     toast.info("Avisando cliente no WhatsApp...");
@@ -1008,7 +1008,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }).eq('id', id)
     toast.success("Aprovado! A abrir o WhatsApp do cliente...");
     if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-      const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}`;
+      const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}?tab=videos`;
       const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui: ${linkPortal}`;
 
       const groupId = material.cliente.whatsapp_group_id;

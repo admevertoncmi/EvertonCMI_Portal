@@ -89,6 +89,16 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const [activeTab, setActiveTab] = useState<'videos' | 'roteiros'>('roteiros')
   const [mediaTab, setMediaTab] = useState<'video' | 'capa'>('video')
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tabParam = searchParams.get('tab');
+      if (tabParam === 'videos' || tabParam === 'roteiros') {
+        setActiveTab(tabParam as 'videos' | 'roteiros');
+      }
+    }
+  }, []);
+
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null)
   const [isRequestingAjuste, setIsRequestingAjuste] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
