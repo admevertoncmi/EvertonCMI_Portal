@@ -806,7 +806,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success(resolveType === 'planner' ? "Devolvido ao Decupador!" : "Reenviado à Produção!");
 
-      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n**${selectedMaterial.cliente?.nome}**\n${selectedMaterial.titulo}\n\n📝 INSTRUÇÃO: ${resolveText.toUpperCase()}`;
+      const msgResolvido = `🔔 PROBLEMA RESOLVIDO\n\n**${selectedMaterial.cliente?.nome}**\n${selectedMaterial.titulo}\n\n📝 INSTRUÇÃO: ${resolveText}`;
 
       if (resolveType === 'planner') {
         const p = membros.find(x => x.id === selectedMaterial.planner_id);
@@ -1217,7 +1217,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       const tituloOrQuantidade = selectedItemsToDelegate.length > 1 ? `🔢 ${selectedItemsToDelegate.length} MATERIAIS` : (firstItem?.titulo || 'DIVERSOS');
 
-      const instrucaoMsg = adminFeedback ? `\n\n📝 INSTRUÇÃO: ${adminFeedback.toUpperCase()}` : '';
+      const instrucaoMsg = adminFeedback ? `\n\n📝 INSTRUÇÃO:\n${adminFeedback}` : '';
 
       if (delegationType === 'planner') {
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
