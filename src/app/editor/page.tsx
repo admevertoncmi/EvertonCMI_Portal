@@ -3,7 +3,7 @@ import { isDateLate, isTaskLate } from "@/lib/utils";
 
 
 import { useRouter } from 'next/navigation'
-import { isMaterialAtrasado, linkifyHtml } from '@/lib/utils'
+import { isMaterialAtrasado, linkifyHtml, formatRichText } from '@/lib/utils'
 import { createClient } from '@/lib/supabase-browser'
 import { Toaster, toast } from 'sonner'
 import { getDriveFolderFiles } from '@/actions/google'
@@ -864,7 +864,7 @@ export default function EditorDashboard() {
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${bgSecundario} hover:${bgPrincipal} ${textSecundario} hover:${textPrincipal} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className="p-5 md:p-8 overflow-y-auto">
-              <div className={`ql-editor !p-0 max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`} dangerouslySetInnerHTML={{ __html: linkifyHtml(((previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro.replace(/\n/g, '') : (previewRoteiro.roteiro || "Roteiro não preenchido.").replace(/\n/g, '<br/>')).replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ')) }} />
+              <div className={`ql-editor !p-0 max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === 'dark' ? 'text-zinc-200' : 'text-zinc-800'}`} dangerouslySetInnerHTML={{ __html: formatRichText(previewRoteiro.roteiro, "Roteiro não preenchido.") }} />
             </div>
           </div>
         </div>

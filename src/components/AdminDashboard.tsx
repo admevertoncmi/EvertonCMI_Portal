@@ -1,5 +1,5 @@
 "use client"
-import { linkifyHtml } from '@/lib/utils';
+import { linkifyHtml, formatRichText } from '@/lib/utils';
 import { isDateLate, isTaskLate } from "@/lib/utils";
 
 
@@ -543,7 +543,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       let matchFilter = true;
       if (activeFilter === 'urgentes') {
-        matchFilter = !!m.data_limite && new Date(m.data_limite) < new Date();
+        matchFilter = !!m.data_limite && isDateLate(m.data_limite);
       } else if (activeFilter === 'ajustes') {
         matchFilter = m.status === 'ajustes';
       } else if (activeFilter === 'pendentes') {
@@ -1159,17 +1159,32 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setLoading(true);
 
     const isAjusteDelegation = materiais.find(m => selectedItemsToDelegate.includes(m.id))?.status === 'ajustes';
-    const updateData: any = delegationType === 'planner'
-      ? { planner_id: selectedPlannerId, status: 'planejamento', feedback_admin: adminFeedback, data_limite: delegationDeadline || null }
-      : {
-        editor_id: selectedEditorId || null,
-        designer_id: selectedDesignerId || null,
-        status: isAjusteDelegation ? 'ajustes' : 'em_edicao',
-        video_entregue: !selectedEditorId,
-        design_entregue: !selectedDesignerId,
+    let updateData: any = {};
+    
+    if (delegationType === 'planner') {
+      updateData = {
+        planner_id: selectedPlannerId,
+        status: 'planejamento',
         feedback_admin: adminFeedback,
         data_limite: delegationDeadline || null
       };
+    } else {
+      updateData = {
+        status: isAjusteDelegation ? 'ajustes' : 'em_edicao',
+        feedback_admin: adminFeedback,
+        data_limite: delegationDeadline || null
+      };
+      
+      if (selectedEditorId) {
+        updateData.editor_id = selectedEditorId;
+        updateData.video_entregue = false;
+      }
+      
+      if (selectedDesignerId) {
+        updateData.designer_id = selectedDesignerId;
+        updateData.design_entregue = false;
+      }
+    }
 
     if (delegationType === 'planner' && newLinkBruto) {
       updateData.link_bruto = newLinkBruto;
@@ -1214,24 +1229,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       const firstItem = materiais.find(m => selectedItemsToDelegate.includes(m.id));
       const clienteNome = firstItem?.cliente?.nome || 'CLIENTE NÃO IDENTIFICADO';
+      const instrucaoMsg = adminFeedback ? `\n\n*📝 INSTRUÇÃO:*\n${adminFeedback}` : '';
 
       const tituloOrQuantidade = selectedItemsToDelegate.length > 1 ? `🔢 ${selectedItemsToDelegate.length} MATERIAIS` : (firstItem?.titulo || 'DIVERSOS');
 
-      const instrucaoMsg = adminFeedback ? `\n\n📝 INSTRUÇÃO:\n${adminFeedback}` : '';
-
       if (delegationType === 'planner') {
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
-        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n${clienteNome}\n${tituloOrQuantidade}${instrucaoMsg}`;
+        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsg}`;
         await notificarClickUpChat(msgPlanner, (mPlanner as any)?.telegram_thread_id);
       } else {
         if (selectedEditorId) {
           const mEditor = membros.find(m => m.id === selectedEditorId);
-          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n${clienteNome}\n${tituloOrQuantidade}${instrucaoMsg}`;
+          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsg}`;
           await notificarClickUpChat(msgEditor, (mEditor as any)?.telegram_thread_id);
         }
         if (selectedDesignerId) {
           const mDesigner = membros.find(m => m.id === selectedDesignerId);
-          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n${clienteNome}\n${tituloOrQuantidade}${instrucaoMsg}`;
+          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsg}`;
           await notificarClickUpChat(msgDesigner, (mDesigner as any)?.telegram_thread_id);
         }
       }
@@ -1723,8 +1737,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-pink-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
                                               <div className="flex-1 w-full text-left">
                                                 <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
-                                                {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                                  <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                                {m.data_limite && isDateLate(m.data_limite) && (
+                                                  <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                                 )}
                                                 <div className="flex items-center gap-1 group/title">
                                                   <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -1820,8 +1834,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-orange-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
                                               <div className="flex-1 min-w-0 w-full text-left">
                                                 <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
-                                                {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                                  <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                                {m.data_limite && isDateLate(m.data_limite) && (
+                                                  <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                                 )}
                                                 <div className="flex items-center gap-1 group/title">
                                                   <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -1954,8 +1968,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
                                       <div className="flex-1 min-w-0 w-full">
                                         <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
-                                        {m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
-                                          <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                        {m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
+                                          <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                         )}
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -2041,8 +2055,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-indigo-900/50' : 'hover:border-indigo-200'} transition-colors`}>
                                       <div className="flex-1 w-full text-left">
                                         <span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span>
-                                        {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                          <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                        {m.data_limite && isDateLate(m.data_limite) && (
+                                          <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                         )}
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -2179,7 +2193,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           {isPartial ? 'Entrega Parcial' : 'Edição Pronta'}
                                         </span>
                                         {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                          <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                          <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                         )}
                                         <div className="flex flex-wrap items-center gap-2 mb-1">
                                           <div className="flex items-center gap-1 group/title">
@@ -2299,7 +2313,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         {(!m.link_drive && !m.link_capa) ? '🔔 Ajuste Planejamento' : '🎬 Ajuste Produção'}
                                       </span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">🔥 Atrasado</span>
+                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                       )}
                                       <div className="flex items-center gap-1 group/title min-w-0">
                                         <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -3247,7 +3261,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
-                      {materiais.filter(m => m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).map(m => (
+                      {materiais.filter(m => m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).map(m => (
                         <tr key={m.id} className="hover:bg-zinc-50/50 transition-colors group">
                           <td className="p-6">
                             <p className="font-black text-xs uppercase">{m.titulo}</p>
@@ -3274,7 +3288,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       ))}
                     </tbody>
                   </table>
-                  {materiais.filter(m => m.data_limite && new Date(m.data_limite) < new Date() && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).length === 0 && (
+                  {materiais.filter(m => m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).length === 0 && (
                     <div className="py-20 text-center space-y-4">
                       <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto border border-green-100 shadow-sm">
                         <CheckCircle2 size={32} />
@@ -3623,7 +3637,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg overflow-y-auto`}>
-                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`ql-editor !p-0 max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === "dark" ? "text-zinc-200" : "text-zinc-800"}`} dangerouslySetInnerHTML={{ __html: linkifyHtml(((previewRoteiro.roteiro?.includes('<p>') || previewRoteiro.roteiro?.includes('<br>')) ? previewRoteiro.roteiro.replace(/\n/g, '') : (previewRoteiro.roteiro || "Vazio.").replace(/\n/g, '<br/>')).replace(/\u00A0/g, ' ').replace(/&nbsp;/g, ' ')) }} />
+                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`ql-editor !p-0 max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === "dark" ? "text-zinc-200" : "text-zinc-800"}`} dangerouslySetInnerHTML={{ __html: formatRichText(previewRoteiro.roteiro) }} />
               </div>
             </div>
           </div>
@@ -3893,7 +3907,70 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </div>
         </div>
       )}
-      {isApproveConfirmModalOpen && materialToApproveFinal && (
+      
+      {batchApprovalData && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
+            <div className="flex justify-between items-center shrink-0">
+              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+                <Clock size={24} className="text-purple-500" /> Aprovar Lote
+              </h3>
+              <button onClick={() => setBatchApprovalData(null)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 w-full overflow-hidden">
+              <p className={`${tc.textMuted} text-sm font-medium leading-relaxed px-1`}>
+                Agendar aprovação do lote <strong className={`${tc.textMain} break-normal`}>{batchApprovalData.cicloLabel}</strong>:
+              </p>
+
+              <div className="relative group w-full" onClick={(e) => {
+                const input = e.currentTarget.querySelector('input');
+                if (input && 'showPicker' in input) {
+                  try { (input as any).showPicker(); } catch (e) { }
+                }
+              }}>
+                <input
+                  type="datetime-local"
+                  className={`w-full py-3.5 px-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-purple-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] appearance-none box-border`}
+                  style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                  value={batchScheduleDate}
+                  onChange={e => setBatchScheduleDate(e.target.value)}
+                />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-purple-500 transition-colors pointer-events-none" size={18} />
+              </div>
+
+              <div className={`${theme === 'dark' ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50 border-purple-100'} border p-4 rounded-2xl`}>
+                <p className="text-purple-600 text-[10px] md:text-xs font-bold flex gap-2 leading-relaxed">
+                  <Activity size={16} className="shrink-0" />
+                  Deixe a data em branco para aprovar imediatamente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
+              <button
+                onClick={() => setBatchApprovalData(null)}
+                className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}
+              >
+                Voltar
+              </button>
+              <button
+                onClick={() => {
+                  handleAprovarLoteParaCliente(batchApprovalData.itens, batchScheduleDate);
+                  setBatchApprovalData(null);
+                }}
+                disabled={loading}
+                className="w-full sm:flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-purple-500/20 disabled:opacity-50"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+{isApproveConfirmModalOpen && materialToApproveFinal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
@@ -4151,6 +4228,70 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {batchApprovalData && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-300">
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
+            <div className="flex justify-between items-center shrink-0">
+              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+                <Clock size={24} className="text-purple-500" /> Aprovar Lote
+              </h3>
+              <button onClick={() => setBatchApprovalData(null)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 w-full overflow-hidden">
+              <p className={`${tc.textMuted} text-sm font-medium leading-relaxed px-1`}>
+                Agendar aprovação do lote <strong className={`${tc.textMain} break-normal`}>{batchApprovalData.cicloLabel}</strong>:
+              </p>
+
+              <div className="relative group w-full" onClick={(e) => {
+                const input = e.currentTarget.querySelector('input');
+                if (input && 'showPicker' in input) {
+                  try { (input as any).showPicker(); } catch (e) { }
+                }
+              }}>
+                <input
+                  type="datetime-local"
+                  className={`w-full py-3.5 px-4 pr-12 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-purple-500 transition-all shadow-inner cursor-pointer [color-scheme:dark] appearance-none box-border`}
+                  style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
+                  value={batchScheduleDate}
+                  onChange={e => setBatchScheduleDate(e.target.value)}
+                />
+                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-purple-500 transition-colors pointer-events-none" size={18} />
+              </div>
+
+              <div className={`${theme === 'dark' ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50 border-purple-100'} border p-4 rounded-2xl`}>
+                <p className="text-purple-600 text-[10px] md:text-xs font-bold flex gap-2 leading-relaxed">
+                  <Activity size={16} className="shrink-0" />
+                  Deixe a data em branco para aprovar imediatamente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
+              <button
+                onClick={() => setBatchApprovalData(null)}
+                className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}
+              >
+                Voltar
+              </button>
+              <button
+                onClick={() => {
+                  handleAprovarLoteParaCliente(batchApprovalData.itens, batchScheduleDate);
+                  setBatchApprovalData(null);
+                }}
+                disabled={loading}
+                className="w-full sm:flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-purple-500/20 disabled:opacity-50"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
+              </button>
             </div>
           </div>
         </div>
