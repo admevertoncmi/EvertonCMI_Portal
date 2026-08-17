@@ -143,9 +143,9 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
   const notificacoesAjustes = useMemo(() => materiais.filter(m => m.status === 'ajustes'), [materiais]);
   const filaMateriaisAprovados = useMemo(() => materiais.filter(m => (m.status === 'aprovado' || m.status === 'post_aprovado') && (m.link_drive || m.link_capa)), [materiais]);
 
-  const editores = useMemo(() => membros.filter(m => m.role === 'editor' || m.role === 'admin'), [membros]);
-  const designers = useMemo(() => membros.filter(m => m.role === 'designer' || m.role === 'admin'), [membros]);
-  const planners = useMemo(() => membros.filter(m => m.role === 'planner' || m.role === 'admin'), [membros]);
+  const editores = useMemo(() => membros.filter(m => m.role === 'editor'), [membros]);
+  const designers = useMemo(() => membros.filter(m => m.role === 'designer'), [membros]);
+  const planners = useMemo(() => membros.filter(m => m.role === 'planner'), [membros]);
 
   return {
     clientes, setClientes,

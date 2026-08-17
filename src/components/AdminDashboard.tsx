@@ -138,6 +138,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   const [useIframeFallback, setUseIframeFallback] = useState<Record<string, boolean>>({})
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null))
+  }, [])
 
   useEffect(() => {
     const storedTheme = localStorage.getItem('adminTheme') as 'dark' | 'light' | null;
@@ -787,7 +792,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
     const updatePayload: any = {
       status: newStatus,
-      feedback_admin: resolveText,
+      feedback_admin: currentUserId && resolveText ? `${resolveText}\n\n[ID:${currentUserId}]` : resolveText,
       link_bruto: resolveLinkBruto,
       feedback: null
     };
@@ -940,23 +945,34 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     } else { toast.error("Erro ao enviar lote."); } setLoading(false);
   }
 
-  const handleAprovarLoteParaCliente = async (itens: Material[]) => {
+  const handleAprovarLoteParaCliente = async (itens: Material[], dateString?: string) => {
     setLoading(true); const ids = itens.map(i => i.id);
-    const { error } = await supabase.from('materiais').update({ status: 'pendente', feedback_admin: null, editor_id: null, designer_id: null }).in('id', ids);
+    const { error } = await supabase.from('materiais').update({ 
+      status: 'pendente', 
+      feedback_admin: null, 
+      editor_id: null, 
+      designer_id: null,
+      agendado_para: dateString ? dateString : null,
+      wpp_enviado: dateString ? false : true
+    }).in('id', ids);
     if (!error) {
-      toast.success(`${ids.length} materiais aprovados para o cliente!`);
-      const primeiroItem = itens[0];
-      if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}?tab=roteiros`;
-        const textoMensagem = `Olá! Novas edições/designs foram concluídos e estão disponíveis para a sua avaliação. 🎉\n\nAcesse o seu portal aqui: ${linkPortal}`;
-
-        const groupId = primeiroItem.cliente.whatsapp_group_id;
-        if (groupId) {
-          toast.info("Enviando aviso automático para o grupo...");
-          notificarWhatsApp(textoMensagem, groupId);
-        } else {
-          toast.info("Enviando aviso automático via WhatsApp...");
-          notificarWhatsApp(textoMensagem, primeiroItem.cliente.telefone.replace(/\D/g, ''));
+      if (dateString) {
+        toast.success(`${ids.length} materiais agendados para aprovação!`);
+      } else {
+        toast.success(`${ids.length} materiais aprovados para o cliente!`);
+        const primeiroItem = itens[0];
+        if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
+          const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}?tab=roteiros`;
+          const textoMensagem = `Olá! Novas edições/designs foram concluídos e estão disponíveis para a sua avaliação. 🎉\n\nAcesse o seu portal aqui: ${linkPortal}`;
+  
+          const groupId = primeiroItem.cliente.whatsapp_group_id;
+          if (groupId) {
+            toast.info("Enviando aviso automático para o grupo...");
+            notificarWhatsApp(textoMensagem, groupId);
+          } else {
+            toast.info("Enviando aviso automático via WhatsApp...");
+            notificarWhatsApp(textoMensagem, primeiroItem.cliente.telefone.replace(/\D/g, ''));
+          }
         }
       }
       loadData();
@@ -1165,13 +1181,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       updateData = {
         planner_id: selectedPlannerId,
         status: 'planejamento',
-        feedback_admin: adminFeedback,
+        feedback_admin: currentUserId && adminFeedback ? `${adminFeedback}\n\n[ID:${currentUserId}]` : adminFeedback,
         data_limite: delegationDeadline || null
       };
     } else {
       updateData = {
         status: isAjusteDelegation ? 'ajustes' : 'em_edicao',
-        feedback_admin: adminFeedback,
+        feedback_admin: currentUserId && adminFeedback ? `${adminFeedback}\n\n[ID:${currentUserId}]` : adminFeedback,
         data_limite: delegationDeadline || null
       };
       
@@ -1402,7 +1418,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const handleSaveInstruction = async () => {
     if (!materialToEditInstruction) return;
     setLoading(true);
-    const { error } = await supabase.from('materiais').update({ feedback_admin: instructionEditText }).eq('id', materialToEditInstruction.id);
+    const instructionToSave = currentUserId && instructionEditText ? `${instructionEditText}\n\n[ID:${currentUserId}]` : instructionEditText;
+    const { error } = await supabase.from('materiais').update({ feedback_admin: instructionToSave }).eq('id', materialToEditInstruction.id);
     if (!error) {
       toast.success("Instrução atualizada!");
       loadData();
@@ -1734,7 +1751,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       {data.itens.map((m: Material, idx: number) => (
                                         <Draggable key={m.id} draggableId={m.id} index={idx}>
                                           {(provided, snapshot) => (
-                                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-pink-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
+                                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-pink-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
                                               <div className="flex-1 w-full text-left">
                                                 <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
                                                 {m.data_limite && isDateLate(m.data_limite) && (
@@ -1831,7 +1848,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       {data.itens.map((m: Material, idx: number) => (
                                         <Draggable key={m.id} draggableId={m.id} index={idx}>
                                           {(provided, snapshot) => (
-                                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-orange-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
+                                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-orange-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
                                               <div className="flex-1 min-w-0 w-full text-left">
                                                 <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
                                                 {m.data_limite && isDateLate(m.data_limite) && (
@@ -1909,7 +1926,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} pb-2`}><Calendar size={14} className="text-blue-500" /><h4 className="font-black text-xs text-blue-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
-                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
+                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
                                       <div className="flex-1 min-w-0 w-full"><div className="flex flex-col items-start gap-1 mb-2">
   <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : (m.planner_id ? `Delegado para: ${membros.find(mb => mb.id === m.planner_id)?.nome || 'Decupador'}` : 'Com o Decupador')}</span>
   {m.planner_id && <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoDecupagem(m); }} className="text-[9px] font-bold text-red-500 hover:underline flex items-center gap-1"><X size={10}/> Cancelar Delegação</button>}
@@ -1965,7 +1982,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-500" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
-                                    <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
+                                    <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
                                       <div className="flex-1 min-w-0 w-full">
                                         <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
                                         {m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
@@ -2052,7 +2069,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 </div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
-                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4 ${theme === 'dark' ? 'hover:border-indigo-900/50' : 'hover:border-indigo-200'} transition-colors`}>
+                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-indigo-900/50' : 'hover:border-indigo-200'} transition-colors`}>
                                       <div className="flex-1 w-full text-left">
                                         <span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span>
                                         {m.data_limite && isDateLate(m.data_limite) && (
@@ -2130,7 +2147,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <div className="flex justify-between items-center"><h3 className="text-sm font-black uppercase tracking-widest">Roteiros ({loteItens.length})</h3><button type="button" onClick={adicionarItemLote} className={`px-4 py-2 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'} rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-colors`}><Plus size={14} /> Adicionar Item</button></div>
                   <div className="space-y-4">
                     {loteItens.map((item, index) => (
-                      <div key={item.id} className={`p-4 md:p-6 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl shadow-sm flex flex-col md:flex-row items-start md:items-center gap-4 relative group`}>
+                      <div key={item.id} className={`p-4 md:p-6 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl shadow-sm flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 relative group`}>
                         <div className="absolute -left-2 top-4 w-6 h-6 bg-[#A25431] text-white rounded-full flex items-center justify-center text-[10px] font-black shadow-md">{index + 1}</div>
                         <div className="w-full md:w-1/3 space-y-2 mt-4 md:mt-0"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest`}>Título</label><input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} rounded-xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="Ex: Reel 01" value={item.titulo} onChange={e => atualizarItemLote(item.id, 'titulo', e.target.value)} /></div>
                         <div className="w-full md:w-2/3 space-y-2">
@@ -2187,7 +2204,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                   const temDesigner = !!m.designer_id;
 
                                   return (
-                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col md:flex-row items-start md:items-center gap-4`}>
+                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4`}>
                                       <div className="flex-1 min-w-[200px] w-full">
                                         <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isPartial ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
                                           {isPartial ? 'Entrega Parcial' : 'Edição Pronta'}
@@ -2251,7 +2268,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         </div>
                                       </div>
 
-                                      <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap">
+                                      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full 2xl:w-auto">
                                         <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
@@ -2469,7 +2486,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} pb-2`}><Calendar size={14} className="text-green-500" /><h4 className="font-black text-xs text-green-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
-                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row items-start md:items-center gap-4 transition-colors`}>
+                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
                                     <div className="flex-1 min-w-[200px] w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
                                       <div className="flex items-center gap-1 group/title">
                                         <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -2502,7 +2519,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </div>
 )}
                                     </div>
-                                    <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto flex-wrap">
+                                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full 2xl:w-auto">
                                       <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
@@ -2804,7 +2821,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                   onEdit={(e: any) => {
                                                      e.stopPropagation();
                                                      setMaterialToEditInstruction(m);
-                                                     setInstructionEditText(m.feedback_admin || '');
+                                                     setInstructionEditText(m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '');
                                                      setIsEditInstructionModalOpen(true);
                                                   }}
                                                 >
@@ -3637,7 +3654,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
               <div className={`w-full h-full p-6 md:p-12 ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg overflow-y-auto`}>
-                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`ql-editor !p-0 max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === "dark" ? "text-zinc-200" : "text-zinc-800"}`} dangerouslySetInnerHTML={{ __html: formatRichText(previewRoteiro.roteiro) }} />
+                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`ql-editor roteiro-preview-content !p-0 max-w-none text-sm md:text-base font-medium whitespace-pre-wrap leading-relaxed [&_a]:cursor-pointer [&_a]:text-blue-500 [&_a]:hover:underline break-words ${theme === "dark" ? "text-zinc-200" : "text-zinc-800"}`} dangerouslySetInnerHTML={{ __html: formatRichText(previewRoteiro.roteiro) }} />
               </div>
             </div>
           </div>
@@ -4199,7 +4216,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       </div>
                       <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900/50">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-black text-[10px] uppercase text-blue-600 dark:text-blue-400">Instrução Interna</span>
+                          <span className="font-black text-[10px] uppercase text-blue-600 dark:text-blue-400">
+                            {(() => {
+                              const authorInfo = getAuthorInfo(timelineMaterial.feedback_admin);
+                              return authorInfo ? `Instrução de ${authorInfo.nome}` : 'Instrução Interna';
+                            })()}
+                          </span>
                         </div>
                         <p className="text-sm font-medium text-blue-900 dark:text-blue-200 whitespace-pre-wrap">{renderTextWithLinks(timelineMaterial.feedback_admin)}</p>
                       </div>

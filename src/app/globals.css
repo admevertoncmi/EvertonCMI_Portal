@@ -174,3 +174,21 @@
     overflow-wrap: break-word !important;
     hyphens: auto !important;
 }
+
+/* Override for Roteiro Preview Lists */
+.roteiro-preview-content ul {
+  margin-left: 1.5rem !important;
+  padding-left: 0.5rem !important;
+}
+.roteiro-preview-content ol {
+  margin-left: 1.5rem !important;
+  padding-left: 0.5rem !important;
+}
+.roteiro-preview-content ul > li {
+  display: list-item !important;
+  list-style-type: disc !important;
+}
+.roteiro-preview-content ol > li {
+  display: list-item !important;
+  list-style-type: decimal !important;
+}
