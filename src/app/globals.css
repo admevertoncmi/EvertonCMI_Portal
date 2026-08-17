@@ -192,3 +192,12 @@
   display: list-item !important;
   list-style-type: decimal !important;
 }
+
+
+/* Fix z-index for Google Drive Picker */
+.picker-dialog-bg {
+  z-index: 100000 !important;
+}
+.picker-dialog {
+  z-index: 100001 !important;
+}
