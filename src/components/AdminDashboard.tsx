@@ -139,18 +139,28 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   const [useIframeFallback, setUseIframeFallback] = useState<Record<string, boolean>>({})
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsedRaw, setIsSidebarCollapsedRaw] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const isSidebarCollapsed = isSidebarCollapsedRaw && !isMobile;
 
   useEffect(() => {
     const storedSidebar = localStorage.getItem('adminSidebarCollapsed');
     if (storedSidebar === 'true') {
-      setIsSidebarCollapsed(true);
+      setIsSidebarCollapsedRaw(true);
     }
   }, []);
 
   const toggleSidebar = () => {
-    const newVal = !isSidebarCollapsed;
-    setIsSidebarCollapsed(newVal);
+    const newVal = !isSidebarCollapsedRaw;
+    setIsSidebarCollapsedRaw(newVal);
     localStorage.setItem('adminSidebarCollapsed', newVal.toString());
   };
 
