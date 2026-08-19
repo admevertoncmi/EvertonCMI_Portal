@@ -32,7 +32,7 @@ import {
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
   ListTodo, FileText, LayoutList, Archive, Edit3, Tag, AlertCircle, Menu, Loader2, Activity, Settings,
   FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical, List
-, Save } from 'lucide-react'
+, Save, ChevronLeft } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
@@ -139,6 +139,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [theme, setTheme] = useState<'dark' | 'light'>('light')
   const [useIframeFallback, setUseIframeFallback] = useState<Record<string, boolean>>({})
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const storedSidebar = localStorage.getItem('adminSidebarCollapsed');
+    if (storedSidebar === 'true') {
+      setIsSidebarCollapsed(true);
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    const newVal = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newVal);
+    localStorage.setItem('adminSidebarCollapsed', newVal.toString());
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null))
@@ -1559,10 +1573,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const navItem = (id: any, label: string, icon: any, count?: number, badgeColor?: string) => (
     <button
       onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }}
-      className={`w-full flex items-center justify-between p-3 rounded-xl font-bold transition-all ${activeTab === id ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
+      className={`relative w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} p-3 rounded-xl font-bold transition-all ${activeTab === id ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
+      title={isSidebarCollapsed ? label : undefined}
     >
-      <span className="flex items-center gap-3 whitespace-nowrap text-[13px]">{icon} {label}</span>
-      {count && count > 0 ? <span className={`text-[10px] px-2 py-0.5 rounded-full font-black shrink-0 ml-2 ${activeTab === id ? 'bg-white text-[#A25431]' : badgeColor}`}>{count}</span> : null}
+      <span className={`flex items-center gap-3 whitespace-nowrap text-[13px] ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+        {icon} 
+        {!isSidebarCollapsed && label}
+      </span>
+      {!isSidebarCollapsed && count && count > 0 ? <span className={`text-[10px] px-2 py-0.5 rounded-full font-black shrink-0 ml-2 ${activeTab === id ? 'bg-white text-[#A25431]' : badgeColor}`}>{count}</span> : null}
+      {isSidebarCollapsed && count && count > 0 ? <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-[#212013]"></div> : null}
     </button>
   );
 
@@ -1614,15 +1633,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {/* SIDEBAR RESPONSIVA PADRONIZADA */}
-      <aside className={`fixed inset-y-0 left-0 w-72 md:w-[280px] bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none z-[9999] rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 ${isSidebarCollapsed ? 'w-72 md:w-[80px]' : 'w-72 md:w-[280px]'} bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none z-[9999] rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+
+        <button
+          onClick={toggleSidebar}
+          className="hidden md:flex absolute -right-3 top-10 bg-[#A25431] text-white p-1 rounded-full shadow-lg hover:bg-orange-600 transition-colors z-[10000]"
+        >
+          {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
 
         {/* CONTAINER DA LOGO - Ajustado para logo grande sem empurrar o menu */}
-        <div className="pt-8 safe-pt-aside pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
+        <div className={`pt-8 safe-pt-aside pb-4 ${isSidebarCollapsed ? 'px-2' : 'px-6'} flex flex-col items-center relative border-b border-white/5 transition-all`}>
           <img
-            src="/logo-light.png"
+            src={isSidebarCollapsed ? "/icon-192x192.png" : "/logo-light.png"}
             alt="Everton"
-            className="h-32 md:h-36 w-auto object-contain transition-transform duration-300"
-            style={{ marginBottom: '-10px' }}
+            className={`${isSidebarCollapsed ? 'h-10' : 'h-32 md:h-36'} w-auto object-contain transition-all duration-300`}
+            style={{ marginBottom: isSidebarCollapsed ? '0px' : '-10px' }}
+            onError={(e: any) => { if (isSidebarCollapsed) e.target.src = "/logo-light.png"; }}
           />
 
           <button
@@ -1633,10 +1660,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </button>
         </div>
 
-        <nav className="flex-1 px-4 mt-2 space-y-1 overflow-y-auto pb-4 custom-scrollbar">
-          <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 mt-4 opacity-70">
-            Fluxo de Trabalho
-          </p>
+        <nav className={`flex-1 ${isSidebarCollapsed ? 'px-2' : 'px-4'} mt-2 space-y-1 overflow-y-auto pb-4 custom-scrollbar transition-all`}>
+          {!isSidebarCollapsed && (
+            <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 mt-4 opacity-70">
+              Fluxo de Trabalho
+            </p>
+          )}
+          {isSidebarCollapsed && <div className="mt-4"></div>}
 
           <div className="space-y-1">
             {navItem('planejamento', 'Planejamento', <ListTodo size={20} />, (filaProducaoPronta.length + filaRoteirosAprovados.length + filaAnaliseRoteiro.length + filaProblemasDecupagem.length + filaEmDecupagem.length), 'bg-white/10 text-zinc-300')}
@@ -1647,28 +1677,30 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
           <div className="my-6 border-t border-white/5 mx-2"></div>
 
-          <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 opacity-70">
-            Gestão
-          </p>
+          {!isSidebarCollapsed && (
+            <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 opacity-70">
+              Gestão
+            </p>
+          )}
 
           <div className="space-y-1">
             {navItem('geral', 'Visão Geral', <LayoutDashboard size={20} />)}
             {navItem('cadastro-clientes', 'Cadastro do Cliente', <Users size={20} />)}
             {navItem('equipe', 'Equipe', <ShieldCheck size={20} />)}
             {navItem('relatorios', 'Relatórios', <Activity size={20} />)}
-          <button onClick={() => { setIsTagsModalOpen(true); setIsMobileMenuOpen(false); }} className={`w-full flex items-center justify-between p-3 rounded-xl font-bold transition-all text-zinc-400 hover:bg-white/5 hover:text-white`}>
-            <div className="flex items-center gap-3"><Tag size={20} /> <span className="text-sm">Tags</span></div>
-          </button>
+            <button onClick={() => { setIsTagsModalOpen(true); setIsMobileMenuOpen(false); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} p-3 rounded-xl font-bold transition-all text-zinc-400 hover:bg-white/5 hover:text-white`} title={isSidebarCollapsed ? "Tags" : undefined}>
+              <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}><Tag size={20} /> {!isSidebarCollapsed && <span className="text-sm">Tags</span>}</div>
+            </button>
           </div>
         </nav>
 
         {/* RODAPÉ DA SIDEBAR */}
-        <div className="p-4 border-t border-white/5 flex flex-col gap-2 bg-[#1a190f]">
-          <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-3 text-yellow-500 font-bold hover:bg-white/5 rounded-xl transition-all text-sm">
-            {theme === 'dark' ? <><Sun size={20} /> Modo Claro</> : <><Moon size={20} /> Modo Escuro</>}
+        <div className={`p-4 border-t border-white/5 flex flex-col gap-2 bg-[#1a190f] ${isSidebarCollapsed ? 'items-center' : ''}`}>
+          <button onClick={toggleTheme} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 p-3 text-yellow-500 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? (theme === 'dark' ? "Modo Claro" : "Modo Escuro") : undefined}>
+            {theme === 'dark' ? <><Sun size={20} /> {!isSidebarCollapsed && "Modo Claro"}</> : <><Moon size={20} /> {!isSidebarCollapsed && "Modo Escuro"}</>}
           </button>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} className="w-full flex items-center gap-3 p-3 text-red-400 font-bold hover:bg-white/5 rounded-xl transition-all text-sm">
-            <LogOut size={20} /> Sair
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 p-3 text-red-400 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? "Sair" : undefined}>
+            <LogOut size={20} /> {!isSidebarCollapsed && "Sair"}
           </button>
         </div>
       </aside>
@@ -2022,9 +2054,25 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           const author = getAuthorInfo(m.feedback);
                                           if (!author) return null;
                                           return (
-                                            <div className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200'} border`}>
-                                              <Users size={12} className="opacity-60" />
-                                              <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span> ({author.role})</span>
+                                            <div className="mt-3 flex flex-col gap-2 w-full">
+                                              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200'} border self-start`}>
+                                                <Users size={12} className="opacity-60" />
+                                                <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span> ({author.role})</span>
+                                              </div>
+                                              <div className={`p-3 border rounded-xl ${theme === 'dark' ? 'bg-red-900/20 border-red-900/50' : 'bg-red-50/50 border-red-100'}`}>
+                                                {(() => {
+                                                  const feedbacks = m.feedback ? m.feedback.split('\n\n').map((f: string) => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
+                                                  return feedbacks.length > 0 ? (
+                                                    <div className={`text-[10px] font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} whitespace-pre-wrap flex flex-col gap-2`}>
+                                                      {feedbacks.map((fb: string, idx: number) => (
+                                                        <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-red-200 dark:border-red-900/50' : ''}>
+                                                          {renderTextWithLinks(fb)}
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                  ) : <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Motivo não informado.</span>;
+                                                })()}
+                                              </div>
                                             </div>
                                           );
                                         })()}
@@ -2742,8 +2790,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
                                                     {...provided.dragHandleProps}
-                                                    className={`flex flex-col md:flex-row items-start md:items-center justify-between ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors mb-2`}
+                                                    className={`flex flex-col ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors mb-2`}
                                                   >
+                                                    <div className="flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between w-full gap-4">
                                             <div className="flex-1 w-full">
                                               <div className="flex items-center gap-2 flex-wrap">
                                                 <div className="flex items-center gap-1 group/title">
@@ -2813,25 +2862,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 {actionLoading === m.id ? <Loader2 size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 animate-spin ${textSecundario}`} /> : <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${getStatusColor(m.status).split(' ')[1]}`} />}
                                               </div>
 
-                                              {m.feedback_admin && (
-                                                <CollapsibleInstruction
-                                                  theme={theme}
-                                                  textSecundario={textSecundario}
-                                                  isLong={m.feedback_admin.length > 200}
-                                                  onEdit={(e: any) => {
-                                                     e.stopPropagation();
-                                                     setMaterialToEditInstruction(m);
-                                                     setInstructionEditText(m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '');
-                                                     setIsEditInstructionModalOpen(true);
-                                                  }}
-                                                >
-                                                  {renderTextWithLinks(m.feedback_admin)}
-                                                </CollapsibleInstruction>
-                                              )}
-
                                             </div>
 
-                                            <div className={`flex items-center gap-2 flex-wrap md:opacity-0 md:group-hover/item:opacity-100 transition-all pt-2 md:pt-0 border-t md:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 md:mt-0 w-full md:w-auto shrink-0`}>
+                                            <div className={`flex items-center gap-2 flex-wrap 2xl:opacity-0 2xl:group-hover/item:opacity-100 transition-all pt-2 2xl:pt-0 border-t 2xl:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 2xl:mt-0 w-full 2xl:w-auto shrink-0`}>
+                                              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full 2xl:w-auto">
                                               {m.status === 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'pendente')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Restaurar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}</button>)}
                                               {m.status === 'revisao' && (<button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Aprovar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}</button>)}
                                               {m.status === 'ajustes' && (<button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:bg-red-600 hover:text-white' : 'text-red-600 bg-red-50 hover:bg-red-600 hover:text-white'} rounded-lg transition-colors`} title="Resolver Problema / Devolver"><AlertCircle size={16} /></button>)}
@@ -2861,7 +2895,28 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               <button onClick={() => { setSelectedMaterial(m); setIsVersionModalOpen(true); }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 hover:bg-blue-600 hover:text-white' : 'text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white'} rounded-lg transition-colors`} title="Atualizar Link (Entrega Final)"><UploadCloud size={16} /></button>
                                               {m.status !== 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'concluido')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-500 bg-zinc-800 hover:text-amber-400 hover:bg-amber-900/30' : 'text-zinc-400 bg-zinc-50 hover:text-amber-600 hover:bg-amber-50'} rounded-lg disabled:opacity-50 transition-colors`} title="Arquivar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}</button>)}
                                               <button onClick={() => openConfirm('Excluir Tarefa', 'Esta ação é permanente. Deseja excluir?', () => { setActionLoading(m.id); supabase.from('materiais').delete().eq('id', m.id).then(() => { loadData(); setActionLoading(null); }) }, 'danger')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:text-red-300' : 'text-red-400 bg-red-50 hover:text-red-600'} rounded-lg ml-auto md:ml-0 disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button>
+                                              </div>
                                             </div>
+                                            </div>
+
+                                            {/* Instruções na linha de baixo (ocupando 100%) */}
+                                            {m.feedback_admin && (
+                                              <div className="w-full">
+                                                <CollapsibleInstruction
+                                                  theme={theme}
+                                                  textSecundario={textSecundario}
+                                                  isLong={m.feedback_admin.length > 200}
+                                                  onEdit={(e: any) => {
+                                                     e.stopPropagation();
+                                                     setMaterialToEditInstruction(m);
+                                                     setInstructionEditText(m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '');
+                                                     setIsEditInstructionModalOpen(true);
+                                                  }}
+                                                >
+                                                  {renderTextWithLinks(m.feedback_admin)}
+                                                </CollapsibleInstruction>
+                                              </div>
+                                            )}
                                                   </div>
                                                 )}
                                               </Draggable>
@@ -3517,7 +3572,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   return <span className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">Reportado por: {author.nome}</span>;
                 })()}
               </div>
-
+              {(() => {
+                const feedbacks = selectedMaterial.feedback ? selectedMaterial.feedback.split('\n\n').map((f: string) => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
+                return feedbacks.length > 0 ? (
+                  <div className={`text-xs font-medium text-red-500 whitespace-pre-wrap flex flex-col gap-2 mt-2`}>
+                    {feedbacks.map((fb: string, idx: number) => (
+                      <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-red-200 dark:border-red-900' : ''}>
+                        {renderTextWithLinks(fb)}
+                      </div>
+                    ))}
+                  </div>
+                ) : <span className="text-xs font-medium text-red-500">Motivo não informado.</span>;
+              })()}
             </div>
 
             <div className="space-y-4">
