@@ -1573,7 +1573,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const navItem = (id: any, label: string, icon: any, count?: number, badgeColor?: string) => (
     <button
       onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }}
-      className={`relative w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} p-3 rounded-xl font-bold transition-all ${activeTab === id ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
+      className={`relative w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} py-2 md:py-2.5 px-3 rounded-xl font-bold transition-all ${activeTab === id ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
       title={isSidebarCollapsed ? label : undefined}
     >
       <span className={`flex items-center gap-3 whitespace-nowrap text-[13px] ${isSidebarCollapsed ? 'justify-center' : ''}`}>
@@ -1643,11 +1643,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </button>
 
         {/* CONTAINER DA LOGO - Ajustado para logo grande sem empurrar o menu */}
-        <div className={`pt-8 safe-pt-aside pb-4 ${isSidebarCollapsed ? 'px-2' : 'px-6'} flex flex-col items-center relative border-b border-white/5 transition-all`}>
+        <div className={`pt-6 safe-pt-aside pb-2 ${isSidebarCollapsed ? 'px-2' : 'px-6'} flex flex-col items-center relative border-b border-white/5 transition-all`}>
           <img
             src={isSidebarCollapsed ? "/icon-192x192.png" : "/logo-light.png"}
             alt="Everton"
-            className={`${isSidebarCollapsed ? 'h-10' : 'h-32 md:h-36'} w-auto object-contain transition-all duration-300`}
+            className={`${isSidebarCollapsed ? 'h-8 md:h-10' : 'h-24 md:h-28'} w-auto object-contain transition-all duration-300`}
             style={{ marginBottom: isSidebarCollapsed ? '0px' : '-10px' }}
             onError={(e: any) => { if (isSidebarCollapsed) e.target.src = "/logo-light.png"; }}
           />
@@ -1675,7 +1675,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             {navItem('materiais-aprovados', 'Materiais Aprovados', <CheckCircle2 size={20} />, filaMateriaisAprovados.length, 'bg-green-500/20 text-green-400')}
           </div>
 
-          <div className="my-6 border-t border-white/5 mx-2"></div>
+          <div className="my-4 border-t border-white/5 mx-2"></div>
 
           {!isSidebarCollapsed && (
             <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 opacity-70">
@@ -1683,24 +1683,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </p>
           )}
 
-          <div className="space-y-1">
-            {navItem('geral', 'Visão Geral', <LayoutDashboard size={20} />)}
-            {navItem('cadastro-clientes', 'Cadastro do Cliente', <Users size={20} />)}
-            {navItem('equipe', 'Equipe', <ShieldCheck size={20} />)}
-            {navItem('relatorios', 'Relatórios', <Activity size={20} />)}
-            <button onClick={() => { setIsTagsModalOpen(true); setIsMobileMenuOpen(false); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} p-3 rounded-xl font-bold transition-all text-zinc-400 hover:bg-white/5 hover:text-white`} title={isSidebarCollapsed ? "Tags" : undefined}>
-              <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}><Tag size={20} /> {!isSidebarCollapsed && <span className="text-sm">Tags</span>}</div>
+          <div className="space-y-0.5">
+            {navItem('geral', 'Visão Geral', <LayoutDashboard size={18} />)}
+            {navItem('cadastro-clientes', 'Cadastro do Cliente', <Users size={18} />)}
+            {navItem('equipe', 'Equipe', <ShieldCheck size={18} />)}
+            {navItem('relatorios', 'Relatórios', <Activity size={18} />)}
+            <button onClick={() => { setIsTagsModalOpen(true); setIsMobileMenuOpen(false); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} py-2 md:py-2.5 px-3 rounded-xl font-bold transition-all text-zinc-400 hover:bg-white/5 hover:text-white`} title={isSidebarCollapsed ? "Tags" : undefined}>
+              <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}><Tag size={18} /> {!isSidebarCollapsed && <span className="text-[13px]">Tags</span>}</div>
             </button>
           </div>
         </nav>
 
         {/* RODAPÉ DA SIDEBAR */}
-        <div className={`p-4 border-t border-white/5 flex flex-col gap-2 bg-[#1a190f] ${isSidebarCollapsed ? 'items-center' : ''}`}>
-          <button onClick={toggleTheme} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 p-3 text-yellow-500 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? (theme === 'dark' ? "Modo Claro" : "Modo Escuro") : undefined}>
-            {theme === 'dark' ? <><Sun size={20} /> {!isSidebarCollapsed && "Modo Claro"}</> : <><Moon size={20} /> {!isSidebarCollapsed && "Modo Escuro"}</>}
+        <div className={`p-3 md:p-4 border-t border-white/5 flex flex-col gap-1.5 bg-[#1a190f] ${isSidebarCollapsed ? 'items-center' : ''}`}>
+          <button onClick={toggleTheme} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 py-2 md:py-2.5 px-3 text-yellow-500 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? (theme === 'dark' ? "Modo Claro" : "Modo Escuro") : undefined}>
+            {theme === 'dark' ? <><Sun size={18} /> {!isSidebarCollapsed && "Modo Claro"}</> : <><Moon size={18} /> {!isSidebarCollapsed && "Modo Escuro"}</>}
           </button>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 p-3 text-red-400 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? "Sair" : undefined}>
-            <LogOut size={20} /> {!isSidebarCollapsed && "Sair"}
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 py-2 md:py-2.5 px-3 text-red-400 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? "Sair" : undefined}>
+            <LogOut size={18} /> {!isSidebarCollapsed && "Sair"}
           </button>
         </div>
       </aside>

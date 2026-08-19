@@ -201,3 +201,6 @@
 .picker-dialog {
   z-index: 100001 !important;
 }
+
+.custom-scrollbar::-webkit-scrollbar { width: 0px; background: transparent; }
+.custom-scrollbar { scrollbar-width: none; }
