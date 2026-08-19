@@ -100,7 +100,7 @@ const CollapsibleInstruction = ({ children, theme, textSecundario, isLong, onEdi
            </button>
         )}
       </div>
-      <div className={`whitespace-pre-wrap break-words text-xs ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
+      <div className={`whitespace-pre-wrap break-words text-[11px] ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
         {children}
       </div>
       {isLong && (
@@ -1467,7 +1467,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       return (
         <div className="flex flex-col items-center justify-center gap-3">
           <Loader2 className="animate-spin text-white opacity-40" size={40} />
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
         </div>
       );
     }
@@ -1710,31 +1710,31 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="flex justify-between items-end px-4 pb-4 pt-3 relative">
           <button onClick={() => { setActiveTab('planejamento'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'planejamento' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
             <ListTodo size={20} />
-            <span className="text-[9px] font-bold tracking-wide">Plano</span>
+            <span className="text-[10px] font-bold tracking-wide">Plano</span>
           </button>
           <button onClick={() => { setActiveTab('materiais-aprovacao'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovacao' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
             <div className="relative">
               <ClipboardCheck size={20} />
-              {filaMateriaisAprovacao.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-blue-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovacao.length}</span>}
+              {filaMateriaisAprovacao.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-blue-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovacao.length}</span>}
             </div>
-            <span className="text-[9px] font-bold tracking-wide">Aprovar</span>
+            <span className="text-[10px] font-bold tracking-wide">Aprovar</span>
           </button>
           <div className="relative w-16 flex justify-center h-full">
             <button onClick={() => { setActiveTab('geral'); setIsMobileMenuOpen(false); }} className={`absolute -top-8 flex flex-col items-center justify-center bg-[#A25431] text-white w-14 h-14 rounded-full shadow-lg shadow-[#A25431]/30 border-4 ${theme === 'dark' ? 'border-zinc-950' : 'border-zinc-50'} transform transition-transform active:scale-95`}>
               <LayoutDashboard size={22} />
             </button>
-            <span className={`text-[9px] font-bold tracking-wide mt-auto ${activeTab === 'geral' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>Visão</span>
+            <span className={`text-[10px] font-bold tracking-wide mt-auto ${activeTab === 'geral' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>Visão</span>
           </div>
           <button onClick={() => { setActiveTab('materiais-aprovados'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovados' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
             <div className="relative">
               <CheckCircle2 size={20} />
-              {filaMateriaisAprovados.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovados.length}</span>}
+              {filaMateriaisAprovados.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovados.length}</span>}
             </div>
-            <span className="text-[9px] font-bold tracking-wide">Prontos</span>
+            <span className="text-[10px] font-bold tracking-wide">Prontos</span>
           </button>
           <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
             <Menu size={20} />
-            <span className="text-[9px] font-bold tracking-wide">Menu</span>
+            <span className="text-[10px] font-bold tracking-wide">Menu</span>
           </button>
         </div>
       </div>
@@ -1750,7 +1750,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <h2 className="text-2xl font-black uppercase">Planejamento</h2>
                   <p className={`text-sm ${tc.textMuted} font-medium mt-1`}>Importe tarefas, analise roteiros ou delegue pastas organizadas.</p>
                 </div>
-                <button onClick={() => setIsImportModalOpen(true)} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-[#A25431] text-white rounded-2xl text-xs font-black uppercase hover:bg-[#8a4729] shadow-lg shadow-[#A25431]/20 transition-all">
+                <button onClick={() => setIsImportModalOpen(true)} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-[#A25431] text-white rounded-2xl text-[11px] font-black uppercase hover:bg-[#8a4729] shadow-lg shadow-[#A25431]/20 transition-all">
                   <Download size={18} /> Importar do ClickUp
                 </button>
               </div>
@@ -1772,7 +1772,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                               <div key={`analise-ciclo-${cicloLabel}`} className="space-y-3">
                                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} pb-3`}>
-                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-pink-500" /><h4 className="font-black text-xs text-pink-500 uppercase tracking-widest">{cicloLabel}</h4></div>
+                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-pink-500" /><h4 className="font-black text-[11px] text-pink-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                   <button onClick={(e) => { e.stopPropagation(); handleEnviarLoteRoteiroCliente(data.itens); }} disabled={loading} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-pink-900/30 text-pink-400 hover:bg-pink-900/50' : 'bg-pink-100 text-pink-700 hover:bg-pink-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
                                     {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Lote p/ Cliente
                                   </button>
@@ -1785,7 +1785,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           {(provided, snapshot) => (
                                             <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-pink-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
                                               <div className="flex-1 w-full text-left">
-                                                <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
+                                                <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
                                                 {m.data_limite && isDateLate(m.data_limite) && (
                                                   <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                                 )}
@@ -1798,9 +1798,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -1813,7 +1813,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1833,8 +1833,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                   setNovoTituloText(m.titulo);
                                                   setNewRoteiroText(txt);
                                                   setIsEditRoteiroModalOpen(true);
-                                                }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
-                                                <button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className="px-3 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Cliente</button>
+                                                }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
+                                                <button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className="px-3 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Cliente</button>
                                               </div>
                                             </div>
                                           )}
@@ -1871,7 +1871,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                               <div key={`rot-ciclo-${cicloLabel}`} className="space-y-3">
                                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} pb-3`}>
-                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-xs text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
+                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-[11px] text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                   <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                                 </div>
                                 <Droppable droppableId={`aprovado___${clienteId}___${cicloLabel}`}>
@@ -1882,7 +1882,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           {(provided, snapshot) => (
                                             <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-orange-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
                                               <div className="flex-1 min-w-0 w-full text-left">
-                                                <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
+                                                <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
                                                 {m.data_limite && isDateLate(m.data_limite) && (
                                                   <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                                 )}
@@ -1895,9 +1895,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -1910,7 +1910,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -1918,8 +1918,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 )}
                                               </div>
                                               <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
-                                                <button onClick={() => { setRoteiroToEdit(m); setNovoTituloText(m.titulo); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
-                                                <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta inserida' : 'Inserir Pasta'}</button>
+                                                <button onClick={() => { setRoteiroToEdit(m); setNovoTituloText(m.titulo); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
+                                                <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta inserida' : 'Inserir Pasta'}</button>
                                               </div>
                                             </div>
                                           )}
@@ -1955,13 +1955,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                           <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
                             {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                               <div key={`emdec-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} pb-2`}><Calendar size={14} className="text-blue-500" /><h4 className="font-black text-xs text-blue-500 uppercase tracking-widest">{cicloLabel}</h4></div>
+                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} pb-2`}><Calendar size={14} className="text-blue-500" /><h4 className="font-black text-[11px] text-blue-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
                                       <div className="flex-1 min-w-0 w-full"><div className="flex flex-col items-start gap-1 mb-2">
-  <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : (m.planner_id ? `Delegado para: ${membros.find(mb => mb.id === m.planner_id)?.nome || 'Decupador'}` : 'Com o Decupador')}</span>
-  {m.planner_id && <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoDecupagem(m); }} className="text-[9px] font-bold text-red-500 hover:underline flex items-center gap-1"><X size={10}/> Cancelar Delegação</button>}
+  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : (m.planner_id ? `Delegado para: ${membros.find(mb => mb.id === m.planner_id)?.nome || 'Decupador'}` : 'Com o Decupador')}</span>
+  {m.planner_id && <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoDecupagem(m); }} className="text-[10px] font-bold text-red-500 hover:underline flex items-center gap-1"><X size={10}/> Cancelar Delegação</button>}
 </div>
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -1974,11 +1974,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
                                         <button onClick={() => setPreviewRoteiro(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                         {m.link_organizado ? (
-                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
+                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
                                         ) : m.link_bruto ? (
-                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
+                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
                                         ) : (
-                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
+                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
                                         )}
                                         <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-3 ${!m.link_bruto ? 'bg-red-500 hover:bg-red-600 text-white animate-bounce shadow-[0_0_15px_rgba(239,68,68,0.5)]' : (theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white')} rounded-xl transition-all`} title={!m.link_bruto ? "Adicionar Link Bruto URGENTE!" : "Editar Link Bruto"}><Link size={18} /></button>
                                         <button onClick={() => openResolveModal(m, 'planner')} className={`p-3 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-xl transition-colors`} title="Retirar do Decupador e Devolver p/ Aprovados"><RotateCcw size={18} /></button>
@@ -2005,20 +2005,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       <div key={`prob-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-red-900/50 ring-red-900/20' : 'border-red-200 ring-red-50'} shadow-xl overflow-visible ring-4`}>
                         <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-red-900/20 hover:bg-red-900/30' : 'bg-red-50 hover:bg-red-100'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`prob-${clienteId}`)}>
                           <div className="flex items-center gap-3"><ChevronRight className={`text-red-600 transition-transform ${expandedClients.includes(`prob-${clienteId}`) ? 'rotate-90' : ''}`} /><AlertCircle className="text-red-500 hidden md:block" size={18} /><h3 className={`font-black text-base md:text-lg uppercase truncate ${theme === 'dark' ? 'text-red-400' : 'text-red-900'}`}>{group.cliente.nome}</h3></div>
-                          <span className="text-[9px] font-black uppercase text-white bg-red-500 px-2 py-1 rounded-full animate-pulse ml-2">Ação</span>
+                          <span className="text-[10px] font-black uppercase text-white bg-red-500 px-2 py-1 rounded-full animate-pulse ml-2">Ação</span>
                         </div>
                         {expandedClients.includes(`prob-${clienteId}`) && (
                           <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
                             {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                               <div key={`prob-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-500" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
+                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-500" /><h4 className="font-black text-[11px] text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
                                     <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
                                       <div className="flex-1 min-w-0 w-full">
-                                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
+                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
                                         {m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
-                                          <span className="ml-2 text-[9px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
+                                          <span className="ml-2 text-[10px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                         )}
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
@@ -2029,9 +2029,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -2044,7 +2044,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2079,8 +2079,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                                       </div>
                                       <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-center items-center md:shrink-0">
-                                        <button onClick={() => openResolveModal(m)} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
-                                        <button onClick={() => openConfirm('Arquivar Tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`px-4 py-4 ${tc.bgCard} border ${theme === 'dark' ? 'border-red-900/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'} rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />} Arquivar</button>
+                                        <button onClick={() => openResolveModal(m)} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
+                                        <button onClick={() => openConfirm('Arquivar Tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`px-4 py-4 ${tc.bgCard} border ${theme === 'dark' ? 'border-red-900/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'} rounded-xl font-bold text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />} Arquivar</button>
                                       </div>
                                     </div>
                                   ))}
@@ -2112,14 +2112,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                               <div key={`prod-ciclo-${cicloLabel}`} className="space-y-3">
                                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} pb-3`}>
-                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-indigo-500" /><h4 className="font-black text-xs text-indigo-500 uppercase tracking-widest">{cicloLabel}</h4></div>
+                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-indigo-500" /><h4 className="font-black text-[11px] text-indigo-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                                   <button onClick={(e) => { e.stopPropagation(); setDelegationType('editor'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                                 </div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-indigo-900/50' : 'hover:border-indigo-200'} transition-colors`}>
                                       <div className="flex-1 w-full text-left">
-                                        <span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span>
+                                        <span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span>
                                         {m.data_limite && isDateLate(m.data_limite) && (
                                           <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
                                         )}
@@ -2132,9 +2132,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -2147,7 +2147,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2160,11 +2160,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                         {m.link_organizado ? (
-                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
+                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
                                         ) : m.link_bruto ? (
-                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
+                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
                                         ) : (
-                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
+                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
                                         )}
 
                                         {/* NOVOS BOTÕES SOLICITADOS */}
@@ -2186,7 +2186,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               {/* CRIADOR MANUAL */}
               <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-[32px] p-6 md:p-10 shadow-sm space-y-8`}>
-                <header className={`border-b ${tc.borderStrong} pb-6`}><h2 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><LayoutList className="text-blue-500" size={24} /> Criação Manual</h2><p className={`${tc.textMuted} text-xs md:text-sm mt-2`}>Crie tarefas manualmente. Elas irão para análise.</p></header>
+                <header className={`border-b ${tc.borderStrong} pb-6`}><h2 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><LayoutList className="text-blue-500" size={24} /> Criação Manual</h2><p className={`${tc.textMuted} text-[11px] md:text-sm mt-2`}>Crie tarefas manualmente. Elas irão para análise.</p></header>
                 <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 md:p-6 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} rounded-2xl border ${tc.borderStrong}`}>
                   <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Cliente</label><select className={`w-full p-4 ${tc.bgCard} border ${tc.borderStrong} rounded-xl font-bold outline-none text-sm`} value={loteForm.cliente_id} onChange={e => setLoteForm({ ...loteForm, cliente_id: e.target.value })} required><option value="">Selecionar...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
                   <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Ciclo</label><input type="number" min="1" max="12" className={`w-full p-4 ${tc.bgCard} border ${tc.borderStrong} rounded-xl font-bold outline-none text-sm`} value={loteForm.ciclo} onChange={e => setLoteForm({ ...loteForm, ciclo: e.target.value })} required /></div>
@@ -2236,7 +2236,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-100'} pb-2`}>
                                 <div className="flex items-center gap-2">
                                   <Calendar size={14} className="text-purple-500" />
-                                  <h4 className="font-black text-xs text-purple-500 uppercase tracking-widest">{cicloLabel}</h4>
+                                  <h4 className="font-black text-[11px] text-purple-500 uppercase tracking-widest">{cicloLabel}</h4>
                                 </div>
                                 <button onClick={(e) => { e.stopPropagation(); setBatchApprovalData({itens: data.itens, cicloLabel: cicloLabel}); setBatchScheduleDate(''); }} disabled={loading} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
                                   {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Aprovar Lote p/ Cliente
@@ -2254,7 +2254,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                   return (
                                     <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4`}>
                                       <div className="flex-1 min-w-[200px] w-full">
-                                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isPartial ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
+                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isPartial ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
                                           {isPartial ? 'Entrega Parcial' : 'Edição Pronta'}
                                         </span>
                                         {m.data_limite && new Date(m.data_limite) < new Date() && (
@@ -2270,9 +2270,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -2285,7 +2285,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2316,25 +2316,25 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         </div>
                                       </div>
 
-                                      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full 2xl:w-auto">
+                                      <div className="flex flex-wrap gap-2 w-full 2xl:w-auto">
                                         <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
 
-                                        {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
-                                        {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
+                                        {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
+                                        {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
 
-                                        <button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">
+                                        <button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">
                                           {actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} {m.agendado_para && !m.wpp_enviado ? 'Enviar Agora' : 'Aprovar Cliente'}
                                         </button>
 
                                         {m.agendado_para && !m.wpp_enviado ? (
-                                          <button onClick={() => handleCancelarAgendamento(m.id)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-colors">
+                                          <button onClick={() => handleCancelarAgendamento(m.id)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">
                                             <X size={14} /> Cancelar Agend.
                                           </button>
                                         ) : (
-                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 justify-center transition-colors">Devolver</button>
+                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">Devolver</button>
                                         )}
                                       </div>
                                     </div>
@@ -2369,12 +2369,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
                           {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                             <div key={`notif-ciclo-${cicloLabel}`} className="space-y-3">
-                              <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-xs text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
+                              <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-[11px] text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} md:ml-1`}>
                                 {data.itens.map((m) => (
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col items-start gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
                                     <div className="flex-1 min-w-0 w-full text-left">
-                                      <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
+                                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
                                         {(!m.link_drive && !m.link_capa) ? '🔔 Ajuste Planejamento' : '🎬 Ajuste Produção'}
                                       </span>
                                       {m.data_limite && new Date(m.data_limite) < new Date() && (
@@ -2389,9 +2389,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -2404,7 +2404,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2414,7 +2414,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         const author = getAuthorInfo(m.feedback);
                                         if (!author) return null;
                                         return (
-                                          <div className={`mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold ${theme === 'dark' ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-white text-zinc-500 border-zinc-200'} border`}>
+                                          <div className={`mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${theme === 'dark' ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-white text-zinc-500 border-zinc-200'} border`}>
                                             <Users size={10} className="opacity-60" />
                                             <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span></span>
                                           </div>
@@ -2454,12 +2454,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       {(m.link_drive || m.link_capa) && (
                                         <div className="flex flex-wrap gap-2 mt-3">
                                           {m.link_drive && (
-                                            <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' : 'bg-blue-50 text-blue-600 border-blue-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest`}>
+                                            <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' : 'bg-blue-50 text-blue-600 border-blue-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest`}>
                                               <FileVideo size={14} /> Visualizar Video
                                             </button>
                                           )}
                                           {m.link_capa && (
-                                            <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/30' : 'bg-pink-50 text-pink-600 border-pink-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest`}>
+                                            <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/30' : 'bg-pink-50 text-pink-600 border-pink-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest`}>
                                               <ImageIcon size={14} /> Visualizar Imagem
                                             </button>
                                           )}
@@ -2531,11 +2531,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
                           {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                             <div key={`ok-ciclo-${cicloLabel}`} className="space-y-3">
-                              <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} pb-2`}><Calendar size={14} className="text-green-500" /><h4 className="font-black text-xs text-green-500 uppercase tracking-widest">{cicloLabel}</h4></div>
+                              <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} pb-2`}><Calendar size={14} className="text-green-500" /><h4 className="font-black text-[11px] text-green-500 uppercase tracking-widest">{cicloLabel}</h4></div>
                               <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} md:ml-1`}>
                                 {data.itens.map((m: Material) => (
                                   <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
-                                    <div className="flex-1 min-w-[200px] w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[9px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
+                                    <div className="flex-1 min-w-[200px] w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
                                       <div className="flex items-center gap-1 group/title">
                                         <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
@@ -2545,9 +2545,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -2560,23 +2560,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
   </div>
 )}
                                     </div>
-                                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full 2xl:w-auto">
+                                    <div className="flex flex-wrap gap-2 w-full 2xl:w-auto">
                                       <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
 
-                                      {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Ver Post</button>}
-                                      {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-xs flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa/Card"><ImageIcon size={14} /> Capa/Card</button>}
+                                      {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Ver Post</button>}
+                                      {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa/Card"><ImageIcon size={14} /> Capa/Card</button>}
 
-                                      <button onClick={() => openConfirm('Arquivar e Finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`col-span-2 md:col-span-1 px-4 py-3 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-black'} rounded-xl font-bold text-xs flex items-center gap-2 justify-center disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Arquivar</button>
+                                      <button onClick={() => openConfirm('Arquivar e Finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`col-span-2 md:col-span-1 px-4 py-3 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-black'} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Arquivar</button>
                                     </div>
                                   </div>
                                 ))}
@@ -2603,7 +2603,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   { label: 'Eficiência', val: `${metrics.eficiencia}%`, color: theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800', icon: TrendingUp },
                 ].map((m, i) => (
                   <div key={i} className={`${tc.bgCard} p-4 md:p-6 rounded-[24px] border ${tc.borderStrong} shadow-sm transition-colors`}>
-                    <p className={`${tc.textMuted} text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-1`}>{m.label}</p>
+                    <p className={`${tc.textMuted} text-[10px] md:text-[10px] font-black uppercase tracking-widest mb-1`}>{m.label}</p>
                     <div className="flex items-end justify-between"><h3 className={`text-2xl md:text-3xl font-black ${m.color}`}>{m.val}</h3><m.icon className="opacity-10 hidden sm:block" size={24} /></div>
                   </div>
                 ))}
@@ -2616,7 +2616,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                   <div>
-                    <h3 className={`text-xs md:text-sm font-black uppercase tracking-widest ${tc.textMuted} flex items-center gap-2`}>
+                    <h3 className={`text-[11px] md:text-sm font-black uppercase tracking-widest ${tc.textMuted} flex items-center gap-2`}>
                       <Activity size={16} className="text-blue-500" /> Fluxo Operacional
                     </h3>
                     <p className={`text-[10px] font-bold uppercase mt-1 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>
@@ -2630,7 +2630,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   )}
                 </div>
 
-                <div className="relative w-full overflow-x-hidden pb-10 pt-4 custom-scrollbar">
+                <div className="relative w-full overflow-x-auto pb-10 pt-4 custom-scrollbar">
                   <div className="min-w-[800px] flex items-center justify-between relative px-10">
                     {/* MAIN CONNECTION LINE */}
                     <div className={`absolute top-1/2 left-14 right-14 h-1 -translate-y-1/2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'} z-0 rounded-full overflow-hidden`}>
@@ -2658,7 +2658,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                             {/* Task Badge */}
                             {node.count > 0 && (
-                              <div className={`absolute -top-2 -right-2 ${isGargalo ? 'bg-red-500' : node.bg} text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md`}>
+                              <div className={`absolute -top-2 -right-2 ${isGargalo ? 'bg-red-500' : node.bg} text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md`}>
                                 {node.count}
                               </div>
                             )}
@@ -2679,7 +2679,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">{showArchived ? 'ARQUIVO MORTO' : 'FLUXO DE APROVAÇÃO'}</h2>
                   <div className="flex w-full md:w-auto gap-3">
                     <button onClick={syncWithClickUp} disabled={syncing} className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 md:py-2 ${tc.bgCard} border ${tc.borderStrong} rounded-xl text-[10px] font-black uppercase ${tc.textMuted} ${tc.bgHover} disabled:opacity-50 transition-colors`}><RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> <span className="hidden sm:inline">Sync ClickUp</span></button>
-                    <button onClick={() => setShowArchived(!showArchived)} className={`flex-1 md:flex-none px-4 py-3 md:py-2 rounded-xl text-xs font-bold transition-colors ${showArchived ? (theme === 'dark' ? 'bg-white text-black' : 'bg-zinc-900 text-white') : (theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-500')}`}>{showArchived ? 'Ver Ativos' : 'Ver Arquivados'}</button>
+                    <button onClick={() => setShowArchived(!showArchived)} className={`flex-1 md:flex-none px-4 py-3 md:py-2 rounded-xl text-[11px] font-bold transition-colors ${showArchived ? (theme === 'dark' ? 'bg-white text-black' : 'bg-zinc-900 text-white') : (theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-500')}`}>{showArchived ? 'Ver Ativos' : 'Ver Arquivados'}</button>
                   </div>
                 </div>
                 {showArchived && <StorageWidget materiais={materiais} theme={theme} />}
@@ -2695,7 +2695,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     <button
                       key={f.id}
                       onClick={() => setActiveFilter(f.id)}
-                      className={`px-4 py-2 rounded-full text-[9px] font-black uppercase transition-all shrink-0 border-2 ${activeFilter === f.id ? `${f.color} text-white border-transparent shadow-lg scale-105` : `${theme === 'dark' ? 'border-zinc-800 text-zinc-500 hover:border-zinc-600' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}`}
+                      className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all shrink-0 border-2 ${activeFilter === f.id ? `${f.color} text-white border-transparent shadow-lg scale-105` : `${theme === 'dark' ? 'border-zinc-800 text-zinc-500 hover:border-zinc-600' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}`}
                     >
                       {f.label}
                     </button>
@@ -2726,11 +2726,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <span className="text-lg md:text-xl font-black uppercase truncate">{group.cliente?.nome}</span>
                             </div>
                             <div className="flex gap-2 mt-3 ml-8 md:ml-10 flex-wrap">
-                              {countEmEdicao > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-md text-[9px] font-black uppercase border`}>{countEmEdicao} Em Produção</span>}
-                              {countRevisao > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} rounded-md text-[9px] font-black uppercase border animate-pulse`}>{countRevisao} P/ Aprovação</span>}
-                              {countAjustes > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-100 text-red-700 border-red-200'} rounded-md text-[9px] font-black uppercase border`}>{countAjustes} Ajustes</span>}
-                              {countAprovadosVideo > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-green-600 text-white' : 'bg-green-500 text-white'} rounded-md text-[9px] font-black uppercase`}>{countAprovadosVideo} P/ Postar</span>}
-                              {countAprovadosRoteiro > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 border-green-900/50' : 'bg-green-100 text-green-700 border-green-200'} rounded-md text-[9px] font-black uppercase border`}>{countAprovadosRoteiro} Roteiros Aprov.</span>}
+                              {countEmEdicao > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-md text-[10px] font-black uppercase border`}>{countEmEdicao} Em Produção</span>}
+                              {countRevisao > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} rounded-md text-[10px] font-black uppercase border animate-pulse`}>{countRevisao} P/ Aprovação</span>}
+                              {countAjustes > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-100 text-red-700 border-red-200'} rounded-md text-[10px] font-black uppercase border`}>{countAjustes} Ajustes</span>}
+                              {countAprovadosVideo > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-green-600 text-white' : 'bg-green-500 text-white'} rounded-md text-[10px] font-black uppercase`}>{countAprovadosVideo} P/ Postar</span>}
+                              {countAprovadosRoteiro > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 border-green-900/50' : 'bg-green-100 text-green-700 border-green-200'} rounded-md text-[10px] font-black uppercase border`}>{countAprovadosRoteiro} Roteiros Aprov.</span>}
                             </div>
                           </div>
                           {expandedClients.includes(`geral-${clienteId}`) && (
@@ -2750,8 +2750,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <div className="flex items-center gap-2 cursor-pointer flex-1 flex-wrap" onClick={() => toggleCiclo(clienteId, cicloLabel)}>
                                         <ChevronRight size={16} className={`${textSecundario} transition-transform ${expandedCiclos.includes(`${clienteId}-${cicloLabel}`) ? 'rotate-90' : ''}`} />
                                         <Calendar size={16} className="text-blue-500 shrink-0" />
-                                        <span className={`text-xs font-black uppercase tracking-widest truncate ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>{cicloLabel}</span>
-                                        <span className={`text-[9px] font-black uppercase shrink-0 px-1 ${textSecundario}`}>{data.aprovados}/{data.total} OK</span>
+                                        <span className={`text-[11px] font-black uppercase tracking-widest truncate ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>{cicloLabel}</span>
+                                        <span className={`text-[10px] font-black uppercase shrink-0 px-1 ${textSecundario}`}>{data.aprovados}/{data.total} OK</span>
 
                                         <div className="flex gap-1.5 flex-wrap ml-1">
                                           {cicloEdicao > 0 && <span className={`px-1.5 py-0.5 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-md text-[8px] font-black uppercase border`}>{cicloEdicao} Produção</span>}
@@ -2804,9 +2804,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   </button>
   {tagDropdownOpen === m.id && (
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-xs`}>
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
           <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
@@ -2821,7 +2821,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[9px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
         {t}
       </span>
     ))}
@@ -2843,7 +2843,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               </div>
 
                                               <div className="relative inline-block w-full md:w-auto mt-3">
-                                                <select value={m.status} onChange={e => handleUpdateStatus(m.id, e.target.value)} disabled={actionLoading === m.id} className={`appearance-none px-3 py-1.5 pr-7 rounded-md text-[9px] font-black uppercase outline-none border transition-all cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 ${getStatusColor(m.status)} ${theme === 'dark' ? 'bg-opacity-20 border-opacity-30' : ''}`}>
+                                                <select value={m.status} onChange={e => handleUpdateStatus(m.id, e.target.value)} disabled={actionLoading === m.id} className={`appearance-none px-3 py-1.5 pr-7 rounded-md text-[10px] font-black uppercase outline-none border transition-all cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 ${getStatusColor(m.status)} ${theme === 'dark' ? 'bg-opacity-20 border-opacity-30' : ''}`}>
                                                   <option value="analise_roteiro">Roteiro em Análise</option>
                                                   <option value="roteiro_pendente">Aguardando Cliente (Roteiro)</option>
                                                   <option value="roteiro_aprovado">Roteiro Aprovado (Pelo Cliente)</option>
@@ -2865,7 +2865,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             </div>
 
                                             <div className={`flex items-center gap-2 flex-wrap 2xl:opacity-0 2xl:group-hover/item:opacity-100 transition-all pt-2 2xl:pt-0 border-t 2xl:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 2xl:mt-0 w-full 2xl:w-auto shrink-0`}>
-                                              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full 2xl:w-auto">
+                                              <div className="flex flex-wrap gap-2 w-full 2xl:w-auto">
                                               {m.status === 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'pendente')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Restaurar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}</button>)}
                                               {m.status === 'revisao' && (<button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Aprovar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}</button>)}
                                               {m.status === 'ajustes' && (<button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:bg-red-600 hover:text-white' : 'text-red-600 bg-red-50 hover:bg-red-600 hover:text-white'} rounded-lg transition-colors`} title="Resolver Problema / Devolver"><AlertCircle size={16} /></button>)}
@@ -3036,7 +3036,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                           <Users className="text-[#A25431]" size={24} />
                         )}
                       </div>
-                      <div className="min-w-0"><h3 className="font-black text-lg md:text-xl uppercase truncate">{c.nome}</h3><p className={`${tc.textMuted} font-bold text-xs truncate`}><Phone size={12} className="inline mr-1" /> {c.telefone}</p></div>
+                      <div className="min-w-0"><h3 className="font-black text-lg md:text-xl uppercase truncate">{c.nome}</h3><p className={`${tc.textMuted} font-bold text-[11px] truncate`}><Phone size={12} className="inline mr-1" /> {c.telefone}</p></div>
                     </div>
                     <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all justify-end">
                       <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
@@ -3128,7 +3128,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             </td>
                             <td className="p-4 md:p-6">
                               <div className="relative inline-block w-full md:w-auto">
-                                <select defaultValue={m.role} onChange={async (e) => { await supabase.from('perfis_equipe').update({ role: e.target.value }).eq('id', m.id); toast.success("Função alterada!"); }} className={`appearance-none ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} text-[9px] md:text-[10px] font-black uppercase px-4 py-2 pr-8 rounded-full outline-none border-none cursor-pointer transition-colors w-full`}>
+                                <select defaultValue={m.role} onChange={async (e) => { await supabase.from('perfis_equipe').update({ role: e.target.value }).eq('id', m.id); toast.success("Função alterada!"); }} className={`appearance-none ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} text-[10px] md:text-[10px] font-black uppercase px-4 py-2 pr-8 rounded-full outline-none border-none cursor-pointer transition-colors w-full`}>
                                   <option value="editor">Editor</option><option value="designer">Designer</option><option value="planner">Decupador</option><option value="admin">Gestor</option>
                                 </select>
                                 <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
@@ -3193,7 +3193,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <div className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-500/20"><Activity size={24} /></div>
                   <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Total de Materiais</p>
                   <h3 className="text-4xl font-black mt-2">{materiais.length}</h3>
-                  <p className="text-xs text-blue-500 font-bold mt-4 flex items-center gap-1">Histórico completo</p>
+                  <p className="text-[11px] text-blue-500 font-bold mt-4 flex items-center gap-1">Histórico completo</p>
                 </div>
                 <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
                   <div className="w-12 h-12 bg-green-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-green-500/20"><CheckCircle2 size={24} /></div>
@@ -3207,13 +3207,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <div className="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-red-500/20"><AlertCircle size={24} /></div>
                   <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Total em Atraso</p>
                   <h3 className="text-4xl font-black mt-2">{relatorioData.totalAtrasos}</h3>
-                  <p className="text-xs text-red-500 font-bold mt-4 flex items-center gap-1">Atenção aos prazos</p>
+                  <p className="text-[11px] text-red-500 font-bold mt-4 flex items-center gap-1">Atenção aos prazos</p>
                 </div>
                 <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
                   <div className="w-12 h-12 bg-purple-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/20"><Clock size={24} /></div>
                   <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Gargalo Atual</p>
                   <h3 className="text-xl font-black mt-3 leading-tight">{gargalo.name || 'Nenhum'}</h3>
-                  <p className="text-xs text-purple-500 font-bold mt-3">{gargalo.count} itens aguardando</p>
+                  <p className="text-[11px] text-purple-500 font-bold mt-3">{gargalo.count} itens aguardando</p>
                 </div>
               </div>
 
@@ -3223,7 +3223,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                     <div>
                       <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Rendimento e Atrasos</h3>
-                      <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Produtividade vs. Cumprimento de Prazos.</p>
+                      <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Produtividade vs. Cumprimento de Prazos.</p>
                     </div>
                     <Users size={20} className={theme === 'dark' ? 'text-zinc-400' : 'text-[#A25431]'} />
                   </header>
@@ -3232,12 +3232,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       <div key={i} className="space-y-3">
                         <div className="flex justify-between items-end">
                           <div className="flex flex-col">
-                            <span className="text-xs font-black uppercase">{m.nome}</span>
-                            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">{m.role}</span>
+                            <span className="text-[11px] font-black uppercase">{m.nome}</span>
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{m.role}</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-xs font-bold text-zinc-400 block">{m.entregas} entregas</span>
-                            {m.atrasos > 0 && <span className="text-[9px] font-black text-red-500 uppercase">🔥 {m.atrasos} em atraso</span>}
+                            <span className="text-[11px] font-bold text-zinc-400 block">{m.entregas} entregas</span>
+                            {m.atrasos > 0 && <span className="text-[10px] font-black text-red-500 uppercase">🔥 {m.atrasos} em atraso</span>}
                           </div>
                         </div>
                         <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden flex">
@@ -3253,7 +3253,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                     <div>
                       <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Ajustes por Equipe</h3>
-                      <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Ranking de quem recebe mais correções.</p>
+                      <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Ranking de quem recebe mais correções.</p>
                     </div>
                     <PenTool size={20} className="text-pink-500" />
                   </header>
@@ -3267,7 +3267,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             <span className={`text-[10px] font-black uppercase ${tc.textMuted}`}>{p.role}</span>
                             <p className="font-bold text-sm uppercase">{p.nome}</p>
                           </div>
-                          <span className="text-xs font-black text-pink-500">{p.ajustesHistoricos} ajustes</span>
+                          <span className="text-[11px] font-black text-pink-500">{p.ajustesHistoricos} ajustes</span>
                         </div>
                         <div className="w-full bg-zinc-100 dark:bg-zinc-950 rounded-full h-1.5 overflow-hidden">
                           <div
@@ -3285,7 +3285,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                     <div>
                       <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Nível de Ajustes p/ Cliente</h3>
-                      <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Clientes que mais solicitam alterações.</p>
+                      <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Clientes que mais solicitam alterações.</p>
                     </div>
                     <MessageSquare size={20} className="text-orange-500" />
                   </header>
@@ -3295,18 +3295,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center font-black">{i + 1}</div>
                           <div>
-                            <p className="font-black uppercase text-xs truncate max-w-[150px]">{c.nome}</p>
+                            <p className="font-black uppercase text-[11px] truncate max-w-[150px]">{c.nome}</p>
                             <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{c.total} materiais</p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className={`font-black text-lg ${c.ajustes > 5 ? 'text-red-500' : 'text-orange-500'}`}>{c.ajustes}</p>
-                          <p className="text-[9px] text-zinc-400 font-bold uppercase">Ajustes ativos</p>
+                          <p className="text-[10px] text-zinc-400 font-bold uppercase">Ajustes ativos</p>
                         </div>
                       </div>
                     ))}
                     {relatorioData.topAjustesClientes.length === 0 && (
-                      <p className="text-center py-10 text-zinc-400 font-bold text-xs">Nenhum ajuste pendente no momento.</p>
+                      <p className="text-center py-10 text-zinc-400 font-bold text-[11px]">Nenhum ajuste pendente no momento.</p>
                     )}
                   </div>
                 </div>
@@ -3317,14 +3317,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-red-900/10' : 'bg-red-50/50'} flex items-center justify-between`}>
                   <div>
                     <h3 className="font-black uppercase text-sm text-red-600">Tarefas Críticas (Em Atraso)</h3>
-                    <p className="text-xs text-red-400 font-medium mt-1">Materiais que ultrapassaram a data limite estipulada.</p>
+                    <p className="text-[11px] text-red-400 font-medium mt-1">Materiais que ultrapassaram a data limite estipulada.</p>
                   </div>
                   <AlertCircle size={20} className="text-red-500" />
                 </header>
                 <div className="overflow-x-hidden">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className={`border-b ${tc.borderStrong} text-[9px] font-black uppercase tracking-widest ${tc.textMuted}`}>
+                      <tr className={`border-b ${tc.borderStrong} text-[10px] font-black uppercase tracking-widest ${tc.textMuted}`}>
                         <th className="p-6">Material</th>
                         <th className="p-6">Cliente</th>
                         <th className="p-6">Prazo Original</th>
@@ -3336,12 +3336,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       {materiais.filter(m => m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).map(m => (
                         <tr key={m.id} className="hover:bg-zinc-50/50 transition-colors group">
                           <td className="p-6">
-                            <p className="font-black text-xs uppercase">{m.titulo}</p>
+                            <p className="font-black text-[11px] uppercase">{m.titulo}</p>
                           </td>
                           <td className="p-6">
                             <span className="text-[10px] font-bold text-zinc-500 uppercase">{m.cliente?.nome}</span>
                           </td>
-                          <td className="p-6 text-red-500 font-black text-xs">
+                          <td className="p-6 text-red-500 font-black text-[11px]">
                             {new Date(m.data_limite!).toLocaleDateString('pt-BR')}
                           </td>
                           <td className="p-6">
@@ -3376,7 +3376,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-blue-900/10' : 'bg-blue-50/50'} flex items-center justify-between`}>
                   <div>
                     <h3 className="font-black uppercase text-sm text-blue-600">Carga de Trabalho Atual da Equipe</h3>
-                    <p className="text-xs text-blue-400 font-medium mt-1">Materiais em produção destinados a cada membro da equipe.</p>
+                    <p className="text-[11px] text-blue-400 font-medium mt-1">Materiais em produção destinados a cada membro da equipe.</p>
                   </div>
                   <ClipboardCheck size={20} className="text-blue-500" />
                 </header>
@@ -3386,9 +3386,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                         <div>
                           <p className="font-black text-sm uppercase">{w.nome}</p>
-                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{w.role}</p>
+                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{w.role}</p>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-xs">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-[11px]">
                           {w.tarefas.length}
                         </div>
                       </div>
@@ -3396,7 +3396,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         {w.tarefas.map(t => (
                           <div key={t.id} className={`p-3 rounded-xl border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950' : 'border-zinc-200 bg-white'}`}>
                             <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.cliente} - CICLO {t.ciclo}</p>
-                            <p className="text-xs font-black mt-1 mb-2 line-clamp-2">{t.titulo}</p>
+                            <p className="text-[11px] font-black mt-1 mb-2 line-clamp-2">{t.titulo}</p>
                             <span className={`inline-block text-[8px] font-black uppercase px-2 py-1 rounded-md ${getStatusColor(t.status)}`}>
                               {{
                                 'analise_roteiro': 'Roteiro em Análise', 'roteiro_pendente': 'Aguardando Cliente', 'roteiro_aprovado': 'Roteiro Aprovado', 'planejamento': 'Aguardando Decupagem', 'em_organizacao': 'Decupagem em Andamento', 'faltando_material': 'Falta Material', 'verificar_material': 'Verificar Material', 'organizado': 'Aguardando Edição', 'em_edicao': 'Em Edição', 'aprovado': 'Aguardando Cliente', 'ajustes': 'Ajustes', 'revisao': 'Revisão Agência', 'post_aprovado': 'Post Aprovado', 'concluido': 'Finalizado'
@@ -3408,7 +3408,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     </div>
                   ))}
                   {relatorioData.workload.length === 0 && (
-                    <div className="col-span-full py-10 text-center text-zinc-400 font-bold text-xs uppercase">
+                    <div className="col-span-full py-10 text-center text-zinc-400 font-bold text-[11px] uppercase">
                       Nenhum material em produção no momento.
                     </div>
                   )}
@@ -3451,7 +3451,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               </div>
                               <label className="flex items-center gap-3 flex-1 cursor-pointer min-w-0">
                                 <input type="checkbox" className="w-4 h-4 accent-[#A25431] shrink-0" checked={selectedItemsToDelegate.includes(item.id)} onChange={(e) => { if (e.target.checked) setSelectedItemsToDelegate([...selectedItemsToDelegate, item.id]); else setSelectedItemsToDelegate(selectedItemsToDelegate.filter(id => id !== item.id)); }} />
-                                <span className="text-xs font-bold truncate select-none">{item.titulo}</span>
+                                <span className="text-[11px] font-bold truncate select-none">{item.titulo}</span>
                               </label>
                             </div>
                           )}
@@ -3521,7 +3521,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 }}>
                   <input
                     type="date"
-                    className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-xs md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                    className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
                     value={delegationDeadline}
                     onChange={e => setDelegationDeadline(e.target.value)}
                   />
@@ -3569,20 +3569,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 {(() => {
                   const author = getAuthorInfo(selectedMaterial.feedback);
                   if (!author) return null;
-                  return <span className="text-[9px] font-bold text-red-400 uppercase tracking-tighter">Reportado por: {author.nome}</span>;
+                  return <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Reportado por: {author.nome}</span>;
                 })()}
               </div>
               {(() => {
                 const feedbacks = selectedMaterial.feedback ? selectedMaterial.feedback.split('\n\n').map((f: string) => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
                 return feedbacks.length > 0 ? (
-                  <div className={`text-xs font-medium text-red-500 whitespace-pre-wrap flex flex-col gap-2 mt-2`}>
+                  <div className={`text-[11px] font-medium text-red-500 whitespace-pre-wrap flex flex-col gap-2 mt-2`}>
                     {feedbacks.map((fb: string, idx: number) => (
                       <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-red-200 dark:border-red-900' : ''}>
                         {renderTextWithLinks(fb)}
                       </div>
                     ))}
                   </div>
-                ) : <span className="text-xs font-medium text-red-500">Motivo não informado.</span>;
+                ) : <span className="text-[11px] font-medium text-red-500">Motivo não informado.</span>;
               })()}
             </div>
 
@@ -3599,9 +3599,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
                   <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Quem Notificar?</label>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setNotifyTarget('both')} className={`flex-1 py-2 px-3 rounded-lg text-[9px] font-black uppercase border transition-all ${notifyTarget === 'both' ? 'bg-zinc-800 text-white border-zinc-800' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Ambos</button>
-                    <button onClick={() => setNotifyTarget('editor')} className={`flex-1 py-2 px-3 rounded-lg text-[9px] font-black uppercase border transition-all ${notifyTarget === 'editor' ? 'bg-blue-500 text-white border-blue-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Editor</button>
-                    <button onClick={() => setNotifyTarget('designer')} className={`flex-1 py-2 px-3 rounded-lg text-[9px] font-black uppercase border transition-all ${notifyTarget === 'designer' ? 'bg-pink-500 text-white border-pink-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Designer</button>
+                    <button onClick={() => setNotifyTarget('both')} className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase border transition-all ${notifyTarget === 'both' ? 'bg-zinc-800 text-white border-zinc-800' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Ambos</button>
+                    <button onClick={() => setNotifyTarget('editor')} className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase border transition-all ${notifyTarget === 'editor' ? 'bg-blue-500 text-white border-blue-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Editor</button>
+                    <button onClick={() => setNotifyTarget('designer')} className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase border transition-all ${notifyTarget === 'designer' ? 'bg-pink-500 text-white border-pink-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Designer</button>
                   </div>
                 </div>
               )}
@@ -3643,7 +3643,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               {createDriveFolders && (
                 <div className="flex gap-2">
-                  <input className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-xs focus:border-[#A25431] transition-colors`} placeholder="Link da Pasta Mãe..." value={parentFolderUrl} readOnly />
+                  <input className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] focus:border-[#A25431] transition-colors`} placeholder="Link da Pasta Mãe..." value={parentFolderUrl} readOnly />
                   <GoogleDrivePicker onSelect={(url) => setParentFolderUrl(url)} type="folder" label="Selecionar Pasta" />
                 </div>
               )}
@@ -3666,7 +3666,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </h3>
               <button onClick={() => setIsEditInstructionModalOpen(false)} className={`p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full`}><X size={18} /></button>
             </div>
-            <p className="text-xs font-bold uppercase text-zinc-500 mb-4">{materialToEditInstruction.titulo}</p>
+            <p className="text-[11px] font-bold uppercase text-zinc-500 mb-4">{materialToEditInstruction.titulo}</p>
             <textarea
               className={`w-full h-64 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-blue-500 outline-none resize-none font-medium text-sm mb-4 whitespace-pre-wrap custom-scrollbar`}
               value={instructionEditText}
@@ -3674,8 +3674,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               placeholder="Digite as instruções para a equipe aqui..."
             />
             <div className="flex gap-2">
-              <button onClick={() => setIsEditInstructionModalOpen(false)} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold uppercase text-xs transition-colors">Cancelar</button>
-              <button onClick={handleSaveInstruction} disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase text-xs flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
+              <button onClick={() => setIsEditInstructionModalOpen(false)} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold uppercase text-[11px] transition-colors">Cancelar</button>
+              <button onClick={handleSaveInstruction} disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase text-[11px] flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar Instrução
               </button>
             </div>
@@ -3692,7 +3692,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <FileText size={20} className="text-pink-500" />
                   Editar Roteiro
                 </h3>
-                <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-xs md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors resize-none overflow-hidden ${tc.textMuted}`} placeholder="Título da Tarefa" />
+                <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-[11px] md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors resize-none overflow-hidden ${tc.textMuted}`} placeholder="Título da Tarefa" />
               </div>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
@@ -3703,7 +3703,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
             <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
               <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`px-4 py-3 font-bold ${tc.textMuted} ${tc.bgHover} rounded-xl transition-colors`}>Cancelar</button>
-              <button onClick={handleSaveRoteiro} disabled={loading} className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-black uppercase text-xs flex items-center gap-2 disabled:opacity-50 transition-colors">
+              <button onClick={handleSaveRoteiro} disabled={loading} className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-black uppercase text-[11px] flex items-center gap-2 disabled:opacity-50 transition-colors">
                 {loading ? <Loader2 size={14} className="animate-spin" /> : null} Salvar
               </button>
             </div>
@@ -3757,7 +3757,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} border p-4 rounded-2xl`}>
-                <p className={`text-red-500 text-[10px] md:text-xs font-bold flex gap-2`}>
+                <p className={`text-red-500 text-[10px] md:text-[11px] font-bold flex gap-2`}>
                   <AlertCircle size={16} className="shrink-0" />
                   ATENÇÃO: Esta ação é irreversível. Todos os materiais, guias, links e históricos associados a este cliente serão apagados para sempre.
                 </p>
@@ -3792,7 +3792,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border p-4 rounded-2xl`}>
-                <p className={`${tc.textMuted} text-[10px] md:text-xs font-bold flex gap-2`}>
+                <p className={`${tc.textMuted} text-[10px] md:text-[11px] font-bold flex gap-2`}>
                   <CheckCircle2 size={16} className="shrink-0 opacity-50" />
                   As tarefas serão marcadas como "Concluídas" e desaparecerão das listas de pendências de toda a equipe e do portal do cliente.
                 </p>
@@ -3827,7 +3827,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-orange-900/20 border-orange-900/30' : 'bg-orange-50 border-orange-100'} border p-4 rounded-2xl`}>
-                <p className={`text-orange-500 text-[10px] md:text-xs font-bold flex flex-col gap-2`}>
+                <p className={`text-orange-500 text-[10px] md:text-[11px] font-bold flex flex-col gap-2`}>
                   <span className="flex items-center gap-2"><AlertCircle size={16} className="shrink-0" /> Faltam entregar:</span>
                   {incompleteApprovalData.missingVideo && <span className="ml-6">- Link do Vídeo / Post</span>}
                   {incompleteApprovalData.missingDesign && <span className="ml-6">- Link da Capa / Design</span>}
@@ -3970,7 +3970,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-blue-900/10 border-blue-900/20' : 'bg-blue-50 border-blue-100'} border p-4 rounded-2xl`}>
-                <p className="text-blue-600 text-[10px] md:text-xs font-bold flex gap-2 leading-relaxed">
+                <p className="text-blue-600 text-[10px] md:text-[11px] font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
                   O material continuará visível para você na lista de aprovação até o envio ser concluído.
                 </p>
@@ -4025,7 +4025,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
 
               <div className={`${theme === 'dark' ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50 border-purple-100'} border p-4 rounded-2xl`}>
-                <p className="text-purple-600 text-[10px] md:text-xs font-bold flex gap-2 leading-relaxed">
+                <p className="text-purple-600 text-[10px] md:text-[11px] font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
                   Deixe a data em branco para aprovar imediatamente.
                 </p>
@@ -4071,7 +4071,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-green-900/20 border-green-900/30' : 'bg-green-50 border-green-100'} border p-4 rounded-2xl`}>
-                <p className={`text-green-600 text-[10px] md:text-xs font-bold flex gap-2`}>
+                <p className={`text-green-600 text-[10px] md:text-[11px] font-bold flex gap-2`}>
                   <Send size={16} className="shrink-0" />
                   Isso irá notificar o cliente via WhatsApp e disponibilizar o material para aprovação final.
                 </p>
@@ -4096,7 +4096,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="flex justify-between items-center">
               <div>
                 <h3 className={`text-xl font-black uppercase ${tc.textMain}`}>Grupos do WhatsApp</h3>
-                <p className={`text-xs ${tc.textMuted} font-medium mt-1`}>Pesquise e selecione o grupo para vincular ao cliente.</p>
+                <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Pesquise e selecione o grupo para vincular ao cliente.</p>
               </div>
               <button onClick={() => setIsGruposModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full`}><X size={20} /></button>
             </div>
@@ -4265,14 +4265,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><MessageSquare size={24} className="text-[#A25431]" /> Linha do Tempo</h3>
-                <p className={`${tc.textMuted} text-xs font-bold uppercase tracking-widest mt-1`}>{timelineMaterial.titulo}</p>
+                <p className={`${tc.textMuted} text-[11px] font-bold uppercase tracking-widest mt-1`}>{timelineMaterial.titulo}</p>
               </div>
               <button onClick={() => setTimelineMaterial(null)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button>
             </div>
             
             <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
               {!timelineMaterial.feedback && !timelineMaterial.feedback_admin ? (
-                <div className="py-10 text-center opacity-40 font-bold uppercase text-xs">Nenhum comentário ou ajuste registrado.</div>
+                <div className="py-10 text-center opacity-40 font-bold uppercase text-[11px]">Nenhum comentário ou ajuste registrado.</div>
               ) : (
                 <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-300 dark:before:via-zinc-700 before:to-transparent">
                   {timelineMaterial.feedback_admin && (
@@ -4356,7 +4356,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
 
               <div className={`${theme === 'dark' ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50 border-purple-100'} border p-4 rounded-2xl`}>
-                <p className="text-purple-600 text-[10px] md:text-xs font-bold flex gap-2 leading-relaxed">
+                <p className="text-purple-600 text-[10px] md:text-[11px] font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
                   Deixe a data em branco para aprovar imediatamente.
                 </p>
