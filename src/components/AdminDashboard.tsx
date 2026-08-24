@@ -209,7 +209,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const renderTextWithLinks = (text: string) => {
     if (!text) return null;
-    const cleanText = getCleanText(text);
+    let cleanText = getCleanText(text);
+    
+    // Format pseudo tags for Admin view
+    cleanText = cleanText.replace(/\[EDITOR\]/g, '🎬 **[PARA O EDITOR]**');
+    cleanText = cleanText.replace(/\[\/EDITOR\]/g, '');
+    cleanText = cleanText.replace(/\[DESIGNER\]/g, '🎨 **[PARA O DESIGNER]**');
+    cleanText = cleanText.replace(/\[\/DESIGNER\]/g, '');
+
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = cleanText.split(urlRegex);
     return parts.map((part, i) => {
@@ -220,6 +227,22 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </a>
         );
       }
+      
+      // Basic markdown bold support for the headers we just added
+      const boldParts = part.split(/(\*\*.*?\*\*)/g);
+      if (boldParts.length > 1) {
+        return (
+          <span key={i}>
+            {boldParts.map((bp, j) => {
+              if (bp.startsWith('**') && bp.endsWith('**')) {
+                return <strong key={j}>{bp.replace(/\*\*/g, '')}</strong>;
+              }
+              return bp;
+            })}
+          </span>
+        );
+      }
+      
       return part;
     });
   };
@@ -277,7 +300,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const toggleFeedback = (id: string) => setExpandedFeedbacks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false)
   const [delegationType, setDelegationType] = useState<'editor' | 'planner'>('editor')
-  const [adminFeedback, setAdminFeedback] = useState('')
+  const [adminFeedbackPlanner, setAdminFeedbackPlanner] = useState('')
+  const [adminFeedbackEditor, setAdminFeedbackEditor] = useState('')
+  const [adminFeedbackDesigner, setAdminFeedbackDesigner] = useState('')
   const [delegationDeadline, setDelegationDeadline] = useState('')
   const [selectedPlannerId, setSelectedPlannerId] = useState('')
   const [selectedEditorId, setSelectedEditorId] = useState('')
@@ -1183,7 +1208,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const handleCancelarDelegacaoAjuste = async (m: Material) => {
     if (!confirm("Tem certeza que deseja cancelar a delegação e voltar para a fila de ajustes?")) return;
     const newTags = (m.tags || []).filter(t => t !== '_ajuste_delegado');
-    const { error } = await supabase.from('materiais').update({ editor_id: null, designer_id: null, tags: newTags }).eq('id', m.id);
+    const { error } = await supabase.from('materiais').update({ tags: newTags }).eq('id', m.id);
     if (!error) { toast.success("Delegação cancelada!"); loadData(); registrarLogAdmin(m.id, "❌ Delegação de ajuste cancelada"); }
   };
   const handleCancelarDelegacaoDecupagem = async (m: Material) => {
@@ -1205,13 +1230,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       updateData = {
         planner_id: selectedPlannerId,
         status: 'planejamento',
-        feedback_admin: currentUserId && adminFeedback ? `${adminFeedback}\n\n[ID:${currentUserId}]` : adminFeedback,
         data_limite: delegationDeadline || null
       };
     } else {
       updateData = {
         status: isAjusteDelegation ? 'ajustes' : 'em_edicao',
-        feedback_admin: currentUserId && adminFeedback ? `${adminFeedback}\n\n[ID:${currentUserId}]` : adminFeedback,
         data_limite: delegationDeadline || null
       };
       
@@ -1230,13 +1253,46 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       updateData.link_bruto = newLinkBruto;
     }
 
-    if (isAjusteDelegation) {
-      const firstMat = materiais.find(m => selectedItemsToDelegate.includes(m.id));
-      const tags = firstMat?.tags || [];
-      if (!tags.includes('_ajuste_delegado')) tags.push('_ajuste_delegado');
-      updateData.tags = tags;
+    const updates = selectedItemsToDelegate.map(mId => {
+      const mat = materiais.find(m => m.id === mId);
+      if (!mat) return null;
+
+      let individualUpdate: any = { ...updateData };
+      
+      let newFeedbackParts: string[] = [];
+      if (delegationType === 'planner' && adminFeedbackPlanner.trim() !== '') {
+        newFeedbackParts.push(currentUserId ? `${adminFeedbackPlanner}\n\n[ID:${currentUserId}]` : adminFeedbackPlanner);
+      } else if (delegationType === 'editor') {
+        if (selectedEditorId && adminFeedbackEditor.trim() !== '') {
+          newFeedbackParts.push(`[EDITOR]\n${adminFeedbackEditor}\n[/EDITOR]${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`);
+        }
+        if (selectedDesignerId && adminFeedbackDesigner.trim() !== '') {
+          newFeedbackParts.push(`[DESIGNER]\n${adminFeedbackDesigner}\n[/DESIGNER]${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`);
+        }
+      }
+
+      if (newFeedbackParts.length > 0) {
+        const combinedNewFeedback = newFeedbackParts.join('\n\n');
+        individualUpdate.feedback_admin = mat.feedback_admin ? `${mat.feedback_admin}\n\n---\n\n${combinedNewFeedback}` : combinedNewFeedback;
+      }
+
+      if (isAjusteDelegation) {
+        const tags = mat.tags || [];
+        if (!tags.includes('_ajuste_delegado')) tags.push('_ajuste_delegado');
+        individualUpdate.tags = tags;
+      }
+
+      return supabase.from('materiais').update(individualUpdate).eq('id', mId);
+    }).filter(Boolean);
+
+    let error = null;
+    try {
+      const results = await Promise.all(updates);
+      const failed = results.find(r => r?.error);
+      if (failed) error = failed.error;
+    } catch (e: any) {
+      error = e;
     }
-    const { error } = await supabase.from('materiais').update(updateData).in('id', selectedItemsToDelegate);
 
     if (!error && selectedCicloDelegation) {
       const orderUpdates = selectedCicloDelegation.itens.map((item: any, idx: number) =>
@@ -1269,29 +1325,32 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       const firstItem = materiais.find(m => selectedItemsToDelegate.includes(m.id));
       const clienteNome = firstItem?.cliente?.nome || 'CLIENTE NÃO IDENTIFICADO';
-      const instrucaoMsg = adminFeedback ? `\n\n*📝 INSTRUÇÃO:*\n${adminFeedback}` : '';
-
       const tituloOrQuantidade = selectedItemsToDelegate.length > 1 ? `🔢 ${selectedItemsToDelegate.length} MATERIAIS` : (firstItem?.titulo || 'DIVERSOS');
 
       if (delegationType === 'planner') {
+        const instrucaoMsgPlanner = adminFeedbackPlanner ? `\n\n*📝 INSTRUÇÃO:*\n${adminFeedbackPlanner}` : '';
         const mPlanner = membros.find(m => m.id === selectedPlannerId);
-        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsg}`;
+        const msgPlanner = `🔔 NOVA TAREFA: DECUPAGEM\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsgPlanner}`;
         await notificarClickUpChat(msgPlanner, (mPlanner as any)?.telegram_thread_id);
       } else {
         if (selectedEditorId) {
+          const instrucaoMsgEditor = adminFeedbackEditor ? `\n\n*📝 INSTRUÇÃO:*\n${adminFeedbackEditor}` : '';
           const mEditor = membros.find(m => m.id === selectedEditorId);
-          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsg}`;
+          const msgEditor = `🎬 NOVA TAREFA: EDIÇÃO\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsgEditor}`;
           await notificarClickUpChat(msgEditor, (mEditor as any)?.telegram_thread_id);
         }
         if (selectedDesignerId) {
+          const instrucaoMsgDesigner = adminFeedbackDesigner ? `\n\n*📝 INSTRUÇÃO:*\n${adminFeedbackDesigner}` : '';
           const mDesigner = membros.find(m => m.id === selectedDesignerId);
-          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsg}`;
+          const msgDesigner = `🎨 NOVA TAREFA: DESIGN\n\n*${clienteNome}*\n${tituloOrQuantidade}${instrucaoMsgDesigner}`;
           await notificarClickUpChat(msgDesigner, (mDesigner as any)?.telegram_thread_id);
         }
       }
 
       setIsDelegateModalOpen(false);
-      setAdminFeedback('');
+      setAdminFeedbackPlanner('');
+      setAdminFeedbackEditor('');
+      setAdminFeedbackDesigner('');
       setDelegationDeadline('');
       setSelectedPlannerId('');
       setSelectedEditorId('');
@@ -2344,7 +2403,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             <X size={14} /> Cancelar Agend.
                                           </button>
                                         ) : (
-                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">Devolver</button>
+                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">Devolver</button>
                                         )}
                                       </div>
                                     </div>
@@ -2499,13 +2558,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <>
                                           {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
                                           {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
-                                          {(m.editor_id || m.designer_id) ? (
+                                          {(m.tags || []).includes('_ajuste_delegado') ? (
                                             <div className="flex w-full sm:w-auto items-center gap-2">
                                               <span className={`flex-1 text-center px-4 py-2 ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} rounded-lg font-black text-[10px] uppercase`}>Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'Equipe'}</span>
                                               <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoAjuste(m); }} className="p-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition-colors" title="Cancelar Delegação"><X size={14}/></button>
                                             </div>
                                           ) : (
-                                            <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
+                                            <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
                                           )}
                                         </>
                                       )}
@@ -3538,7 +3597,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
               </div>
 
-              <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções..." value={adminFeedback} onChange={e => setAdminFeedback(e.target.value)} />
+              {delegationType === 'planner' ? (
+                <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções para o Decupador..." value={adminFeedbackPlanner} onChange={e => setAdminFeedbackPlanner(e.target.value)} />
+              ) : (
+                <div className="flex flex-col gap-3 w-full">
+                  {selectedEditorId && (
+                    <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções para o Editor..." value={adminFeedbackEditor} onChange={e => setAdminFeedbackEditor(e.target.value)} />
+                  )}
+                  {selectedDesignerId && (
+                    <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções para o Designer..." value={adminFeedbackDesigner} onChange={e => setAdminFeedbackDesigner(e.target.value)} />
+                  )}
+                </div>
+              )}
             </div>
             <button onClick={handleDelegarItems} disabled={loading || selectedItemsToDelegate.length === 0} className="w-full py-4 bg-[#A25431] hover:bg-[#8a4729] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

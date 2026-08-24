@@ -49,6 +49,39 @@ const getCleanText = (text: string | null | undefined) => {
   return text.replace(/\[ID:[^\]]+\]\s*/g, '');
 };
 
+const parseInstructionForRole = (text: string | null | undefined, role?: string) => {
+  if (!text) return "";
+  
+  if (!text.includes('[EDITOR]') && !text.includes('[DESIGNER]')) {
+    return text;
+  }
+
+  let result = "";
+  
+  if (role === 'editor' && text.includes('[EDITOR]')) {
+    const match = text.match(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/);
+    if (match) result += match[1].trim() + "\n\n";
+  }
+  
+  if (role === 'designer' && text.includes('[DESIGNER]')) {
+    const match = text.match(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/);
+    if (match) result += match[1].trim() + "\n\n";
+  }
+
+  let legacyText = text
+    .replace(/\[EDITOR\][\s\S]*?\[\/EDITOR\]/g, '')
+    .replace(/\[DESIGNER\][\s\S]*?\[\/DESIGNER\]/g, '')
+    .trim();
+    
+  legacyText = legacyText.replace(/^(---|\s)+|(-+)\s*$/g, '').trim();
+
+  if (legacyText) {
+    result += (result ? "---\n\n" : "") + legacyText;
+  }
+
+  return result.trim();
+};
+
 const renderTextWithLinks = (text: string) => {
   if (!text) return null;
   const cleanText = getCleanText(text);
@@ -328,9 +361,12 @@ export default function EditorDashboard() {
         const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
         const msgAdmin = `🔔 REVISÃO PENDENTE (ADMIN)\n\n👤: ${roleTag}\n${userProfile?.nome || 'Equipe'}\n\n📍 **${selectedMaterial.cliente?.nome}**\n🎬 ${selectedMaterial.titulo}`;
         await notificarClickUpChat(msgAdmin);
-      } else { toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando.");
+        registrarLog(selectedMaterial.id, `✅ ${roleTag} (${userProfile?.nome || 'Equipe'}) entregou a parte dele(a)`);
+      } else { 
+        toast.success("✅ A sua parte foi entregue! O Admin já pode ir verificando.");
         const roleTag = userProfile?.role === 'designer' ? 'DESIGNER' : 'EDITOR';
-        registrarLog(selectedMaterial.id, `✅ ${roleTag} (${userProfile?.nome || 'Equipe'}) entregou a parte dele(a)`); }
+        registrarLog(selectedMaterial.id, `✅ ${roleTag} (${userProfile?.nome || 'Equipe'}) entregou a parte dele(a)`); 
+      }
       setIsVersionModalOpen(false)
       loadData()
     }
@@ -669,7 +705,7 @@ export default function EditorDashboard() {
                                                   bgClass={theme === 'dark' ? 'bg-blue-950/40' : 'bg-blue-50'}
                                                   textClass={theme === 'dark' ? 'text-blue-100' : 'text-blue-900'}
                                                 >
-                                                  {renderTextWithLinks(m.feedback_admin)}
+                                                  {renderTextWithLinks(parseInstructionForRole(m.feedback_admin, userProfile?.role))}
                                                 </CollapsibleInstruction>
                                               )}
 
