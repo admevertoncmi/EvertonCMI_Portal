@@ -59,13 +59,17 @@ const parseInstructionForRole = (text: string | null | undefined, role?: string)
   let result = "";
   
   if (role === 'editor' && text.includes('[EDITOR]')) {
-    const match = text.match(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/);
-    if (match) result += match[1].trim() + "\n\n";
+    const matches = Array.from(text.matchAll(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/g));
+    if (matches.length > 0) {
+      result += matches.map(m => m[1].trim()).join("\n\n---\n\n") + "\n\n";
+    }
   }
   
   if (role === 'designer' && text.includes('[DESIGNER]')) {
-    const match = text.match(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/);
-    if (match) result += match[1].trim() + "\n\n";
+    const matches = Array.from(text.matchAll(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/g));
+    if (matches.length > 0) {
+      result += matches.map(m => m[1].trim()).join("\n\n---\n\n") + "\n\n";
+    }
   }
 
   let legacyText = text

@@ -508,7 +508,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [wppGroupId, setWppGroupId] = useState('');
   const [isEditInstructionModalOpen, setIsEditInstructionModalOpen] = useState(false);
   const [materialToEditInstruction, setMaterialToEditInstruction] = useState<Material | null>(null);
-  const [instructionEditText, setInstructionEditText] = useState('');
+  const [instructionEditorText, setInstructionEditorText] = useState('');
+  const [instructionDesignerText, setInstructionDesignerText] = useState('');
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [materialToSchedule, setMaterialToSchedule] = useState<Material | null>(null);
@@ -1501,7 +1502,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const handleSaveInstruction = async () => {
     if (!materialToEditInstruction) return;
     setLoading(true);
-    const instructionToSave = currentUserId && instructionEditText ? `${instructionEditText}\n\n[ID:${currentUserId}]` : instructionEditText;
+    let combined = '';
+    if (instructionEditorText.trim()) combined += `[EDITOR]\n${instructionEditorText.trim()}\n[/EDITOR]\n\n`;
+    if (instructionDesignerText.trim()) combined += `[DESIGNER]\n${instructionDesignerText.trim()}\n[/DESIGNER]\n\n`;
+    const instructionToSave = currentUserId && combined.trim() ? `${combined.trim()}\n\n[ID:${currentUserId}]` : combined.trim() || null;
     const { error } = await supabase.from('materiais').update({ feedback_admin: instructionToSave }).eq('id', materialToEditInstruction.id);
     if (!error) {
       toast.success("Instrução atualizada!");
@@ -2973,11 +2977,19 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 <CollapsibleInstruction
                                                   theme={theme}
                                                   textSecundario={textSecundario}
-                                                  isLong={m.feedback_admin.length > 200}
+                                                  isLong={m.feedback_admin.length > 200 || (m.feedback_admin.match(/\n/g) || []).length > 3}
                                                   onEdit={(e: any) => {
                                                      e.stopPropagation();
                                                      setMaterialToEditInstruction(m);
-                                                     setInstructionEditText(m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '');
+                                                     const text = m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '';
+                                                     const matchesEditor = Array.from(text.matchAll(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/g));
+                                                     const editorText = matchesEditor.map(m => m[1].trim()).join("\n\n---\n\n");
+                                                     const matchesDesigner = Array.from(text.matchAll(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/g));
+                                                     const designerText = matchesDesigner.map(m => m[1].trim()).join("\n\n---\n\n");
+                                                     let legacyText = text.replace(/\[EDITOR\][\s\S]*?\[\/EDITOR\]/g, '').replace(/\[DESIGNER\][\s\S]*?\[\/DESIGNER\]/g, '').trim();
+                                                     legacyText = legacyText.replace(/^(---|\s)+|(-+)\s*$/g, '').trim();
+                                                     setInstructionEditorText(legacyText ? (editorText ? legacyText + "\n\n---\n\n" + editorText : legacyText) : editorText);
+                                                     setInstructionDesignerText(designerText);
                                                      setIsEditInstructionModalOpen(true);
                                                   }}
                                                 >
@@ -3746,12 +3758,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <button onClick={() => setIsEditInstructionModalOpen(false)} className={`p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full`}><X size={18} /></button>
             </div>
             <p className="text-[11px] font-bold uppercase text-zinc-500 mb-4">{materialToEditInstruction.titulo}</p>
-            <textarea
-              className={`w-full h-64 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-blue-500 outline-none resize-none font-medium text-sm mb-4 whitespace-pre-wrap custom-scrollbar`}
-              value={instructionEditText}
-              onChange={e => setInstructionEditText(e.target.value)}
-              placeholder="Digite as instruções para a equipe aqui..."
-            />
+            <div className="flex flex-col gap-4 mb-4">
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase text-blue-500 mb-1 flex items-center gap-1.5"><PlayCircle size={12}/> Instrução para Editor</p>
+                <textarea
+                  className={`w-full h-40 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-blue-500 outline-none resize-none font-medium text-sm whitespace-pre-wrap custom-scrollbar`}
+                  value={instructionEditorText}
+                  onChange={e => setInstructionEditorText(e.target.value)}
+                  placeholder="Instruções específicas para o editor..."
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase text-pink-500 mb-1 flex items-center gap-1.5"><PenTool size={12}/> Instrução para Designer</p>
+                <textarea
+                  className={`w-full h-40 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-pink-500 outline-none resize-none font-medium text-sm whitespace-pre-wrap custom-scrollbar`}
+                  value={instructionDesignerText}
+                  onChange={e => setInstructionDesignerText(e.target.value)}
+                  placeholder="Instruções específicas para o designer..."
+                />
+              </div>
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setIsEditInstructionModalOpen(false)} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold uppercase text-[11px] transition-colors">Cancelar</button>
               <button onClick={handleSaveInstruction} disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase text-[11px] flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
