@@ -2,6 +2,8 @@ import { AdminDashboard } from '@/components/AdminDashboard'
 import type { Material, Cliente } from '@/types/assent'
 import { createServerClient } from '@/lib/supabase-server'
 
+export const dynamic = 'force-dynamic'
+
 export default async function Dashboard() {
 const supabase = await createServerClient()
 
