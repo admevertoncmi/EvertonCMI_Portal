@@ -88,12 +88,14 @@ const isGoogleDriveVideo = (url: string) => {
   return url.includes('drive.google.com') && (url.includes('/file/d/') || url.includes('id=') || url.includes('/view') || url.includes('/preview'));
 }
 
-const CollapsibleInstruction = ({ children, theme, textSecundario, isLong, onEdit }: any) => {
+const CollapsibleInstruction = ({ children, theme, textSecundario, isLong, onEdit, author }: any) => {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg flex flex-col group`}>
       <div className="flex justify-between items-center mb-1">
-        <span className="opacity-70 font-black uppercase">📝 Instruções</span>
+        <span className="opacity-70 font-black uppercase">
+          📝 Instruções {author && <span className="opacity-60 lowercase font-medium ml-1">por {author}</span>}
+        </span>
         {onEdit && (
            <button onClick={onEdit} className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400" title="Editar Instrução">
              <Edit3 size={12} />
@@ -999,7 +1001,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setLoading(true); const ids = itens.map(i => i.id);
     const { error } = await supabase.from('materiais').update({ 
       status: 'pendente', 
-      feedback_admin: null, 
       editor_id: null, 
       designer_id: null,
       agendado_para: dateString ? dateString : null,
@@ -1066,7 +1067,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const material = materiais.find(m => m.id === id);
     await supabase.from('materiais').update({
       status: 'pendente',
-      feedback_admin: null,
       editor_id: null,
       designer_id: null,
       wpp_enviado: true,
@@ -2978,6 +2978,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                   theme={theme}
                                                   textSecundario={textSecundario}
                                                   isLong={m.feedback_admin.length > 200 || (m.feedback_admin.match(/\n/g) || []).length > 3}
+                                                  author={getAuthorInfo(m.feedback_admin)?.nome}
                                                   onEdit={(e: any) => {
                                                      e.stopPropagation();
                                                      setMaterialToEditInstruction(m);
