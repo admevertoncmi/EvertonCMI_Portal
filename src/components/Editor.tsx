@@ -147,26 +147,34 @@ const EditorWrapper = (props: any) => {
             input.setAttribute('type', 'file');
             input.setAttribute('accept', 'image/*');
             input.setAttribute('multiple', 'true'); // Allows selecting multiple images
+            input.style.display = 'none';
+            document.body.appendChild(input);
             input.click();
 
             input.onchange = async () => {
               if (input.files && input.files.length > 0) {
+                const files = Array.from(input.files);
+                document.body.removeChild(input);
                 const quill = quillRef.current?.getEditor();
                 if (!quill) return;
                 const range = quill.getSelection(true);
                 let offset = range.index;
 
                 const supabase = createClient();
-                const files = Array.from(input.files);
                 
                 toast.promise(
                   Promise.all(files.map(async (file) => {
                     const ext = file.name.split('.').pop() || 'jpg';
                     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+                    const fileBuffer = await file.arrayBuffer();
                     
                     const { data, error } = await supabase.storage
                       .from('roteiros-midia')
-                      .upload(fileName, file, { cacheControl: '3600', upsert: false });
+                      .upload(fileName, fileBuffer, { 
+                        cacheControl: '3600', 
+                        upsert: false,
+                        contentType: file.type
+                      });
                       
                     if (error) {
                       console.error("Erro upload:", error);
