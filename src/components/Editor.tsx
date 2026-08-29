@@ -189,7 +189,7 @@ const EditorWrapper = (props: any) => {
                       });
                       return 'Imagens adicionadas com sucesso!';
                     },
-                    error: 'Erro ao enviar imagens. O Bucket "roteiros-midia" existe e é público?'
+                    error: (err: any) => `Erro: ${err?.message || 'Falha ao enviar'}`
                   }
                 );
               }
