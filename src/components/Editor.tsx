@@ -67,7 +67,7 @@ const EditorWrapper = (props: any) => {
                     });
                     return 'Imagem colada e enviada com sucesso!';
                   },
-                  error: 'Erro ao fazer upload da imagem colada.'
+                  error: (err: any) => `Erro ao colar: ${err?.message || 'Erro desconhecido'}`
                 }
               );
             }
@@ -110,7 +110,7 @@ const EditorWrapper = (props: any) => {
                     });
                     return 'Imagens arrastadas e enviadas com sucesso!';
                   },
-                  error: 'Erro ao fazer upload da imagem arrastada.'
+                  error: (err: any) => `Erro ao arrastar: ${err?.message || 'Erro desconhecido'}`
                 }
               );
             }
