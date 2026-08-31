@@ -8,6 +8,9 @@ if (typeof window !== 'undefined') {
   (window as any).Quill = Quill;
   const MagicUrl = require('quill-magic-url').default;
   Quill.register('modules/magicUrl', MagicUrl);
+  
+  const ImageResize = require('quill-image-resize-module-react').default;
+  Quill.register('modules/imageResize', ImageResize);
 }
 
 const BlockEmbed = Quill.import('blots/block/embed') as any;
@@ -132,6 +135,10 @@ const EditorWrapper = (props: any) => {
   const modules = useMemo(() => {
     return {
       magicUrl: true, // Enables automatic link identification while typing
+      imageResize: {
+        parchment: Quill.import('parchment'),
+        modules: ['Resize', 'DisplaySize']
+      },
       toolbar: {
         container: [
           [{ 'header': [1, 2, 3, false] }],
