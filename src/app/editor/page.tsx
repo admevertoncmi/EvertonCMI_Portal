@@ -22,7 +22,7 @@ interface Cliente { id: string; nome: string; }
 interface Material {
   id: string; cliente_id: string; titulo: string;
   ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string;
-  data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean;
+  data_limite?: string; data_limite_editor?: string; data_limite_designer?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean;
   status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null;
   cliente?: { nome: string; };
 }
@@ -283,10 +283,11 @@ export default function EditorDashboard() {
     fimSemana.setDate(inicioSemana.getDate() + 6);
 
     if (dateFilter !== 'todas') {
-        if (!m.data_limite) return false;
+        const data_limite_real = userProfile?.role === 'designer' ? (m.data_limite_designer || m.data_limite) : (m.data_limite_editor || m.data_limite);
+        if (!data_limite_real) return false;
         
         // Parse the YYYY-MM-DD safely into local time midnight
-        const [year, month, day] = m.data_limite.split('-');
+        const [year, month, day] = data_limite_real.split('-');
         const d = new Date(Number(year), Number(month) - 1, Number(day));
         d.setHours(0,0,0,0);
         
@@ -305,7 +306,7 @@ export default function EditorDashboard() {
     if (souEditor && !m.video_entregue) return true;
     if (souDesigner && !m.design_entregue) return true;
     return false;
-  }), [materiais, userId, dateFilter]);
+  }), [materiais, userId, dateFilter, userProfile]);
 
   const ajustesAgrupadosPorCliente = useMemo(() => {
     const grupos: Record<string, { clienteNome: string, tarefasMae: Record<string, { itens: Material[], videosOk: number, capasOk: number }> }> = {};
@@ -648,9 +649,9 @@ export default function EditorDashboard() {
                                                 {m.status === 'ajustes' && <span className={`text-orange-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-orange-900/30 border-orange-900/50' : 'bg-orange-100 border-blue-200'} px-3 py-1 rounded-full border`}>Ajuste Solicitado</span>}
                                                 {isReported && <span className={`text-red-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-red-900/30 border-red-900/50' : 'bg-red-100 border-red-200'} px-3 py-1 rounded-full border flex items-center gap-1`}><AlertCircle size={10} /> Em Análise (Admin)</span>}
 
-                                                {m.data_limite && (
-                                                  <span className={`text-zinc-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-100 border-zinc-200'} px-3 py-1 rounded-full border flex items-center gap-1.5`}>
-                                                    <Calendar size={12} /> Prazo: {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                                {(userProfile?.role === 'designer' ? (m.data_limite_designer || m.data_limite) : (m.data_limite_editor || m.data_limite)) && (
+                                                  <span className={`px-2 py-1 rounded text-[10px] font-black uppercase flex items-center gap-1 mt-1 sm:mt-0 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'}`}>
+                                                    <Calendar size={12} /> Prazo: {new Date((userProfile?.role === 'designer' ? (m.data_limite_designer || m.data_limite) : (m.data_limite_editor || m.data_limite)) + 'T12:00:00').toLocaleDateString('pt-BR')}
                                                   </span>
                                                 )}
                                               </div>

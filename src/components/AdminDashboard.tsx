@@ -36,7 +36,7 @@ import {
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
-export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; ordem?: number; }
+export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; data_limite_editor?: string; data_limite_designer?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; ordem?: number; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
 interface Props { materials: Material[]; initialClientes?: Cliente[] }
 
@@ -305,7 +305,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [adminFeedbackPlanner, setAdminFeedbackPlanner] = useState('')
   const [adminFeedbackEditor, setAdminFeedbackEditor] = useState('')
   const [adminFeedbackDesigner, setAdminFeedbackDesigner] = useState('')
-  const [delegationDeadline, setDelegationDeadline] = useState('')
+  const [delegationDeadline, setDelegationDeadline] = useState('') // Para Planner
+  const [delegationDeadlineEditor, setDelegationDeadlineEditor] = useState('')
+  const [delegationDeadlineDesigner, setDelegationDeadlineDesigner] = useState('')
   const [selectedPlannerId, setSelectedPlannerId] = useState('')
   const [selectedEditorId, setSelectedEditorId] = useState('')
   const [selectedDesignerId, setSelectedDesignerId] = useState('')
@@ -1235,18 +1237,19 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       };
     } else {
       updateData = {
-        status: isAjusteDelegation ? 'ajustes' : 'em_edicao',
-        data_limite: delegationDeadline || null
+        status: isAjusteDelegation ? 'ajustes' : 'em_edicao'
       };
       
       if (selectedEditorId) {
         updateData.editor_id = selectedEditorId;
         updateData.video_entregue = false;
+        if (delegationDeadlineEditor) updateData.data_limite_editor = delegationDeadlineEditor;
       }
       
       if (selectedDesignerId) {
         updateData.designer_id = selectedDesignerId;
         updateData.design_entregue = false;
+        if (delegationDeadlineDesigner) updateData.data_limite_designer = delegationDeadlineDesigner;
       }
     }
 
@@ -1945,7 +1948,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div key={`rot-ciclo-${cicloLabel}`} className="space-y-3">
                                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} pb-3`}>
                                   <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-[11px] text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
+                                  <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setDelegationDeadline(''); setDelegationDeadlineEditor(''); setDelegationDeadlineDesigner(''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                                 </div>
                                 <Droppable droppableId={`aprovado___${clienteId}___${cicloLabel}`}>
                                   {(provided) => (
@@ -2186,7 +2189,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <div key={`prod-ciclo-${cicloLabel}`} className="space-y-3">
                                 <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} pb-3`}>
                                   <div className="flex items-center gap-2"><Calendar size={14} className="text-indigo-500" /><h4 className="font-black text-[11px] text-indigo-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setDelegationType('editor'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
+                                  <button onClick={(e) => { e.stopPropagation(); setDelegationType('editor'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setDelegationDeadline(''); setDelegationDeadlineEditor(''); setDelegationDeadlineDesigner(''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
                                 </div>
                                 <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} md:ml-1`}>
                                   {data.itens.map((m: Material) => (
@@ -2407,7 +2410,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                             <X size={14} /> Cancelar Agend.
                                           </button>
                                         ) : (
-                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">Devolver</button>
+                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">Devolver</button>
                                         )}
                                       </div>
                                     </div>
@@ -2568,7 +2571,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoAjuste(m); }} className="p-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition-colors" title="Cancelar Delegação"><X size={14}/></button>
                                             </div>
                                           ) : (
-                                            <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
+                                            <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
                                           )}
                                         </>
                                       )}
@@ -3592,23 +3595,66 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega</label>
-                <div className="relative group w-full" onClick={(e) => {
-                  const input = e.currentTarget.querySelector('input');
-                  if (input && 'showPicker' in input) {
-                    try { (input as any).showPicker(); } catch (e) { }
-                  }
-                }}>
-                  <input
-                    type="date"
-                    className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
-                    value={delegationDeadline}
-                    onChange={e => setDelegationDeadline(e.target.value)}
-                  />
-                  <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+              {delegationType === 'planner' ? (
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega (Decupador)</label>
+                  <div className="relative group w-full" onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input');
+                    if (input && 'showPicker' in input) {
+                      try { (input as any).showPicker(); } catch (e) { }
+                    }
+                  }}>
+                    <input
+                      type="date"
+                      className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                      value={delegationDeadline}
+                      onChange={e => setDelegationDeadline(e.target.value)}
+                    />
+                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                  {selectedEditorId && (
+                    <div className="space-y-1">
+                      <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Prazo do Editor</label>
+                      <div className="relative group w-full" onClick={(e) => {
+                        const input = e.currentTarget.querySelector('input');
+                        if (input && 'showPicker' in input) {
+                          try { (input as any).showPicker(); } catch (e) { }
+                        }
+                      }}>
+                        <input
+                          type="date"
+                          className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                          value={delegationDeadlineEditor}
+                          onChange={e => setDelegationDeadlineEditor(e.target.value)}
+                        />
+                        <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+                      </div>
+                    </div>
+                  )}
+                  {selectedDesignerId && (
+                    <div className="space-y-1">
+                      <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Prazo do Designer</label>
+                      <div className="relative group w-full" onClick={(e) => {
+                        const input = e.currentTarget.querySelector('input');
+                        if (input && 'showPicker' in input) {
+                          try { (input as any).showPicker(); } catch (e) { }
+                        }
+                      }}>
+                        <input
+                          type="date"
+                          className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                          value={delegationDeadlineDesigner}
+                          onChange={e => setDelegationDeadlineDesigner(e.target.value)}
+                        />
+                        <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {delegationType === 'planner' ? (
                 <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm min-h-[80px] transition-colors resize-none`} placeholder="Instruções para o Decupador..." value={adminFeedbackPlanner} onChange={e => setAdminFeedbackPlanner(e.target.value)} />
