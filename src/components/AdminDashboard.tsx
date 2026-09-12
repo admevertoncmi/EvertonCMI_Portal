@@ -2397,6 +2397,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                               {/* NEW DELEGATION HISTORY BUTTON */}
                                               <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
               <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
+              <button onClick={() => {
+                setRoteiroToEdit(m);
+                let txt = m.roteiro || '';
+                txt = txt.replace(/<br\s*\/?>/gi, '\n');
+                setNovoTituloText(m.titulo);
+                setNewRoteiroText(txt);
+                setIsEditRoteiroModalOpen(true);
+              }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Editar Roteiro"><Edit3 size={14} /> Editar</button>
 
                                         {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
                                         {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
@@ -2565,6 +2573,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <>
                                           {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
                                           {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
+                                          <button onClick={() => {
+                                            setRoteiroToEdit(m);
+                                            let txt = m.roteiro || '';
+                                            txt = txt.replace(/<br\s*\/?>/gi, '\n');
+                                            setNovoTituloText(m.titulo);
+                                            setNewRoteiroText(txt);
+                                            setIsEditRoteiroModalOpen(true);
+                                          }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`} title="Editar Roteiro"><Edit3 size={14} /> Editar</button>
                                           {(m.tags || []).includes('_ajuste_delegado') ? (
                                             <div className="flex w-full sm:w-auto items-center gap-2">
                                               <span className={`flex-1 text-center px-4 py-2 ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} rounded-lg font-black text-[10px] uppercase`}>Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'Equipe'}</span>
@@ -4450,6 +4466,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     if (!comentario.trim()) return null;
                     const isClient = !comentario.includes('[ID:');
                     const authorInfo = getAuthorInfo(comentario);
+                    let displayComentario = comentario;
+                    let timestampMatch = displayComentario.match(/\[DATE:(.*?)\]/);
+                    let timestamp = timestampMatch ? timestampMatch[1] : null;
+                    if (timestampMatch) displayComentario = displayComentario.replace(timestampMatch[0], '').trim();
                     const authorName = isClient ? (timelineMaterial.cliente?.nome || 'Cliente') : (authorInfo ? authorInfo.nome : 'Membro da Equipe');
                     const authorRole = isClient ? 'Ajuste / Feedback' : (authorInfo ? authorInfo.role : 'Ajuste Interno');
                     return (
@@ -4460,8 +4480,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className={`font-black text-[10px] uppercase ${isClient ? 'text-[#A25431]' : 'text-zinc-500'}`}>{authorRole}: {authorName}</span>
+                            {timestamp && <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{timestamp}</span>}
                           </div>
-                          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap break-words`}>{renderTextWithLinks(comentario)}</p>
+                          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap break-words`}>{renderTextWithLinks(displayComentario)}</p>
                         </div>
                       </div>
                     );

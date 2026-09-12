@@ -381,10 +381,14 @@ export default function EditorDashboard() {
   const handleReportIssue = async () => {
     if (!selectedMaterial || !issueText) return toast.error("Por favor, descreva o problema!");
     setIsSubmitting(true);
-    const feedbackComAutor = `[ID:${userId}] ${issueText}`;
+    const sanitizedIssue = issueText.replace(/\n\n/g, '\n \n');
+    const historicoAtual = selectedMaterial.feedback ? `\n\n${selectedMaterial.feedback}` : '';
+    const now = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    const feedbackComAutor = `[ID:${userId}] [DATE:${now}] ${sanitizedIssue}${historicoAtual}`;
+    
     const { error } = await supabase.from('materiais').update({ status: issueType, feedback: feedbackComAutor }).eq('id', selectedMaterial.id);
     if (!error) {
-      registrarLog(selectedMaterial.id, `❌ Devolvido por ${userProfile?.role === 'designer' ? 'Designer' : 'Editor'} (${userProfile?.nome || 'Equipe'}): ${issueText}`);
+      registrarLog(selectedMaterial.id, `❌ Devolvido por ${userProfile?.role === 'designer' ? 'Designer' : 'Editor'} (${userProfile?.nome || 'Equipe'}): ${sanitizedIssue}`);
     }
     if (!error) {
       toast.success("Problema reportado ao Admin!");

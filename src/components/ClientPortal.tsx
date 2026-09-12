@@ -471,7 +471,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     }
 
     const historicoAtual = selectedMaterial.feedback ? `\n\n${selectedMaterial.feedback}` : '';
-    const textoFinal = `${textoBase}${historicoAtual}`;
+    const sanitizedTextoBase = textoBase.replace(/\n\n/g, '\n \n');
+    const now = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    const textoFinal = `[DATE:${now}] ${sanitizedTextoBase}${historicoAtual}`;
 
     const updatedMaterial = {
       ...selectedMaterial,
@@ -929,8 +931,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                           return (
                             <div>
                               <div className="bg-white border border-orange-200 p-4 rounded-[16px] shadow-sm">
-                                <span className="text-[9px] font-black tracking-widest text-orange-400 uppercase block mb-1">Ajuste Pendente</span>
-                                <p className="text-zinc-800 font-medium text-sm leading-relaxed whitespace-normal break-words">{renderTextWithLinks(currentFeedback)}</p>
+                                <span className="text-[9px] font-black tracking-widest text-orange-400 uppercase block mb-1">
+                                  Ajuste Pendente
+                                  {(() => {
+                                    let match = currentFeedback?.match(/\[DATE:(.*?)\]/);
+                                    return match ? ` - ${match[1]}` : '';
+                                  })()}
+                                </span>
+                                <p className="text-zinc-800 font-medium text-sm leading-relaxed whitespace-normal break-words">{renderTextWithLinks(currentFeedback?.replace(/\[DATE:(.*?)\]/, '')?.trim() || '')}</p>
                               </div>
 
                               {historicalFeedbacks.length > 0 && (
@@ -942,11 +950,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                                   {isHistoryExpanded && (
                                     <div className="mt-3 space-y-2 animate-in fade-in duration-300 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                                      {historicalFeedbacks.map((fbd: string, idx: number) => (
-                                        <div key={idx} className="bg-orange-50/50 border border-orange-100 p-3 rounded-[12px]">
-                                          <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-normal opacity-80">{renderTextWithLinks(fbd)}</p>
-                                        </div>
-                                      ))}
+                                      {historicalFeedbacks.map((fbd: string, idx: number) => {
+                                        let match = fbd.match(/\[DATE:(.*?)\]/);
+                                        let timestamp = match ? match[1] : null;
+                                        let text = fbd.replace(/\[DATE:(.*?)\]/, '').trim();
+                                        return (
+                                          <div key={idx} className="bg-orange-50/50 border border-orange-100 p-3 rounded-[12px]">
+                                            {timestamp && <span className="text-[9px] font-black tracking-widest text-orange-400/80 uppercase block mb-1">{timestamp}</span>}
+                                            <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-normal opacity-80">{renderTextWithLinks(text)}</p>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
