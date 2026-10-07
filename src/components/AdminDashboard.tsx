@@ -1965,20 +1965,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 <div className="flex items-center gap-1 group/title">
                                                   <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className="relative inline-block opacity-0 group-hover/title:opacity-100">
+<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
     <Tag size={12} />
   </button>
   {tagDropdownOpen === m.id && (
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+        {AVAILABLE_TAGS.map(tag => (
+          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
+            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+            <span className={tc.textMain}>{tag}</span>
+          </label>
+        ))}
+      </div>
+    </>
   )}
 </div>
 </div>
@@ -2099,20 +2102,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className="relative inline-block opacity-0 group-hover/title:opacity-100">
+<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
     <Tag size={12} />
   </button>
   {tagDropdownOpen === m.id && (
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+        {AVAILABLE_TAGS.map(tag => (
+          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
+            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+            <span className={tc.textMain}>{tag}</span>
+          </label>
+        ))}
+      </div>
+    </>
   )}
 </div>
 </div>
@@ -2202,20 +2208,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <div className="flex items-center gap-1 group/title">
                                           <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className="relative inline-block opacity-0 group-hover/title:opacity-100">
+<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
     <Tag size={12} />
   </button>
   {tagDropdownOpen === m.id && (
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+        {AVAILABLE_TAGS.map(tag => (
+          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
+            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+            <span className={tc.textMain}>{tag}</span>
+          </label>
+        ))}
+      </div>
+    </>
   )}
 </div>
 </div>
@@ -2340,20 +2349,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                           <div className="flex items-center gap-1 group/title">
                                             <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className="relative inline-block opacity-0 group-hover/title:opacity-100">
+<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
     <Tag size={12} />
   </button>
   {tagDropdownOpen === m.id && (
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+        {AVAILABLE_TAGS.map(tag => (
+          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
+            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+            <span className={tc.textMain}>{tag}</span>
+          </label>
+        ))}
+      </div>
+    </>
   )}
 </div>
 </div>
@@ -2467,20 +2479,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <div className="flex items-center gap-1 group/title min-w-0">
                                         <h5 className="font-bold text-sm">{m.titulo}</h5>
                                         <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className="relative inline-block opacity-0 group-hover/title:opacity-100">
+<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
     <Tag size={12} />
   </button>
   {tagDropdownOpen === m.id && (
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+        {AVAILABLE_TAGS.map(tag => (
+          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
+            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+            <span className={tc.textMain}>{tag}</span>
+          </label>
+        ))}
+      </div>
+    </>
   )}
 </div>
 </div>
@@ -2631,20 +2646,23 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <div className="flex items-center gap-1 group/title">
                                         <h5 className="font-bold text-sm">{m.titulo}</h5>
 <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className="relative inline-block opacity-0 group-hover/title:opacity-100">
+<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
   <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
     <Tag size={12} />
   </button>
   {tagDropdownOpen === m.id && (
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
+        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+        {AVAILABLE_TAGS.map(tag => (
+          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
+            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+            <span className={tc.textMain}>{tag}</span>
+          </label>
+        ))}
+      </div>
+    </>
   )}
 </div>
 </div>
