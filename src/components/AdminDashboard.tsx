@@ -1879,12 +1879,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
         <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag  </>
-)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
       ))}
 </div>
+  </>
   )}
 </div>
 </div>
@@ -2922,14 +2922,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
         <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag  </>
-)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
           <span className={tc.textMain}>{tag}</span>
         </label>
       ))}
     
       
     </div>
+  </>
   )}
 </div>
 </div>
