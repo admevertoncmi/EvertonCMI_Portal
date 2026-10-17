@@ -1,5 +1,5 @@
 "use client"
-import { linkifyHtml, formatRichText } from '@/lib/utils';
+import { linkifyHtml, formatRichText, normalizePortalToken } from '@/lib/utils';
 
 
 import { createClient } from '@/lib/supabase-browser'
@@ -180,7 +180,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const loadPortal = useCallback(async () => {
     if (!token || token === 'undefined') return
     try {
-      const { data: c, error: clientError } = await supabase.from('clientes').select('*').eq('token_magico', token).single()
+      const tokenUUID = normalizePortalToken(token);
+      let { data: c, error: clientError } = await supabase.from('clientes').select('*').eq('token_magico', tokenUUID).maybeSingle();
+      if (!c && tokenUUID !== token) {
+        const fallback = await supabase.from('clientes').select('*').eq('token_magico', token).maybeSingle();
+        c = fallback.data;
+        clientError = fallback.error;
+      }
       if (clientError || !c) { setLoading(false); return; }
       setCliente(c)
 

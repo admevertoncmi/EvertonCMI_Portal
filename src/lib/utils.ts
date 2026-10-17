@@ -149,3 +149,30 @@ export function formatRichText(html?: string | null, defaultText = "Vazio."): st
   return linkifyHtml(formatted);
 }
 
+/**
+ * Normaliza um token do portal.
+ * Se vier sem traços (32 chars hexadecimais), reconstrói o formato UUID padrão (com hífens)
+ * para consulta no Supabase.
+ * Se já estiver com hífens ou em outro formato, mantém intacto.
+ */
+export function normalizePortalToken(rawToken?: string | null): string {
+  if (!rawToken) return '';
+  const clean = rawToken.trim();
+  if (clean.length === 32 && !clean.includes('-')) {
+    return clean.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+  }
+  return clean;
+}
+
+/**
+ * Gera uma URL segura e limpa do portal para envio no WhatsApp e compartilhamento.
+ * Remove os hífens do UUID para evitar que o iOS interprete blocos numéricos como telefone discável.
+ */
+export function getSafePortalUrl(baseUrl: string, tokenMagico: string, tab?: 'videos' | 'roteiros'): string {
+  if (!baseUrl || !tokenMagico) return '';
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  // Remove hífens do UUID para desativar o NSDataDetector telefônico do iOS
+  const safeToken = tokenMagico.replace(/-/g, '').trim();
+  const queryString = tab ? `?tab=${tab}` : '';
+  return `${cleanBase}/portal/${safeToken}${queryString}`;
+}

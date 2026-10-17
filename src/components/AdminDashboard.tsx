@@ -1,5 +1,5 @@
 "use client"
-import { linkifyHtml, formatRichText } from '@/lib/utils';
+import { linkifyHtml, formatRichText, getSafePortalUrl } from '@/lib/utils';
 import { isDateLate, isTaskLate } from "@/lib/utils";
 
 
@@ -936,8 +936,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success("Enviado para aprovação do cliente!");
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}?tab=roteiros`;
-        const textoMensagem = `Olá! O roteiro do material "${material.titulo}" já está disponível para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui: ${linkPortal}`;
+        const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'roteiros');
+        const textoMensagem = `Olá! O roteiro do material "${material.titulo}" já está disponível para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui:\n${linkPortal}`;
 
         const groupId = material.cliente.whatsapp_group_id;
         if (groupId) {
@@ -959,8 +959,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success("Roteiro devolvido para o cliente!");
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}?tab=roteiros`;
-        const textoMensagem = `Olá! O roteiro do material "${material.titulo}" foi revisado e ajustado conforme as suas pontuações. 📝✨\n\nPor favor, acesse o portal para reanalisar: ${linkPortal}`;
+        const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'roteiros');
+        const textoMensagem = `Olá! O roteiro do material "${material.titulo}" foi revisado e ajustado conforme as suas pontuações. 📝✨\n\nPor favor, acesse o portal para reanalisar:\n${linkPortal}`;
 
         const groupId = material.cliente.whatsapp_group_id;
         if (groupId) {
@@ -983,8 +983,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       toast.success(`${ids.length} roteiros enviados para aprovação do cliente!`);
       const primeiroItem = itens[0];
       if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
-        const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}?tab=roteiros`;
-        const textoMensagem = `Olá! Novos roteiros foram disponibilizados para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui: ${linkPortal}`;
+        const linkPortal = getSafePortalUrl(window.location.origin, primeiroItem.cliente.token_magico, 'roteiros');
+        const textoMensagem = `Olá! Novos roteiros foram disponibilizados para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui:\n${linkPortal}`;
 
         const groupId = primeiroItem.cliente.whatsapp_group_id;
         if (groupId) {
@@ -1015,8 +1015,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         toast.success(`${ids.length} materiais aprovados para o cliente!`);
         const primeiroItem = itens[0];
         if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
-          const linkPortal = `${window.location.origin}/portal/${primeiroItem.cliente.token_magico}?tab=roteiros`;
-          const textoMensagem = `Olá! Novas edições/designs foram concluídos e estão disponíveis para a sua avaliação. 🎉\n\nAcesse o seu portal aqui: ${linkPortal}`;
+          const linkPortal = getSafePortalUrl(window.location.origin, primeiroItem.cliente.token_magico, 'roteiros');
+          const textoMensagem = `Olá! Novas edições/designs foram concluídos e estão disponíveis para a sua avaliação. 🎉\n\nAcesse o seu portal aqui:\n${linkPortal}`;
   
           const groupId = primeiroItem.cliente.whatsapp_group_id;
           if (groupId) {
@@ -1034,8 +1034,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const handleAvisarCicloWhatsApp = async (cliente?: Cliente, cicloLabel?: string) => {
     if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
-    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}?tab=videos`;
-    const textoMensagem = `Olá! Temos atualizações nos seus materiais do ${cicloLabel}. 🚀\n\nAcesse seu portal para verificar: ${linkPortal}`;
+    const linkPortal = getSafePortalUrl(window.location.origin, cliente.token_magico, 'videos');
+    const textoMensagem = `Olá! Temos atualizações nos seus materiais do ${cicloLabel}. 🚀\n\nAcesse seu portal para verificar:\n${linkPortal}`;
 
     toast.info("Avisando cliente no WhatsApp...");
     const chatId = cliente.whatsapp_group_id ? cliente.whatsapp_group_id : cliente.telefone.replace(/\D/g, '');
@@ -1050,8 +1050,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const handleAvisarPortalWhatsApp = async (cliente: Cliente) => {
     if (!cliente?.telefone || !cliente?.token_magico) return toast.error("Faltam dados de contacto deste cliente.");
-    const linkPortal = `${window.location.origin}/portal/${cliente.token_magico}?tab=videos`;
-    const textoMensagem = `Olá! O seu portal de acompanhamento já está disponível. 🚀\n\nAcesse aqui para ver os materiais: ${linkPortal}`;
+    const linkPortal = getSafePortalUrl(window.location.origin, cliente.token_magico, 'videos');
+    const textoMensagem = `Olá! O seu portal de acompanhamento já está disponível. 🚀\n\nAcesse aqui para ver os materiais:\n${linkPortal}`;
 
     toast.info("Avisando cliente no WhatsApp...");
     const chatId = cliente.whatsapp_group_id ? cliente.whatsapp_group_id : cliente.telefone.replace(/\D/g, '');
@@ -1076,8 +1076,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }).eq('id', id)
     toast.success("Aprovado! A abrir o WhatsApp do cliente...");
     if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-      const linkPortal = `${window.location.origin}/portal/${material.cliente.token_magico}?tab=videos`;
-      const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui: ${linkPortal}`;
+      const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'videos');
+      const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui:\n${linkPortal}`;
 
       const groupId = material.cliente.whatsapp_group_id;
       if (groupId) {
@@ -3165,7 +3165,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all justify-end">
                       <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
                       <button onClick={() => handleAvisarPortalWhatsApp(c)} className={`p-3 ${theme === 'dark' ? 'bg-green-900/30 hover:bg-green-900/50 text-green-400' : 'bg-green-50 hover:bg-green-600 hover:text-white text-green-600'} rounded-xl transition-colors`} title="Avisar no WhatsApp Automático"><Send size={18} /></button>
-                      <button onClick={() => copyToClipboard(`${window.location.origin}/portal/${c.token_magico}`)} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
+                      <button onClick={() => copyToClipboard(getSafePortalUrl(window.location.origin, c.token_magico))} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
                       <button onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'bg-red-900/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-600 hover:text-white text-red-500'} rounded-xl transition-colors`} title="Excluir Cliente"><Trash2 size={18} /></button>
                     </div>
                   </div>

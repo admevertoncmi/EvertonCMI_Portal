@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { notificarWhatsApp } from '@/actions/whatsapp';
+import { getSafePortalUrl } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,12 +35,12 @@ export async function GET(request: Request) {
 
     for (const material of pendentes) {
       if (material.cliente?.telefone && material.cliente?.token_magico) {
-        // Formatar Link do Portal
+        // Formatar Link Seguro do Portal (sem hífens para evitar falso-positivo de telefone no iOS)
         const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-        const linkPortal = `${baseUrl}/portal/${material.cliente.token_magico}?tab=videos`;
+        const linkPortal = getSafePortalUrl(baseUrl, material.cliente.token_magico, 'videos');
         
-        // Formatar Mensagem
-        const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui: ${linkPortal}`;
+        // Formatar Mensagem (com o link isolado em nova linha para ativar link preview)
+        const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui:\n${linkPortal}`;
         
         // Decidir Destino (Grupo ou Privado)
         const chatId = material.cliente.whatsapp_group_id || material.cliente.telefone.replace(/\D/g, '');
