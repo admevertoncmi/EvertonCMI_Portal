@@ -87,7 +87,7 @@ export function StorageWidget({ materiais, theme }: { materiais: any[], theme: '
   const usedMB = usedBytes !== null ? (usedBytes / (1024 * 1024)).toFixed(1) : '0.0';
 
   return (
-    <div className={`mb-6 p-5 rounded-[20px] border shadow-sm flex flex-col md:flex-row items-center justify-between gap-5 transition-colors ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+    <div className={`mb-6 p-5 rounded-2xl border shadow-sm flex flex-col md:flex-row items-center justify-between gap-5 transition-colors ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
       
       <div className="flex items-center gap-4 flex-1 w-full">
         <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isNearLimit ? 'bg-red-100 text-red-600' : (theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500')}`}>
@@ -96,14 +96,14 @@ export function StorageWidget({ materiais, theme }: { materiais: any[], theme: '
         <div className="flex-1 w-full">
           <div className="flex justify-between items-end mb-2">
             <div>
-              <h3 className={`font-black uppercase tracking-tight text-sm ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>Uso do Storage (Imagens)</h3>
-              <p className={`text-[10px] uppercase tracking-widest font-bold ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>Limite Gratuito: 1 GB</p>
+              <h3 className={`font-semibold   text-sm ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800'}`}>Uso do Storage (Imagens)</h3>
+              <p className={`text-[11px]   font-bold ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>Limite Gratuito: 1 GB</p>
             </div>
             <div className="text-right">
-              <span className={`font-black text-sm ${isNearLimit ? 'text-red-500' : (theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}`}>
+              <span className={`font-semibold text-sm ${isNearLimit ? 'text-red-500' : (theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600')}`}>
                 {loading ? <Loader2 size={14} className="inline animate-spin" /> : `${usedMB} MB`}
               </span>
-              <span className={`text-[10px] uppercase font-bold ml-1 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>/ 1000 MB</span>
+              <span className={`text-[11px]  font-bold ml-1 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>/ 1000 MB</span>
             </div>
           </div>
           <div className={`w-full h-2.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
@@ -118,7 +118,7 @@ export function StorageWidget({ materiais, theme }: { materiais: any[], theme: '
       <button 
         onClick={handleCleanArchived} 
         disabled={cleaning || loading}
-        className={`w-full md:w-auto px-5 py-3 rounded-xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 transition-all ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} border ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'} disabled:opacity-50`}
+        className={`w-full md:w-auto px-5 py-3 rounded-xl font-semibold  text-[12px]  flex items-center justify-center gap-2 transition-all ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'} border ${theme === 'dark' ? 'border-zinc-700' : 'border-zinc-200'} disabled:opacity-50`}
       >
         {cleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
         Liberar Espaço

@@ -6,6 +6,10 @@
 
 @layer base {
   :root {
+    /* Cores da marca Everton (canais RGB, alteráveis pela aba "Cores do tema") */
+    --brand-soft: 249 226 210; /* pêssego #F9E2D2 */
+    --brand: 162 84 49;        /* cobre   #A25431 */
+    --brand-ink: 33 32 19;     /* oliva   #212013 */
     --background: 210 40% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;

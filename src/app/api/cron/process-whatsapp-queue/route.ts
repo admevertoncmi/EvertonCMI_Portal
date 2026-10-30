@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { notificarWhatsApp } from '@/actions/whatsapp';
+import { enviarWhatsApp } from '@/lib/whatsapp';
 import { getSafePortalUrl } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   // Proteção Simples
   const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new Response('Não autorizado', { status: 401 });
   }
 
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         const chatId = material.cliente.whatsapp_group_id || material.cliente.telefone.replace(/\D/g, '');
         
         // Enviar via Green API
-        const envio = await notificarWhatsApp(textoMensagem, chatId);
+        const envio = await enviarWhatsApp(textoMensagem, chatId);
         
         if (envio?.success) {
           // Marcar como enviado com sucesso e mudar status para aparecer no portal

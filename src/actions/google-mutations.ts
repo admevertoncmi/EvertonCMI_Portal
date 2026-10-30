@@ -1,10 +1,13 @@
 "use server"
 
+import { requireEquipe } from '@/lib/auth-guard'
+
 /**
  * Procura arquivos dentro de uma pasta cujo nome comece com "Cópia de " ou "Copy of "
  * e os renomeia, removendo o prefixo.
  */
 export async function cleanCopyOfPrefix(folderId: string, accessToken: string) {
+  await requireEquipe()
   if (!accessToken) return { success: false, error: "Access token is required" };
   
   try {
@@ -92,6 +95,7 @@ export async function cleanCopyOfPrefix(folderId: string, accessToken: string) {
  * @returns Um mapa: { [nomeDaPasta]: linkBrutoDaPasta }
  */
 export async function createBatchFolders(parentFolderId: string, folderNames: string[], accessToken: string) {
+  await requireEquipe()
   if (!accessToken) return { success: false, error: "Access token is required" };
   
   try {

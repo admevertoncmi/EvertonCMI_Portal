@@ -1,4 +1,6 @@
 'use server'
+
+import { requireAdmin } from '@/lib/auth-guard'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseAdmin = createClient(
@@ -7,6 +9,7 @@ const supabaseAdmin = createClient(
 )
 
 export async function criarMembroEquipe(formData: FormData) {
+  await requireAdmin()
   const nome = formData.get("nome") as string
   const email = formData.get("email") as string
   const password = formData.get("password") as string
@@ -17,7 +20,9 @@ export async function criarMembroEquipe(formData: FormData) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { role, nome }
+    user_metadata: { role, nome },
+    // app_metadata só pode ser escrito com a service role: é dele que o trigger lê o role
+    app_metadata: { role }
   })
 
   if (error) throw error
@@ -40,6 +45,7 @@ export async function criarMembroEquipe(formData: FormData) {
 
 // 👇 NOVA FUNÇÃO PARA EDITAR UM MEMBRO EXISTENTE 👇
 export async function atualizarMembroEquipe(userId: string, formData: FormData) {
+  await requireAdmin()
   const nome = formData.get("nome") as string
   const role = formData.get("role") as string
   const telegram_thread_id = formData.get("telegram_thread_id") as string
@@ -68,6 +74,7 @@ export async function atualizarMembroEquipe(userId: string, formData: FormData) 
 }
 
 export async function atualizarRoleMembro(userId: string, newRole: string) {
+  await requireAdmin()
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
     user_metadata: { role: newRole }
   })
@@ -76,6 +83,7 @@ export async function atualizarRoleMembro(userId: string, newRole: string) {
 }
 
 export async function excluirMembro(userId: string) {
+  await requireAdmin()
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
   if (error) throw error
   return { success: true }

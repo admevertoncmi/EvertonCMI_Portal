@@ -38,9 +38,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // 2. Está logado? Verifica as permissões baseadas no Metadata.
-  if (user) {
-    const role = user.user_metadata?.role || 'editor'
+  // 2. Está logado? Verifica as permissões pelo perfil da equipe
+  //    (user_metadata é editável pelo próprio usuário, não serve para permissão).
+  if (user && (isAdminDashboard || isEditorRoute)) {
+    const { data: perfil } = await supabase.from('perfis_equipe').select('role').eq('id', user.id).maybeSingle()
+    if (!perfil) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    const role = perfil.role
     const isAdmin = role === 'admin'
     const isEditor = role === 'editor'
     const isDesigner = role === 'designer' // 🔥 O Segurança agora conhece o Designer!

@@ -173,7 +173,7 @@ export default function GoogleDrivePicker({ onSelect, type = 'all', label = "Sel
     <button
       type="button"
       onClick={handleOpenPicker}
-      className="flex items-center gap-2 px-4 py-2 bg-zinc-150 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-dashed border-zinc-300 dark:border-zinc-600"
+      className="flex items-center gap-2 px-4 py-2 bg-zinc-150 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl text-[11px] font-semibold transition-all border border-dashed border-zinc-300 dark:border-zinc-600"
     >
       {isLoaded ? <FolderPlus size={14} /> : <Loader2 size={14} className="animate-spin" />}
       {label}

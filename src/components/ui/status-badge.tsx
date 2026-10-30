@@ -23,7 +23,7 @@ function StatusBadge({ status, small = false }: StatusBadgeProps) {
 
   return (
     <span className={cn(
-      `inline-flex items-center font-semibold border rounded-full ${small ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs'}`, 
+      `inline-flex items-center font-semibold border rounded-full ${small ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1 text-xs'}`, 
       styles[status] || ''
     )}>
       <span className={cn(`w-1.5 h-1.5 rounded-full mr-1.5`, dotStyles[status] || '')} />

@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from 'next'
-import { Open_Sans } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import '@/app/globals.css'
 import 'react-quill-new/dist/quill.snow.css';
 
-// 1. Configuração da Fonte (Adicionamos os pesos para os textos em Negrito e Black funcionarem perfeitamente)
-const openSans = Open_Sans({ 
+// 1. Configuração da Fonte
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800']
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans',
 })
 
 // 2. Configurações Visuais (Viewport) - Resolve os avisos do Next.js
@@ -69,7 +70,7 @@ export default function RootLayout({
         />
       </head>
       {/* 👇 Removemos bg-zinc-50 fixo para evitar barras brancas no Safari mobile */}
-      <body suppressHydrationWarning className={`${openSans.className} min-h-[100dvh] antialiased`}>
+      <body suppressHydrationWarning className={`${inter.className} ${inter.variable} min-h-[100dvh] antialiased`}>
         {children}
         
         {/* Script para registrar o PWA (App instalável) */}

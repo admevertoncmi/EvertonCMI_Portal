@@ -20,10 +20,30 @@ export default {
     extend: {
       // 👇 AQUI ESTÁ A MÁGICA DA FONTE (Forçando o Tailwind a usar a variável do Next.js) 👇
       fontFamily: {
-        sans: ['var(--font-open-sans)', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Inter', 'sans-serif'],
       },
       // 👆 ========================================================================= 👆
       colors: {
+        // Cinzas quentes da identidade Everton (substituem o zinc frio em todo o sistema)
+        zinc: {
+          50: '#FAF8F6',
+          100: '#F4F0EC',
+          200: '#EEE9E4',
+          300: '#E0D9D2',
+          400: '#ADA69E',
+          500: '#8C857D',
+          600: '#6E675F',
+          700: '#4F4A43',
+          800: '#2E2B24',
+          900: '#1F1E17',
+          950: '#151410',
+        },
+        // Cores da marca, controladas por variáveis CSS para a aba "Cores do tema"
+        brand: {
+          soft: 'rgb(var(--brand-soft) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--brand) / <alpha-value>)',
+          ink: 'rgb(var(--brand-ink) / <alpha-value>)',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

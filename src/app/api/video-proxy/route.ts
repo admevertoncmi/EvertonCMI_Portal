@@ -8,7 +8,12 @@ export async function GET(request: NextRequest) {
     return new Response("Missing file id", { status: 400 });
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "AIzaSyBq2zXAsGA5lBh83hLYEHNaA8cRVioIFf8";
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.error("NEXT_PUBLIC_GOOGLE_API_KEY não configurada");
+    return new Response("Google API key not configured", { status: 500 });
+  }
+
   const googleUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
 
   const rangeHeader = request.headers.get("range");

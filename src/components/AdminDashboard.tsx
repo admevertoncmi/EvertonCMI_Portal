@@ -32,7 +32,7 @@ import {
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
   ListTodo, FileText, LayoutList, Archive, Edit3, Tag, AlertCircle, Menu, Loader2, Activity, Settings,
   FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical, List
-, Save, ChevronLeft } from 'lucide-react'
+, Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
@@ -91,9 +91,9 @@ const isGoogleDriveVideo = (url: string) => {
 const CollapsibleInstruction = ({ children, theme, textSecundario, isLong, onEdit, author }: any) => {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className={`${textSecundario} text-[10px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg flex flex-col group`}>
+    <div className={`${textSecundario} text-[11px] font-bold mt-3 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-900'} p-3 rounded-lg flex flex-col group`}>
       <div className="flex justify-between items-center mb-1">
-        <span className="opacity-70 font-black uppercase">
+        <span className="opacity-70 font-semibold ">
           📝 Instruções {author && <span className="opacity-60 lowercase font-medium ml-1">por {author}</span>}
         </span>
         {onEdit && (
@@ -102,11 +102,11 @@ const CollapsibleInstruction = ({ children, theme, textSecundario, isLong, onEdi
            </button>
         )}
       </div>
-      <div className={`whitespace-pre-wrap break-words text-[11px] ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
+      <div className={`whitespace-pre-wrap break-words text-[12px] ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
         {children}
       </div>
       {isLong && (
-        <button onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} className="mt-2 self-start text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors">
+        <button onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} className="mt-2 self-start text-[11px] font-semibold text-blue-500 hover:text-blue-700 transition-colors">
           {expanded ? 'Ver Menos' : 'Ver Mais'}
         </button>
       )}
@@ -133,6 +133,107 @@ const getRawVideoUrl = (url: string) => {
   if (driveId) return `/api/video-proxy?id=${driveId}`;
   return url;
 }
+
+type PlanSub = 'analise' | 'aprovados' | 'decupagem' | 'problemas' | 'decupado' | 'manual'
+const PLAN_SUBS: { id: PlanSub; label: string; dot: string }[] = [
+  { id: 'analise', label: 'Roteiros em análise', dot: 'bg-pink-500' },
+  { id: 'aprovados', label: 'Roteiros aprovados', dot: 'bg-orange-500' },
+  { id: 'decupagem', label: 'Em decupagem', dot: 'bg-blue-500' },
+  { id: 'problemas', label: 'Problemas', dot: 'bg-red-500' },
+  { id: 'decupado', label: 'Material decupado', dot: 'bg-purple-500' },
+  { id: 'manual', label: 'Criação manual', dot: 'bg-zinc-400' },
+]
+
+type RelSub = 'resumo' | 'equipe' | 'clientes' | 'atrasos'
+const REL_SUBS: { id: RelSub; label: string; icon: any }[] = [
+  { id: 'resumo', label: 'Resumo', icon: PieChart },
+  { id: 'equipe', label: 'Equipe', icon: Users },
+  { id: 'clientes', label: 'Clientes', icon: Building2 },
+  { id: 'atrasos', label: 'Tarefas atrasadas', icon: Flag },
+]
+
+// URL de prévia (miniatura) de um arquivo: Drive, YouTube ou imagem direta. Pastas do Drive não têm prévia.
+const getThumbUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (/\.(jpe?g|png|gif|webp|avif)(\?|$)/i.test(url)) return url;
+  const yt = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/.exec(url);
+  if (yt?.[1]) return `https://img.youtube.com/vi/${yt[1]}/mqdefault.jpg`;
+  if (url.includes('drive.google.com') && !url.includes('/folders/')) {
+    const id = /\/file\/d\/([a-zA-Z0-9_-]+)/.exec(url)?.[1] || /[?&]id=([a-zA-Z0-9_-]+)/.exec(url)?.[1];
+    if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w320`;
+  }
+  return null;
+}
+
+// Pastas do Drive (carrosséis): a miniatura é o primeiro arquivo da pasta. Cache para não repetir a consulta.
+const folderFirstFileCache = new Map<string, Promise<string | null>>();
+const getFolderFirstFile = (folderId: string) => {
+  if (!folderFirstFileCache.has(folderId)) {
+    folderFirstFileCache.set(folderId, getDriveFolderFiles(folderId).then(files => files[0] || null).catch(() => null));
+  }
+  return folderFirstFileCache.get(folderId)!;
+}
+
+// Imagem real da miniatura; se não carregar (arquivo privado etc.) some e fica o bloco colorido
+const ThumbImage = ({ url, label, small }: { url?: string | null; label: string; small?: boolean }) => {
+  const [failed, setFailed] = useState(false);
+  const folderId = url?.includes('drive.google.com') ? /\/folders\/([a-zA-Z0-9_-]+)/.exec(url)?.[1] : undefined;
+  const [folderFile, setFolderFile] = useState<string | null>(null);
+  useEffect(() => {
+    if (!folderId) return;
+    let alive = true;
+    getFolderFirstFile(folderId).then(f => { if (alive) setFolderFile(f); });
+    return () => { alive = false; };
+  }, [folderId]);
+  const src = getThumbUrl(folderId ? folderFile : url);
+  if (!src || failed) return null;
+  return (<>
+    <img src={src} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="absolute inset-0 w-full h-full object-cover" />
+    <span className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent text-center font-semibold ${small ? "pt-3 pb-0.5 text-[10px]" : "pt-4 pb-1 text-[11px]"}`}>{label}</span>
+  </>);
+}
+
+// Cores do tema: destaque (fundo suave), contraste (ícones/textos sobre o destaque) e botões principais
+type BrandColors = { soft: string; brand: string; ink: string }
+const DEFAULT_BRAND: BrandColors = { soft: '#F9E2D2', brand: '#A25431', ink: '#212013' }
+const THEME_PRESETS: { nome: string; cores: BrandColors }[] = [
+  { nome: 'Everton', cores: DEFAULT_BRAND },
+  { nome: 'Areia', cores: { soft: '#EFE6DA', brand: '#7A6A55', ink: '#2B2620' } },
+  { nome: 'Sálvia', cores: { soft: '#DDE8DF', brand: '#4C7A5A', ink: '#1E2B22' } },
+  { nome: 'Céu', cores: { soft: '#DCE8F5', brand: '#3B6EA8', ink: '#1B2633' } },
+  { nome: 'Rosé', cores: { soft: '#F6DDE4', brand: '#A84865', ink: '#2E1B22' } },
+  { nome: 'Grafite', cores: { soft: '#E8E8E8', brand: '#3A3A3A', ink: '#1A1A1A' } },
+]
+const THEME_STORAGE_KEY = 'everton-brand-colors'
+const hexToRgbChannels = (hex: string) => {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
+const applyBrandColors = (c: BrandColors) => {
+  const root = document.documentElement.style;
+  root.setProperty('--brand-soft', hexToRgbChannels(c.soft));
+  root.setProperty('--brand', hexToRgbChannels(c.brand));
+  root.setProperty('--brand-ink', hexToRgbChannels(c.ink));
+}
+
+// Botão só com ícone; o texto aparece como tooltip ao passar o mouse
+const IconAction = ({ icon: Icon, label, onClick, variant = 'line', disabled, loading }: { icon: any; label: string; onClick?: (e: any) => void; variant?: 'ink' | 'soft' | 'line' | 'done'; disabled?: boolean; loading?: boolean }) => {
+  const styles = {
+    ink: 'bg-brand-ink text-white hover:opacity-90',
+    soft: 'bg-brand-soft text-brand hover:brightness-95',
+    line: 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800',
+    done: 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/50 text-green-600 dark:text-green-400',
+  }[variant];
+  return (
+    <span className="relative group/tip inline-flex shrink-0">
+      <button type="button" aria-label={label} onClick={onClick} disabled={disabled || loading} className={`w-9 h-9 rounded-[10px] inline-flex items-center justify-center transition-all disabled:opacity-50 ${styles}`}>
+        {loading ? <Loader2 size={16} className="animate-spin" /> : <Icon size={17} />}
+      </button>
+      <span className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 z-50 whitespace-nowrap rounded-lg bg-brand-ink px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/tip:opacity-100">{label}</span>
+    </span>
+  );
+};
 
 export function AdminDashboard({ materials: initialMaterials, initialClientes = [] }: Props) {
   const router = useRouter()
@@ -189,6 +290,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('adminTheme', newTheme);
+  };
+
+  // Cores do tema (fase 1: salvas neste navegador)
+  const [brandColors, setBrandColors] = useState<BrandColors>(DEFAULT_BRAND);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved) { const c = JSON.parse(saved) as BrandColors; setBrandColors(c); applyBrandColors(c); }
+    } catch { /* mantém o padrão */ }
+  }, []);
+  const previewBrandColors = (c: BrandColors) => { setBrandColors(c); applyBrandColors(c); };
+  const saveBrandColors = () => {
+    try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(brandColors)); } catch { /* armazenamento indisponível */ }
+    toast.success('Cores do tema salvas neste navegador.');
   };
 
   const getCleanText = (text: string | null | undefined) => {
@@ -269,24 +384,35 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const hoverSecundario = tc.bgHover;
 
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
+  const [clienteBusca, setClienteBusca] = useState('');
   const [editingMembro, setEditingMembro] = useState<MembroComNome | null>(null);
-  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios'>('planejamento')
+  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios' | 'cores-tema'>('planejamento')
+  // Subpáginas de Planejamento e Relatórios (cada etapa/bloco abre na sua própria página)
+  const [planSub, setPlanSubState] = useState<PlanSub>('analise')
+  const [relSub, setRelSubState] = useState<RelSub>('resumo')
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
+      const sub = params.get('sub');
       if (tab) setActiveTabState(tab as any);
+      if (sub && tab === 'planejamento' && PLAN_SUBS.some(s => s.id === sub)) setPlanSubState(sub as PlanSub);
+      if (sub && tab === 'relatorios' && REL_SUBS.some(s => s.id === sub)) setRelSubState(sub as RelSub);
     }
   }, []);
 
-  const setActiveTab = (tab: any) => {
+  const setActiveTab = (tab: any, sub?: string) => {
     startTransition(() => {
       setActiveTabState(tab);
+      if (sub && tab === 'planejamento') setPlanSubState(sub as PlanSub);
+      if (sub && tab === 'relatorios') setRelSubState(sub as RelSub);
     });
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       params.set('tab', tab);
+      if (sub) params.set('sub', sub); else params.delete('sub');
       window.history.replaceState(null, '', `?${params.toString()}`);
     }
   };
@@ -297,6 +423,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedClients, setExpandedClients] = useState<string[]>([])
+  // Grupos de cliente do redesign começam abertos; aqui ficam os que o usuário recolheu
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([])
   const [expandedCiclos, setExpandedCiclos] = useState<string[]>([])
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<string[]>([]);
   const toggleFeedback = (id: string) => setExpandedFeedbacks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -519,10 +647,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [materialToSchedule, setMaterialToSchedule] = useState<Material | null>(null);
 
   const [systemTags, setSystemTags] = useState<{id: string, label: string, color: string}[]>([]);
-  const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
   const [timelineMaterial, setTimelineMaterial] = useState<Material | null>(null);
   const [newTagLabel, setNewTagLabel] = useState('');
   const [newTagColor, setNewTagColor] = useState('red');
+  const [tagFormOpen, setTagFormOpen] = useState(false);
 
   const TAG_COLORS = {
     red: { bg: 'bg-red-500/20', text: 'text-red-700 dark:text-red-400', border: 'border-red-500/30' },
@@ -588,10 +716,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const diff = d.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-    if (days < 0) return <span className="text-[8px] font-black text-red-500 uppercase flex items-center gap-1 animate-pulse"><Flame size={8} /> Atrasado há {Math.abs(days)}d</span>;
-    if (days === 0) return <span className="text-[8px] font-black text-orange-500 uppercase flex items-center gap-1"><Clock size={8} /> Entrega Hoje</span>;
-    if (days <= 2) return <span className="text-[8px] font-black text-amber-500 uppercase flex items-center gap-1"><Clock size={8} /> Entrega em {days}d</span>;
-    return <span className="text-[8px] font-black text-zinc-400 uppercase flex items-center gap-1"><Calendar size={8} /> {days}d restantes</span>;
+    if (days < 0) return <span className="text-[10px] font-semibold text-red-500 flex items-center gap-1 "><Flame size={8} /> Atrasado há {Math.abs(days)}d</span>;
+    if (days === 0) return <span className="text-[10px] font-semibold text-orange-500 flex items-center gap-1"><Clock size={8} /> Entrega Hoje</span>;
+    if (days <= 2) return <span className="text-[10px] font-semibold text-amber-500 flex items-center gap-1"><Clock size={8} /> Entrega em {days}d</span>;
+    return <span className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1"><Calendar size={8} /> {days}d restantes</span>;
   };
 
   const applyFilters = useCallback((list: Material[]) => {
@@ -980,7 +1108,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setLoading(true); const ids = itens.map(i => i.id);
     const { error } = await supabase.from('materiais').update({ status: 'roteiro_pendente' }).in('id', ids);
     if (!error) {
-      toast.success(`${ids.length} roteiros enviados para aprovação do cliente!`);
+      toast.success(`${qtd(ids.length, 'roteiro', 'roteiros')} enviados para aprovação do cliente!`);
       const primeiroItem = itens[0];
       if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
         const linkPortal = getSafePortalUrl(window.location.origin, primeiroItem.cliente.token_magico, 'roteiros');
@@ -1010,9 +1138,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }).in('id', ids);
     if (!error) {
       if (dateString) {
-        toast.success(`${ids.length} materiais agendados para aprovação!`);
+        toast.success(`${qtd(ids.length, 'material', 'materiais')} agendados para aprovação!`);
       } else {
-        toast.success(`${ids.length} materiais aprovados para o cliente!`);
+        toast.success(`${qtd(ids.length, 'material', 'materiais')} aprovados para o cliente!`);
         const primeiroItem = itens[0];
         if (primeiroItem?.cliente?.telefone && primeiroItem?.cliente?.token_magico) {
           const linkPortal = getSafePortalUrl(window.location.origin, primeiroItem.cliente.token_magico, 'roteiros');
@@ -1308,7 +1436,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (error) {
       toast.error("Erro ao delegar: " + error.message);
     } else {
-      toast.success(`Delegado com sucesso! (${selectedItemsToDelegate.length} materiais)`);
+      toast.success(`Delegado com sucesso! (${qtd(selectedItemsToDelegate.length, 'material', 'materiais')})`);
       
       // LOG
       selectedItemsToDelegate.forEach(mId => {
@@ -1379,7 +1507,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const insercoes = loteItens.map(item => ({ cliente_id: loteForm.cliente_id, ciclo: parseInt(loteForm.ciclo) || 1, link_bruto: loteForm.link_bruto || null, titulo: item.titulo, roteiro: item.roteiro, status: 'analise_roteiro' }));
     const { error } = await supabase.from('materiais').insert(insercoes);
     if (error) { toast.error("Erro ao enviar lote: " + error.message); setLoading(false); return; }
-    toast.success(`${loteItens.length} tarefas criadas e enviadas para Roteiro em Análise!`);
+    toast.success(`${qtd(loteItens.length, 'tarefa', 'tarefas')} criadas e enviadas para Roteiro em Análise!`);
     setLoteForm({ cliente_id: '', ciclo: '1', link_bruto: '' });
     setLoteItens([{ id: Date.now(), titulo: '', roteiro: '' }]); loadData(); setLoading(false);
   }
@@ -1543,7 +1671,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       return (
         <div className="flex flex-col items-center justify-center gap-3">
           <Loader2 className="animate-spin text-white opacity-40" size={40} />
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
+          <p className="text-[12px] font-semibold text-white/40">Carregando pasta...</p>
         </div>
       );
     }
@@ -1566,13 +1694,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       (Math.abs(idx - currentSlide) <= 2 || (idx === 0 && currentSlide >= links.length - 2) || (idx === links.length - 1 && currentSlide <= 1)) ? (
                         <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Aguardando...</span></div>
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[11px] font-semibold ">Aguardando...</span></div>
                       )
                     ) : (
                                               (Math.abs(idx - currentSlide) <= 1 || (idx === 0 && currentSlide === links.length - 1) || (idx === links.length - 1 && currentSlide === 0)) ? (
                                                 <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0" allowFullScreen></iframe>
                                               ) : (
-                                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Carregando...</span></div>
+                                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[11px] font-semibold ">Carregando...</span></div>
                                               )
                     )}
                   </div>
@@ -1608,18 +1736,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 />
               ))}
             </div>
-            <span className="text-[10px] font-black text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-sm">{currentSlide + 1} / {links.length}</span>
+            <span className="text-[11px] font-semibold text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">{currentSlide + 1} / {links.length}</span>
           </div>
         </div>
       );
     }
 
-    if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-6xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+    if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-6xl max-h-[85vh] rounded-2xl object-contain shadow-2xl" alt="Preview" />;
     const finalUrl = getEmbedUrl(url) || url;
     const isDrive = isGoogleDriveVideo(url);
     return (
       <div
-        className={`w-full mx-auto bg-black rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' :
+        className={`w-full mx-auto bg-black rounded-2xl overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' :
             aspectRatio === 'video' ? 'aspect-video max-w-6xl' :
               'aspect-square max-w-2xl'
           }`}
@@ -1646,806 +1774,692 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   };
 
 
-  const navItem = (id: any, label: string, icon: any, count?: number, badgeColor?: string) => (
-    <button
-      onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }}
-      className={`relative w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} py-2 md:py-2.5 px-3 rounded-xl font-bold transition-all ${activeTab === id ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
-      title={isSidebarCollapsed ? label : undefined}
-    >
-      <span className={`flex items-center gap-3 whitespace-nowrap text-[13px] ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-        {icon} 
-        {!isSidebarCollapsed && label}
-      </span>
-      {!isSidebarCollapsed && count && count > 0 ? <span className={`text-[10px] px-2 py-0.5 rounded-full font-black shrink-0 ml-2 ${activeTab === id ? 'bg-white text-[#A25431]' : badgeColor}`}>{count}</span> : null}
-      {isSidebarCollapsed && count && count > 0 ? <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border border-[#212013]"></div> : null}
-    </button>
+  // ===================== Helpers de layout do redesign =====================
+  // São funções de renderização (chamadas como função), não componentes, para não remontar
+  // a árvore a cada render e não quebrar o arrastar-e-soltar.
+
+  const STATUS_INFO: Record<string, { label: string; cls: string }> = {
+    analise_roteiro: { label: 'Em análise', cls: 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400' },
+    roteiro_pendente: { label: 'Aguardando cliente', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' },
+    roteiro_aprovado: { label: 'Roteiro aprovado', cls: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400' },
+    planejamento: { label: 'Aguardando decupagem', cls: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300' },
+    em_organizacao: { label: 'Decupando', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
+    faltando_material: { label: 'Falta material', cls: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' },
+    verificar_material: { label: 'Verificar material', cls: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400' },
+    organizado: { label: 'Material decupado', cls: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' },
+    em_edicao: { label: 'Em produção', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
+    pendente: { label: 'Aguardando cliente', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' },
+    ajustes: { label: 'Ajustes', cls: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' },
+    revisao: { label: 'Edição pronta', cls: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400' },
+    aprovado: { label: 'Aprovado', cls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' },
+    post_aprovado: { label: 'Aprovado', cls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' },
+    concluido: { label: 'Concluído', cls: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300' },
+  };
+  const statusChip = (label: string, cls: string) => (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap ${cls}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />{label}
+    </span>
+  );
+  const statusOf = (m: Material) => STATUS_INFO[m.status] || { label: String(m.status), cls: STATUS_INFO.concluido.cls };
+
+  const AVATAR_COLORS = ['#E8559A', '#3B82F6', '#F59E0B', '#14B8A6', '#9B6CF0', '#A25431'];
+  const avatarColor = (s: string) => AVATAR_COLORS[s.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
+  const initials = (nome?: string) => (nome || '?').split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+  const avatars = (ids: (string | null | undefined)[]) => {
+    const people = Array.from(new Set(ids.filter(Boolean) as string[])).map(id => membros.find(mb => mb.id === id)).filter(Boolean) as MembroComNome[];
+    if (people.length === 0) return <span className="text-xs text-zinc-400">—</span>;
+    return (
+      <div className="flex">
+        {people.map((p, i) => (
+          <span key={p.id} title={p.nome || p.email} style={{ background: avatarColor(p.id) }} className={`w-6 h-6 rounded-full text-[10px] font-semibold text-white inline-flex items-center justify-center ring-2 ${theme === 'dark' ? 'ring-zinc-900' : 'ring-white'} ${i > 0 ? '-ml-1.5' : ''}`}>{initials(p.nome || p.email)}</span>
+        ))}
+      </div>
+    );
+  };
+  const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
+  const entregaCell = (m: Material, ignoreLate = false) => {
+    if (!m.data_limite) return <span className="text-xs text-zinc-400">—</span>;
+    const late = !ignoreLate && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status);
+    return late
+      ? <span className="inline-flex items-center gap-1 text-[13px] font-medium text-red-600 dark:text-red-400"><Flag size={13} /> {fmtDate(m.data_limite)}</span>
+      : <span className="text-[13px]">{fmtDate(m.data_limite)}</span>;
+  };
+
+  // Abre a tarefa no painel lateral com o roteiro pronto para editar
+  const openRoteiro = (m: Material) => {
+    setRoteiroToEdit(m);
+    let txt = m.roteiro || '';
+    if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
+    txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
+    txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
+    setNovoTituloText(m.titulo);
+    setNewRoteiroText(txt);
+    setIsEditRoteiroModalOpen(true);
+  };
+
+  const pageHeader = ({ title, icon: Icon, iconCls = 'bg-brand-soft text-brand', meta, crumb, actions }: { title: string; icon: any; iconCls?: string; meta?: string; crumb?: string; actions?: React.ReactNode }) => (
+    <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+      <div className="flex items-center gap-3.5 min-w-0">
+        <span className={`w-12 h-12 rounded-xl inline-flex items-center justify-center shrink-0 ${iconCls}`}><Icon size={22} /></span>
+        <div className="min-w-0">
+          {crumb && <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-0.5">{crumb} <ChevronRight size={12} /> <span className={tc.textMain}>{title}</span></div>}
+          <h1 className="text-2xl font-medium tracking-tight truncate">{title}</h1>
+          {meta && <p className="text-[13px] text-zinc-500 mt-0.5">{meta}</p>}
+        </div>
+      </div>
+      {actions && <div className="md:ml-auto flex flex-wrap items-center gap-2.5">{actions}</div>}
+    </div>
+  );
+  const btnInk = 'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-[10px] bg-brand-ink text-white text-[13px] font-medium hover:opacity-90 disabled:opacity-50 transition-all';
+  const btnLine = `inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-[10px] border ${theme === 'dark' ? 'border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800' : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'} text-[13px] font-medium disabled:opacity-50 transition-colors`;
+  const emptyState = (text: string) => (
+    <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-2xl p-10 text-center`}><p className="text-sm text-zinc-500">{text}</p></div>
   );
 
+  const clientInitial = (nome?: string) => (
+    <span className="w-7 h-7 rounded-full bg-brand-soft text-brand text-xs font-semibold inline-flex items-center justify-center shrink-0">{(nome || '?').trim()[0]?.toUpperCase()}</span>
+  );
+  // Card de um cliente com as tarefas dele (aberto por padrão; clique no cabeçalho recolhe)
+  const clientGroup = (key: string, nome: string, count: string, body: React.ReactNode, accent?: string) => {
+    const collapsed = collapsedGroups.includes(key);
+    return (
+      <div key={key} className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-visible`}>
+        <button type="button" onClick={() => setCollapsedGroups(prev => collapsed ? prev.filter(k => k !== key) : [...prev, key])} className={`w-full flex items-center gap-3 px-5 py-4 text-left ${collapsed ? '' : `border-b ${tc.borderStrong}`}`}>
+          {accent && <span className={`w-[3px] h-5 rounded-full ${accent}`} />}
+          {clientInitial(nome)}
+          <h3 className="font-semibold text-[15px] truncate">{nome}</h3>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 shrink-0">{count}</span>
+          <ChevronDown size={18} className={`ml-auto text-zinc-400 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+        </button>
+        {!collapsed && <div className="px-4 md:px-5 pb-5">{body}</div>}
+      </div>
+    );
+  };
+  const countItens = (group: any) => Object.values(group.ciclos).reduce((a: number, c: any) => a + c.itens.length, 0) as number;
+  const qtd = (n: number, sing: string, plur: string) => `${n} ${n === 1 ? sing : plur}`;
+  const fmtCiclo = (l: string) => l.charAt(0).toUpperCase() + l.slice(1).toLowerCase();
+  const cicloBar = (label: string, action?: React.ReactNode) => (
+    <div className="flex items-center gap-2 mt-4 mb-1.5">
+      <span className="flex items-center gap-2 text-[13px] font-medium text-zinc-500"><Calendar size={14} /> {fmtCiclo(label)}</span>
+      {action && <span className="ml-auto">{action}</span>}
+    </div>
+  );
+
+  const TASK_GRID = 'md:grid md:grid-cols-[minmax(0,1fr)_110px_170px_120px_auto] md:items-center md:gap-3';
+  const taskHead = () => (
+    <div className={`hidden ${TASK_GRID} px-3.5 py-2 text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
+      <span>Tarefa</span><span>Responsáveis</span><span>Status</span><span>Entrega</span><span />
+    </div>
+  );
+  // Tags universais: o ícone aparece ao passar o mouse e as tags aplicadas ficam ao lado do título
+  // Tags são criadas e aplicadas no próprio lugar: o seletor tem "Criar tag" no topo e a lista abaixo
+  const criarTagNoLocal = async (m: Material) => {
+    const label = newTagLabel.trim().toUpperCase();
+    if (!label) return;
+    if (systemTags.some(t => t.label === label)) {
+      if (!(m.tags || []).includes(label)) await toggleMaterialTag(m, label);
+      setNewTagLabel(''); setTagFormOpen(false);
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await supabase.from('tags').insert([{ label, color: newTagColor.startsWith('#') ? newTagColor : '#eab308' }]).select();
+    if (!error && data) {
+      setSystemTags(prev => [...prev, data[0]]);
+      await toggleMaterialTag(m, label);
+      setNewTagLabel(''); setTagFormOpen(false);
+      toast.success('Tag criada!');
+    } else {
+      toast.error('Erro ao criar tag: ' + (error?.message || 'erro desconhecido'));
+    }
+    setLoading(false);
+  };
+  const excluirTag = (tag: { id: string; label: string }) => openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema?`, async () => {
+    await supabase.from('tags').delete().eq('id', tag.id);
+    setSystemTags(prev => prev.filter(t => t.id !== tag.id));
+    toast.success('Tag removida!');
+  }, 'warning');
+  const tagControl = (m: Material) => (
+    <span className={`relative inline-flex ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
+      <button type="button" onClick={(e) => { e.stopPropagation(); setTagFormOpen(false); setNewTagLabel(''); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} title="Tags" className={`w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}>
+        <Tag size={13} />
+      </button>
+      {tagDropdownOpen === m.id && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
+          <div onClick={(e) => e.stopPropagation()} className={`absolute top-full left-0 mt-2 w-64 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 text-left`}>
+            {/* Criar tag (fica acima de todas) */}
+            <div className={`p-2 border-b ${tc.borderStrong}`}>
+              {!tagFormOpen ? (
+                <button type="button" onClick={() => setTagFormOpen(true)} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium text-brand hover:bg-brand-soft transition-colors">
+                  <Plus size={14} /> Criar tag
+                </button>
+              ) : (
+                <div className="space-y-2 p-1">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={newTagColor.startsWith('#') ? newTagColor : '#eab308'} onChange={e => setNewTagColor(e.target.value)} title="Cor da tag" className="w-8 h-8 rounded-md cursor-pointer bg-transparent shrink-0" />
+                    <input autoFocus type="text" value={newTagLabel} onChange={e => setNewTagLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') criarTagNoLocal(m); if (e.key === 'Escape') setTagFormOpen(false); }} placeholder="Nome da tag" className={`flex-1 min-w-0 px-2.5 py-1.5 ${tc.bgInput} border ${tc.borderStrong} rounded-md text-[13px] outline-none focus:border-brand`} />
+                  </div>
+                  <div className="flex justify-end gap-1.5">
+                    <button type="button" onClick={() => setTagFormOpen(false)} className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancelar</button>
+                    <button type="button" disabled={loading || !newTagLabel.trim()} onClick={() => criarTagNoLocal(m)} className="px-2.5 py-1 rounded-md text-xs font-medium bg-brand-ink text-white disabled:opacity-50">Criar e aplicar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Tags existentes */}
+            <div className="p-2 max-h-56 overflow-y-auto">
+              {systemTags.length === 0 && <p className="text-xs text-zinc-400 px-2 py-1">Nenhuma tag ainda.</p>}
+              {systemTags.map(tag => (
+                <div key={tag.id} className={`group/tag flex items-center gap-2 px-1.5 py-1 ${tc.bgHover} rounded-md`}>
+                  <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-[13px]">
+                    <input type="checkbox" checked={(m.tags || []).includes(tag.label)} onChange={() => toggleMaterialTag(m, tag.label)} className="accent-brand" />
+                    <span className="px-1.5 py-px border rounded text-xs font-medium truncate" style={getTagStyle(tag.label)}>{tag.label}</span>
+                  </label>
+                  <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag" className="opacity-0 group-hover/tag:opacity-100 text-zinc-400 hover:text-red-500 p-1 rounded transition-opacity"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </span>
+  );
+  const tagChips = (m: Material) => (m.tags || []).map(t => (
+    <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 border rounded-md text-xs font-medium whitespace-nowrap" style={getTagStyle(t)}><Tag size={11} />{t}</span>
+  ));
+
+  // Linha de tarefa em colunas (Tarefa | Responsáveis | Status | Entrega | ações). Clique abre a tarefa.
+  const taskRow = ({ m, status, actions, below, drag, ignoreLate }: { m: Material; status?: React.ReactNode; actions?: React.ReactNode; below?: React.ReactNode; drag?: { provided: any; snapshot: any }; ignoreLate?: boolean }) => (
+    <div
+      key={m.id}
+      ref={drag?.provided.innerRef}
+      {...(drag ? drag.provided.draggableProps : {})}
+      {...(drag ? drag.provided.dragHandleProps : {})}
+      onClick={() => openRoteiro(m)}
+      className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
+    >
+      <div className={`flex flex-col gap-2.5 ${TASK_GRID}`}>
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          <span className="font-medium text-sm truncate">{m.titulo}</span>
+          {tagChips(m)}
+          <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
+          {tagControl(m)}
+        </div>
+        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Responsáveis</span>{avatars([m.planner_id, m.editor_id, m.designer_id])}</div>
+        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Status</span>{status ?? statusChip(statusOf(m).label, statusOf(m).cls)}</div>
+        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Entrega</span>{entregaCell(m, ignoreLate)}</div>
+        <div className="flex items-center gap-1.5 md:justify-end" onClick={(e) => e.stopPropagation()}>{actions}</div>
+      </div>
+      {below && <div className="mt-3" onClick={(e) => e.stopPropagation()}>{below}</div>}
+    </div>
+  );
+  const openUrl = (url: string) => window.open(url.startsWith('http') ? url : `https://${url}`, '_blank', 'noopener,noreferrer');
+
+  const navItem = (id: any, label: string, Icon: any, count?: number, badgeColor?: string) => {
+    const active = activeTab === id;
+    return (
+      <button
+        onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }}
+        className={`relative w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} py-2 px-3 rounded-[10px] text-[13.5px] font-medium transition-colors ${active ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+        title={isSidebarCollapsed ? label : undefined}
+      >
+        <span className={`flex items-center gap-3 whitespace-nowrap ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+          <Icon size={18} className={`shrink-0 ${active ? 'text-brand dark:text-brand-soft' : 'text-zinc-400'}`} />
+          {!isSidebarCollapsed && label}
+        </span>
+        {!isSidebarCollapsed && count && count > 0 ? <span className={`text-[11px] px-1.5 py-px rounded-md font-semibold shrink-0 ml-2 ${active ? 'bg-white text-brand' : badgeColor}`}>{count}</span> : null}
+        {isSidebarCollapsed && count && count > 0 ? <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></div> : null}
+      </button>
+    );
+  };
+
+  // Item da sidebar que abre subitens (Planejamento e Relatórios)
+  const navGroup = (id: 'planejamento' | 'relatorios', label: string, Icon: any, items: { id: string; label: string; dot?: string; icon?: any; count?: number; danger?: boolean; tab?: string }[], currentSub: string, totalCount?: number) => {
+    // um subitem pode apontar para outra aba (ex.: Visão geral dentro de Planejamento)
+    const open = activeTab === id || items.some(it => it.tab === activeTab);
+    if (isSidebarCollapsed) return navItem(id, label, Icon, totalCount, 'bg-brand-soft text-brand');
+    return (
+      <div>
+        <button
+          onClick={() => { setActiveTab(id, currentSub); setIsMobileMenuOpen(false); }}
+          className={`w-full flex items-center gap-3 py-2 px-3 rounded-[10px] text-[13.5px] transition-colors ${open ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+        >
+          <Icon size={18} className="shrink-0 text-zinc-400" />
+          <span className="whitespace-nowrap">{label}</span>
+          {!open && totalCount ? <span className="ml-auto text-[11px] px-1.5 py-px rounded-md font-semibold bg-brand-soft text-brand">{totalCount}</span> : null}
+          <ChevronRight size={15} className={`text-zinc-400 transition-transform ${totalCount && !open ? 'ml-1' : 'ml-auto'} ${open ? 'rotate-90' : ''}`} />
+        </button>
+        {open && (
+          <div className="ml-[19px] pl-2.5 border-l border-zinc-200 dark:border-zinc-800 mt-0.5 mb-1.5 space-y-px">
+            {items.map(it => {
+              const on = it.tab ? activeTab === it.tab : (activeTab === id && currentSub === it.id);
+              const SubIcon = it.icon;
+              return (
+                <button key={it.id} onClick={() => { if (it.tab) setActiveTab(it.tab); else setActiveTab(id, it.id); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg text-[13px] whitespace-nowrap transition-colors ${on ? 'bg-brand-soft text-brand font-medium dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+                  {SubIcon ? <SubIcon size={15} className={on ? 'text-brand dark:text-brand-soft' : 'text-zinc-400'} /> : <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${it.dot}`} />}
+                  {it.label}
+                  {it.count ? <span className={`ml-auto text-[11px] px-1.5 py-px rounded-md font-semibold ${on ? 'bg-white text-brand' : it.danger ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{it.count}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const planCounts: Record<PlanSub, number> = {
+    analise: filaAnaliseRoteiro.length,
+    aprovados: filaRoteirosAprovados.length,
+    decupagem: filaEmDecupagem.length,
+    problemas: filaProblemasDecupagem.length,
+    decupado: filaProducaoPronta.length,
+    manual: 0,
+  };
+  const totalPlanejamento = Object.values(planCounts).reduce((a, b) => a + b, 0);
+
   return (
-    <div className={`flex h-screen h-[100dvh] ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`} suppressHydrationWarning>
+    <div className={`flex h-[100dvh] ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`} suppressHydrationWarning>
       <Toaster position="top-right" richColors theme={theme} />
 
-      {/* CABEÇALHO MOBILE MINIMALISTA (GLASSMORPISM) */}
-      <div className={`md:hidden fixed top-0 left-0 w-full z-[100] px-6 py-4 safe-pt-header-admin flex items-center justify-between backdrop-blur-md border-b ${theme === 'dark' ? 'bg-zinc-950/80 border-white/5' : 'bg-white/80 border-zinc-200'} shadow-sm transition-all duration-300`}>
-        <div className="flex items-center gap-3">
-          <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-10 w-auto object-contain" />
-        </div>
-
-        <div className="flex-1 max-w-[140px] mx-4">
-          <div className={`relative flex items-center ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-zinc-100 border-zinc-200'} border rounded-xl px-3 py-1.5`}>
-            <Search size={14} className="text-zinc-500 shrink-0" />
+      {/* CABEÇALHO MOBILE */}
+      <div className={`md:hidden fixed top-0 left-0 w-full z-[100] px-4 py-3 safe-pt-header-admin flex items-center justify-between gap-3 border-b ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+        <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-9 w-auto object-contain" />
+        <div className="flex-1 max-w-[160px]">
+          <div className={`flex items-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-[10px] px-3 py-2`}>
+            <Search size={14} className="text-zinc-400 shrink-0" />
             <input
               type="text"
-              placeholder="BUSCAR..."
-              className="bg-transparent border-none outline-none text-[10px] font-black uppercase w-full ml-2 placeholder:text-zinc-500"
+              placeholder="Buscar..."
+              className="bg-transparent border-none outline-none text-[13px] w-full ml-2 placeholder:text-zinc-400"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
-
         <div className="flex items-center gap-2">
-          {/* Botão de Tema Rápido */}
-          <button onClick={toggleTheme} className={`p-2 rounded-full border ${theme === 'dark' ? 'bg-white/5 border-white/10 text-yellow-500' : 'bg-zinc-100 border-zinc-200 text-zinc-600'} active:scale-90 transition-all`}>
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <button onClick={toggleTheme} aria-label="Alternar tema" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'}`}>
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-
-          {/* Sininho de Notificações */}
-          <button onClick={() => { setActiveTab('solicitacao-ajustes'); setIsMobileMenuOpen(false); }} className={`relative p-2 rounded-full border ${theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-600'} active:scale-90 transition-all`}>
-            <Bell size={18} />
-            {notificacoesAjustes.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-            )}
+          <button onClick={() => { setActiveTab('solicitacao-ajustes'); setIsMobileMenuOpen(false); }} aria-label="Solicitações de ajuste" className={`relative w-9 h-9 inline-flex items-center justify-center rounded-[10px] ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'}`}>
+            <Bell size={17} />
+            {notificacoesAjustes.length > 0 && <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
           </button>
         </div>
       </div>
 
       {/* OVERLAY MOBILE */}
       {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-zinc-950/60 backdrop-blur-md z-[9998] md:hidden animate-in fade-in duration-300"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
+        <div className="fixed inset-0 bg-zinc-950/40 z-[9998] md:hidden animate-in fade-in duration-200" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      {/* SIDEBAR RESPONSIVA PADRONIZADA */}
-      <aside className={`fixed inset-y-0 left-0 ${isSidebarCollapsed ? 'w-72 md:w-[80px]' : 'w-72 md:w-[280px]'} bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none z-[9999] rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
-
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 ${isSidebarCollapsed ? 'w-72 md:w-[76px]' : 'w-72 md:w-[272px]'} ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} border-r flex flex-col z-[9999] transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} md:relative md:translate-x-0 md:shadow-none`}>
         <button
           onClick={toggleSidebar}
-          className="hidden md:flex absolute -right-3 top-10 bg-[#A25431] text-white p-1 rounded-full shadow-lg hover:bg-orange-600 transition-colors z-[10000]"
+          aria-label={isSidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          className={`hidden md:flex absolute -right-3 top-9 w-6 h-6 items-center justify-center rounded-full border shadow-sm z-[10000] ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-400' : 'bg-white border-zinc-200 text-zinc-500'} hover:text-brand`}
         >
-          {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
 
-        {/* CONTAINER DA LOGO - Ajustado para logo grande sem empurrar o menu */}
-        <div className={`pt-6 safe-pt-aside pb-2 ${isSidebarCollapsed ? 'px-2' : 'px-6'} flex flex-col items-center relative border-b border-white/5 transition-all`}>
+        <div className={`pt-6 safe-pt-aside pb-4 ${isSidebarCollapsed ? 'px-3 flex justify-center' : 'px-5'} relative`}>
           <img
-            src={isSidebarCollapsed ? "/icon-192x192.png" : "/logo-light.png"}
+            src={isSidebarCollapsed ? "/icon-192x192.png" : (theme === 'dark' ? "/logo-light.png" : "/logo-dark.png")}
             alt="Everton"
-            className={`${isSidebarCollapsed ? 'h-8 md:h-10' : 'h-24 md:h-28'} w-auto object-contain transition-all duration-300`}
-            style={{ marginBottom: isSidebarCollapsed ? '0px' : '-10px' }}
-            onError={(e: any) => { if (isSidebarCollapsed) e.target.src = "/logo-light.png"; }}
+            className={`${isSidebarCollapsed ? 'h-9 rounded-lg' : 'h-12'} w-auto object-contain object-left`}
           />
-
-          <button
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="md:hidden absolute right-4 top-4 p-2 text-zinc-400 hover:text-white bg-white/10 rounded-full"
-          >
-            <X size={18} />
+          <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Fechar menu" className="md:hidden absolute right-4 top-6 w-8 h-8 inline-flex items-center justify-center text-zinc-500 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+            <X size={16} />
           </button>
         </div>
 
-        <nav className={`flex-1 ${isSidebarCollapsed ? 'px-2' : 'px-4'} mt-2 space-y-1 overflow-y-auto pb-4 custom-scrollbar transition-all`}>
-          {!isSidebarCollapsed && (
-            <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 mt-4 opacity-70">
-              Fluxo de Trabalho
-            </p>
-          )}
-          {isSidebarCollapsed && <div className="mt-4"></div>}
-
-          <div className="space-y-1">
-            {navItem('planejamento', 'Planejamento', <ListTodo size={20} />, (filaProducaoPronta.length + filaRoteirosAprovados.length + filaAnaliseRoteiro.length + filaProblemasDecupagem.length + filaEmDecupagem.length), 'bg-white/10 text-zinc-300')}
-            {navItem('materiais-aprovacao', 'Materiais p/ Aprovação', <ClipboardCheck size={20} />, filaMateriaisAprovacao.length, 'bg-white/10 text-zinc-300')}
-            {navItem('solicitacao-ajustes', 'Solicitação de Ajustes', <Bell size={20} />, notificacoesAjustes.length, 'bg-red-500/20 text-red-400')}
-            {navItem('materiais-aprovados', 'Materiais Aprovados', <CheckCircle2 size={20} />, filaMateriaisAprovados.length, 'bg-green-500/20 text-green-400')}
+        {!isSidebarCollapsed && (
+          <div className="px-4 mb-3">
+            <div className={`flex items-center gap-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-[10px] px-3 py-2`}>
+              <Search size={15} className="text-zinc-400 shrink-0" />
+              <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400" />
+            </div>
           </div>
+        )}
 
-          <div className="my-4 border-t border-white/5 mx-2"></div>
+        <nav className={`flex-1 ${isSidebarCollapsed ? 'px-2' : 'px-4'} space-y-0.5 overflow-y-auto pb-4 custom-scrollbar`}>
+          {!isSidebarCollapsed && <p className="px-2.5 text-[11px] font-semibold text-zinc-400 tracking-wider uppercase mb-2 mt-1">Fluxo de trabalho</p>}
+          {navGroup('planejamento', 'Planejamento', ListTodo, [{ id: 'geral', label: 'Visão geral', dot: 'bg-brand', tab: 'geral' }, ...PLAN_SUBS.map(s => ({ ...s, count: planCounts[s.id], danger: s.id === 'problemas' }))], planSub, totalPlanejamento)}
+          {navItem('materiais-aprovacao', 'Materiais para aprovação', ClipboardCheck, filaMateriaisAprovacao.length, 'bg-brand-soft text-brand')}
+          {navItem('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length, 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400')}
+          {navItem('materiais-aprovados', 'Materiais aprovados', CheckCircle2, filaMateriaisAprovados.length, 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400')}
 
-          {!isSidebarCollapsed && (
-            <p className="px-4 text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] mb-2 opacity-70">
-              Gestão
-            </p>
-          )}
-
-          <div className="space-y-0.5">
-            {navItem('geral', 'Visão Geral', <LayoutDashboard size={18} />)}
-            {navItem('cadastro-clientes', 'Cadastro do Cliente', <Users size={18} />)}
-            {navItem('equipe', 'Equipe', <ShieldCheck size={18} />)}
-            {navItem('relatorios', 'Relatórios', <Activity size={18} />)}
-            <button onClick={() => { setIsTagsModalOpen(true); setIsMobileMenuOpen(false); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} py-2 md:py-2.5 px-3 rounded-xl font-bold transition-all text-zinc-400 hover:bg-white/5 hover:text-white`} title={isSidebarCollapsed ? "Tags" : undefined}>
-              <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}><Tag size={18} /> {!isSidebarCollapsed && <span className="text-[13px]">Tags</span>}</div>
-            </button>
-          </div>
+          {!isSidebarCollapsed ? <p className="px-2.5 text-[11px] font-semibold text-zinc-400 tracking-wider uppercase mb-2 pt-5">Gestão</p> : <div className="my-3 border-t border-zinc-200 dark:border-zinc-800 mx-2" />}
+          {navItem('cadastro-clientes', 'Cadastro do cliente', Users)}
+          {navItem('equipe', 'Equipe', ShieldCheck)}
+          {navGroup('relatorios', 'Relatórios', Activity, REL_SUBS.map(s => ({ ...s, count: s.id === 'atrasos' ? relatorioData.totalAtrasos : 0, danger: true })), relSub)}
+          {navItem('cores-tema', 'Cores do tema', Palette)}
         </nav>
 
         {/* RODAPÉ DA SIDEBAR */}
-        <div className={`p-3 md:p-4 border-t border-white/5 flex flex-col gap-1.5 bg-[#1a190f] ${isSidebarCollapsed ? 'items-center' : ''}`}>
-          <button onClick={toggleTheme} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 py-2 md:py-2.5 px-3 text-yellow-500 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? (theme === 'dark' ? "Modo Claro" : "Modo Escuro") : undefined}>
-            {theme === 'dark' ? <><Sun size={18} /> {!isSidebarCollapsed && "Modo Claro"}</> : <><Moon size={18} /> {!isSidebarCollapsed && "Modo Escuro"}</>}
+        <div className={`p-3 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'} flex flex-col gap-0.5 ${isSidebarCollapsed ? 'items-center' : ''}`}>
+          <button onClick={toggleTheme} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 py-2 px-3 rounded-[10px] text-[13.5px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors`} title={isSidebarCollapsed ? (theme === 'dark' ? "Modo claro" : "Modo escuro") : undefined}>
+            {theme === 'dark' ? <><Sun size={18} className="text-zinc-400" /> {!isSidebarCollapsed && "Modo claro"}</> : <><Moon size={18} className="text-zinc-400" /> {!isSidebarCollapsed && "Modo escuro"}</>}
           </button>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 py-2 md:py-2.5 px-3 text-red-400 font-bold hover:bg-white/5 rounded-xl transition-all text-sm`} title={isSidebarCollapsed ? "Sair" : undefined}>
-            <LogOut size={18} /> {!isSidebarCollapsed && "Sair"}
+          <button onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center' : ''} gap-3 py-2 px-3 rounded-[10px] text-[13.5px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors`} title={isSidebarCollapsed ? "Sair" : undefined}>
+            <LogOut size={18} className="text-zinc-400" /> {!isSidebarCollapsed && "Sair"}
           </button>
         </div>
       </aside>
 
       {/* BARRA INFERIOR MOBILE */}
-      <div className={`md:hidden fixed bottom-0 left-0 w-full ${tc.bgCard} rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-[100] border-t ${tc.borderStrong}`}>
-        <div className="flex justify-between items-end px-4 pb-4 pt-3 relative">
-          <button onClick={() => { setActiveTab('planejamento'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'planejamento' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
-            <ListTodo size={20} />
-            <span className="text-[10px] font-bold tracking-wide">Plano</span>
-          </button>
-          <button onClick={() => { setActiveTab('materiais-aprovacao'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovacao' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
-            <div className="relative">
-              <ClipboardCheck size={20} />
-              {filaMateriaisAprovacao.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-blue-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovacao.length}</span>}
-            </div>
-            <span className="text-[10px] font-bold tracking-wide">Aprovar</span>
-          </button>
-          <div className="relative w-16 flex justify-center h-full">
-            <button onClick={() => { setActiveTab('geral'); setIsMobileMenuOpen(false); }} className={`absolute -top-8 flex flex-col items-center justify-center bg-[#A25431] text-white w-14 h-14 rounded-full shadow-lg shadow-[#A25431]/30 border-4 ${theme === 'dark' ? 'border-zinc-950' : 'border-zinc-50'} transform transition-transform active:scale-95`}>
-              <LayoutDashboard size={22} />
-            </button>
-            <span className={`text-[10px] font-bold tracking-wide mt-auto ${activeTab === 'geral' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>Visão</span>
-          </div>
-          <button onClick={() => { setActiveTab('materiais-aprovados'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${activeTab === 'materiais-aprovados' && !isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted} relative`}>
-            <div className="relative">
-              <CheckCircle2 size={20} />
-              {filaMateriaisAprovados.length > 0 && <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm">{filaMateriaisAprovados.length}</span>}
-            </div>
-            <span className="text-[10px] font-bold tracking-wide">Prontos</span>
-          </button>
-          <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${isMobileMenuOpen ? 'text-[#A25431]' : tc.textMuted}`}>
-            <Menu size={20} />
-            <span className="text-[10px] font-bold tracking-wide">Menu</span>
+      <div className={`md:hidden fixed bottom-0 left-0 w-full ${tc.bgCard} z-[100] border-t ${tc.borderStrong} pb-[env(safe-area-inset-bottom)]`}>
+        <div className="flex justify-around items-center px-2 pt-2 pb-3">
+          {([
+            ['planejamento', 'Plano', ListTodo, 0],
+            ['materiais-aprovacao', 'Aprovar', ClipboardCheck, filaMateriaisAprovacao.length],
+            ['geral', 'Visão', LayoutDashboard, 0],
+            ['materiais-aprovados', 'Prontos', CheckCircle2, filaMateriaisAprovados.length],
+          ] as const).map(([id, label, Icon, count]) => {
+            const on = activeTab === id && !isMobileMenuOpen;
+            return (
+              <button key={id} onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 w-16 text-[11px] font-medium transition-colors ${on ? 'text-brand' : tc.textMuted}`}>
+                <span className={`relative px-3.5 py-1 rounded-[10px] ${on ? 'bg-brand-soft' : ''}`}>
+                  <Icon size={20} />
+                  {count > 0 && <span className="absolute -top-1 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold">{count}</span>}
+                </span>
+                {label}
+              </button>
+            );
+          })}
+          <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center gap-1 w-16 text-[11px] font-medium transition-colors ${isMobileMenuOpen ? 'text-brand' : tc.textMuted}`}>
+            <span className={`px-3.5 py-1 rounded-[10px] ${isMobileMenuOpen ? 'bg-brand-soft' : ''}`}><Menu size={20} /></span>
+            Menu
           </button>
         </div>
       </div>
 
       <DragDropContext onDragEnd={handleDashboardDragEnd}>
         <main className={`flex-1 pt-24 safe-pt-main-admin pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
-          {/* ABA: PLANEJAMENTO */}
-          {activeTab === 'planejamento' && (
-            <div className="max-w-7xl mx-auto space-y-8 md:space-y-12 text-left animate-in slide-in-from-bottom-4 duration-500">
+          {/* ABA: PLANEJAMENTO (cada etapa é uma subpágina escolhida na sidebar) */}
+          {activeTab === 'planejamento' && (() => {
+            const sub = PLAN_SUBS.find(s => s.id === planSub)!;
+            const planIcons: Record<PlanSub, { icon: any; cls: string; meta: string }> = {
+              analise: { icon: FileText, cls: 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400', meta: `${qtd(filaAnaliseRoteiro.length, 'roteiro', 'roteiros')} · ${qtd(Object.keys(groupedAnaliseRoteiro).length, 'cliente', 'clientes')}` },
+              aprovados: { icon: CheckCircle2, cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400', meta: `${qtd(filaRoteirosAprovados.length, 'roteiro', 'roteiros')} · ${qtd(Object.keys(groupedRoteiros).length, 'cliente', 'clientes')}` },
+              decupagem: { icon: Folder, cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400', meta: `${qtd(filaEmDecupagem.length, 'tarefa', 'tarefas')} · ${qtd(Object.keys(groupedEmDecupagem).length, 'cliente', 'clientes')}` },
+              problemas: { icon: AlertCircle, cls: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400', meta: `${qtd(filaProblemasDecupagem.length, 'tarefa', 'tarefas')} · ${qtd(Object.keys(groupedProblemasDecupagem).length, 'cliente', 'clientes')}` },
+              decupado: { icon: Folder, cls: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400', meta: `${qtd(filaProducaoPronta.length, 'tarefa', 'tarefas')} · ${qtd(Object.keys(groupedProducao).length, 'cliente', 'clientes')}` },
+              manual: { icon: LayoutList, cls: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300', meta: `${loteItens.length} ${loteItens.length === 1 ? 'item' : 'itens'}` },
+            };
+            const head = planIcons[planSub];
+            const timelineBtns = (m: Material) => (<>
+              <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
+              <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
+            </>);
+            const pastaBtn = (m: Material) => m.link_organizado
+              ? <IconAction icon={ExternalLink} label="Abrir pasta decupada" onClick={() => openUrl(m.link_organizado!)} />
+              : m.link_bruto
+                ? <IconAction icon={ExternalLink} label="Abrir pasta bruta" onClick={() => openUrl(m.link_bruto!)} />
+                : <IconAction icon={ExternalLink} label="Sem pasta" disabled />;
 
-              <div className={`flex flex-col md:flex-row md:justify-between items-start md:items-center gap-6 ${tc.bgCard} p-6 md:p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
-                <div>
-                  <h2 className="text-2xl font-black uppercase">Planejamento</h2>
-                  <p className={`text-sm ${tc.textMuted} font-medium mt-1`}>Importe tarefas, analise roteiros ou delegue pastas organizadas.</p>
-                </div>
-                <button onClick={() => setIsImportModalOpen(true)} className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-[#A25431] text-white rounded-2xl text-[11px] font-black uppercase hover:bg-[#8a4729] shadow-lg shadow-[#A25431]/20 transition-all">
-                  <Download size={18} /> Importar do ClickUp
-                </button>
-              </div>
+            return (
+              <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+                {pageHeader({
+                  title: sub.label, icon: head.icon, iconCls: head.cls, meta: head.meta, crumb: 'Planejamento',
+                  actions: <button onClick={() => setIsImportModalOpen(true)} className={btnInk}><Download size={16} /> Importar do ClickUp</button>,
+                })}
 
-              {/* ROTEIROS EM ANÁLISE */}
-              <div className="space-y-6">
-                <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><FileText className="text-pink-500" size={28} /> Roteiros em Análise</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>Edite os roteiros se necessário e envie para aprovação do cliente.</p></header>
-                {Object.keys(groupedAnaliseRoteiro).length === 0 ? (
-                  <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhum roteiro aguardando análise.</p></div>
-                ) : (
+                {/* ROTEIROS EM ANÁLISE */}
+                {planSub === 'analise' && (Object.keys(groupedAnaliseRoteiro).length === 0 ? emptyState('Nenhum roteiro aguardando análise.') : (
                   <div className="space-y-4">
-                    {Object.entries(groupedAnaliseRoteiro).map(([clienteId, group]) => (
-                      <div key={`analise-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} shadow-sm overflow-visible`}>
-                        <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-pink-900/10 hover:bg-pink-900/20' : 'bg-pink-50/50 hover:bg-pink-50'} ${expandedClients.includes(`analise-${clienteId}`) ? 'rounded-t-[23px]' : 'rounded-[23px]'} cursor-pointer flex items-center justify-between`} onClick={() => toggleClient(`analise-${clienteId}`)}>
-                          <div className="flex items-center gap-3"><ChevronRight className={`text-pink-600 transition-transform ${expandedClients.includes(`analise-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-pink-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
-                        </div>
-                        {expandedClients.includes(`analise-${clienteId}`) && (
-                          <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                            {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                              <div key={`analise-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} pb-3`}>
-                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-pink-500" /><h4 className="font-black text-[11px] text-pink-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                  <button onClick={(e) => { e.stopPropagation(); handleEnviarLoteRoteiroCliente(data.itens); }} disabled={loading} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-pink-900/30 text-pink-400 hover:bg-pink-900/50' : 'bg-pink-100 text-pink-700 hover:bg-pink-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
-                                    {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Lote p/ Cliente
-                                  </button>
-                                </div>
-                                <Droppable droppableId={`analise___${clienteId}___${cicloLabel}`}>
-                                  {(provided) => (
-                                    <div ref={provided.innerRef} {...provided.droppableProps} className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-pink-900/50' : 'border-pink-100'} md:ml-1`}>
-                                      {data.itens.map((m: Material, idx: number) => (
-                                        <Draggable key={m.id} draggableId={m.id} index={idx}>
-                                          {(provided, snapshot) => (
-                                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-pink-900/50' : 'hover:border-pink-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-pink-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
-                                              <div className="flex-1 w-full text-left">
-                                                <span className={`${theme === 'dark' ? 'bg-pink-900/30 text-pink-400' : 'bg-pink-100 text-pink-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro em Análise</span>
-                                                {m.data_limite && isDateLate(m.data_limite) && (
-                                                  <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                                )}
-                                                <div className="flex items-center gap-1 group/title">
-                                                  <h5 className="font-bold text-sm">{m.titulo}</h5>
-<button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-  <>
-    <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-</div>
-  </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-
-      
-    
-</div>
-<div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
-                                                <button onClick={() => {
-                                                  setRoteiroToEdit(m);
-                                                  let txt = m.roteiro || '';
-                                                  if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
-                                                  txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
-                                                  txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
-                                                  setNovoTituloText(m.titulo);
-                                                  setNewRoteiroText(txt);
-                                                  setIsEditRoteiroModalOpen(true);
-                                                }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
-                                                <button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className="px-3 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviar Cliente</button>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </Draggable>
-                                      ))}
-                                      {provided.placeholder}
-                                    </div>
-                                  )}
-                                </Droppable>
+                    {Object.entries(groupedAnaliseRoteiro).map(([clienteId, group]) => clientGroup(`analise-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'roteiro', 'roteiros'), (
+                      Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                        <div key={`analise-ciclo-${cicloLabel}`}>
+                          {cicloBar(cicloLabel, <IconAction icon={SendHorizontal} variant="soft" label="Enviar lote para o cliente" loading={loading} onClick={() => handleEnviarLoteRoteiroCliente(data.itens)} />)}
+                          {taskHead()}
+                          <Droppable droppableId={`analise___${clienteId}___${cicloLabel}`}>
+                            {(provided) => (
+                              <div ref={provided.innerRef} {...provided.droppableProps}>
+                                {data.itens.map((m: Material, idx: number) => (
+                                  <Draggable key={m.id} draggableId={m.id} index={idx}>
+                                    {(dp, snapshot) => taskRow({
+                                      m, drag: { provided: dp, snapshot },
+                                      actions: <IconAction icon={Send} variant="ink" label="Enviar para o cliente" loading={actionLoading === m.id} onClick={() => handleEnviarRoteiroCliente(m)} />,
+                                    })}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* ROTEIROS APROVADOS */}
-              <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
-                <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><FileText className="text-orange-500" size={28} /> Roteiros Aprovados</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>O cliente aprovou o texto. Coloque o Link Bruto e delegue para o Decupador.</p></header>
-                {Object.keys(groupedRoteiros).length === 0 ? (
-                  <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhum roteiro aprovado aguardando delegação.</p></div>
-                ) : (
-                  <div className="space-y-4">
-                    {Object.entries(groupedRoteiros).map(([clienteId, group]) => (
-                      <div key={`rot-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} shadow-sm overflow-visible`}>
-                        <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-orange-900/10 hover:bg-orange-900/20' : 'bg-orange-50/50 hover:bg-orange-50'} ${expandedClients.includes(`rot-${clienteId}`) ? 'rounded-t-[23px]' : 'rounded-[23px]'} cursor-pointer flex items-center justify-between`} onClick={() => toggleClient(`rot-${clienteId}`)}>
-                          <div className="flex items-center gap-3"><ChevronRight className={`text-orange-600 transition-transform ${expandedClients.includes(`rot-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-orange-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
+                            )}
+                          </Droppable>
                         </div>
-                        {expandedClients.includes(`rot-${clienteId}`) && (
-                          <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                            {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                              <div key={`rot-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} pb-3`}>
-                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-orange-500" /><h4 className="font-black text-[11px] text-orange-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setDelegationDeadline(''); setDelegationDeadlineEditor(''); setDelegationDeadlineDesigner(''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-orange-900/30 text-orange-400 hover:bg-orange-900/50' : 'bg-orange-100 text-orange-700 hover:bg-orange-500 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
-                                </div>
-                                <Droppable droppableId={`aprovado___${clienteId}___${cicloLabel}`}>
-                                  {(provided) => (
-                                    <div ref={provided.innerRef} {...provided.droppableProps} className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100'} md:ml-1`}>
-                                      {data.itens.map((m: Material, idx: number) => (
-                                        <Draggable key={m.id} draggableId={m.id} index={idx}>
-                                          {(provided, snapshot) => (
-                                            <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-orange-900/50' : 'hover:border-orange-200'} transition-colors ${snapshot.isDragging ? 'opacity-50 ring-2 ring-orange-500 shadow-2xl scale-[1.02] z-50' : ''}`}>
-                                              <div className="flex-1 min-w-0 w-full text-left">
-                                                <span className={`${theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Roteiro Aprovado</span>
-                                                {m.data_limite && isDateLate(m.data_limite) && (
-                                                  <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                                )}
-                                                <div className="flex items-center gap-1 group/title">
-                                                  <h5 className="font-bold text-sm">{m.titulo}</h5>
-<button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-    <>
-      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-        {AVAILABLE_TAGS.map(tag => (
-          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-            <span className={tc.textMain}>{tag}</span>
-          </label>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                              </div>
-                                              <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
-                                                <button onClick={() => { setRoteiroToEdit(m); setNovoTituloText(m.titulo); setNewRoteiroText(m.roteiro ? (m.roteiro.includes('<p>') || m.roteiro.includes('<br>') ? m.roteiro : m.roteiro.replace(/\n/g, '<br/>')) : ''); setIsEditRoteiroModalOpen(true); }} className={`px-3 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`}><Edit3 size={14} /> Editar</button>
-                                                <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`col-span-2 lg:col-span-1 px-4 py-3 border rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-all ${m.link_bruto ? (theme === 'dark' ? 'bg-indigo-900/30 border-indigo-900/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600') : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700 animate-pulse'}`}><Link size={14} /> {m.link_bruto ? 'Pasta inserida' : 'Inserir Pasta'}</button>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </Draggable>
-                                      ))}
-                                      {provided.placeholder}
-                                    </div>
-                                  )}
-                                </Droppable>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))
+                    ), 'bg-pink-500'))}
                   </div>
-                )}
-              </div>
+                ))}
 
-              {/* EM DECUPAGEM (COM O PLANNER) */}
-              <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
-                <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><Folder className="text-blue-500" size={28} /> Em Decupagem</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>Tarefas que estão atualmente com o Decupador. Adicione o Link Bruto se tiver esquecido.</p></header>
-                {Object.keys(groupedEmDecupagem).length === 0 ? (
-                  <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhuma tarefa com o decupador no momento.</p></div>
-                ) : (
+                {/* ROTEIROS APROVADOS */}
+                {planSub === 'aprovados' && (Object.keys(groupedRoteiros).length === 0 ? emptyState('Nenhum roteiro aprovado aguardando delegação.') : (
                   <div className="space-y-4">
-                    {Object.entries(groupedEmDecupagem).map(([clienteId, group]) => (
-                      <div key={`emdec-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} shadow-sm overflow-visible`}>
-                        <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-blue-900/10 hover:bg-blue-900/20' : 'bg-blue-50/50 hover:bg-blue-50'} ${expandedClients.includes(`emdec-${clienteId}`) ? 'rounded-t-[23px]' : 'rounded-[23px]'} cursor-pointer flex items-center justify-between`} onClick={() => toggleClient(`emdec-${clienteId}`)}>
-                          <div className="flex items-center gap-3"><ChevronRight className={`text-blue-600 transition-transform ${expandedClients.includes(`emdec-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-blue-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
-                        </div>
-                        {expandedClients.includes(`emdec-${clienteId}`) && (
-                          <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                            {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                              <div key={`emdec-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} pb-2`}><Calendar size={14} className="text-blue-500" /><h4 className="font-black text-[11px] text-blue-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-blue-900/50' : 'border-blue-100'} md:ml-1`}>
-                                  {data.itens.map((m: Material) => (
-                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${!m.link_bruto ? 'border-red-500/50 bg-red-500/5' : tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
-                                      <div className="flex-1 min-w-0 w-full"><div className="flex flex-col items-start gap-1 mb-2">
-  <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md inline-block ${!m.link_bruto ? 'bg-red-500/20 text-red-500 animate-pulse' : (theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700')}`}>{!m.link_bruto ? '🚨 FALTA LINK BRUTO' : (m.planner_id ? `Delegado para: ${membros.find(mb => mb.id === m.planner_id)?.nome || 'Decupador'}` : 'Com o Decupador')}</span>
-  {m.planner_id && <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoDecupagem(m); }} className="text-[10px] font-bold text-red-500 hover:underline flex items-center gap-1"><X size={10}/> Cancelar Delegação</button>}
-</div>
-                                        <div className="flex items-center gap-1 group/title">
-                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
-                                          <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-                                        </div>
-                                      </div>
-                                      <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
-                                        <button onClick={() => setTimelineMaterial(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
-                                              {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-                                        <button onClick={() => setPreviewRoteiro(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
-                                        {m.link_organizado ? (
-                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
-                                        ) : m.link_bruto ? (
-                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
-                                        ) : (
-                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
-                                        )}
-                                        <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-3 ${!m.link_bruto ? 'bg-red-500 hover:bg-red-600 text-white animate-bounce shadow-[0_0_15px_rgba(239,68,68,0.5)]' : (theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white')} rounded-xl transition-all`} title={!m.link_bruto ? "Adicionar Link Bruto URGENTE!" : "Editar Link Bruto"}><Link size={18} /></button>
-                                        <button onClick={() => openResolveModal(m, 'planner')} className={`p-3 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-xl transition-colors`} title="Retirar do Decupador e Devolver p/ Aprovados"><RotateCcw size={18} /></button>
-                                      </div>
-                                    </div>
+                    {Object.entries(groupedRoteiros).map(([clienteId, group]) => clientGroup(`rot-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'roteiro', 'roteiros'), (
+                      Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => {
+                        const delegar = (ids: string[]) => { setDelegationType('planner'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(ids); setNewLinkBruto(data.itens.find((i: any) => i.link_bruto)?.link_bruto || ''); setDelegationDeadline(''); setDelegationDeadlineEditor(''); setDelegationDeadlineDesigner(''); setIsDelegateModalOpen(true); };
+                        return (
+                          <div key={`rot-ciclo-${cicloLabel}`}>
+                            {cicloBar(cicloLabel, <IconAction icon={Users} variant="soft" label="Delegar todos para o decupador" onClick={() => delegar(data.itens.map((i: any) => i.id))} />)}
+                            {taskHead()}
+                            <Droppable droppableId={`aprovado___${clienteId}___${cicloLabel}`}>
+                              {(provided) => (
+                                <div ref={provided.innerRef} {...provided.droppableProps}>
+                                  {data.itens.map((m: Material, idx: number) => (
+                                    <Draggable key={m.id} draggableId={m.id} index={idx}>
+                                      {(dp, snapshot) => taskRow({
+                                        m, drag: { provided: dp, snapshot },
+                                        status: m.link_bruto ? statusChip('Pronto para decupar', STATUS_INFO.aprovado.cls) : statusChip('Aguardando link bruto', STATUS_INFO.planejamento.cls),
+                                        actions: <>
+                                          <IconAction icon={Link} variant={m.link_bruto ? 'done' : 'line'} label={m.link_bruto ? 'Link bruto adicionado' : 'Adicionar link bruto'} onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} />
+                                          <IconAction icon={UserPlus} variant="ink" label="Delegar para o decupador" onClick={() => delegar([m.id])} />
+                                        </>,
+                                      })}
+                                    </Draggable>
                                   ))}
+                                  {provided.placeholder}
                                 </div>
-                              </div>
-                            ))}
+                              )}
+                            </Droppable>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        );
+                      })
+                    ), 'bg-orange-500'))}
                   </div>
-                )}
-              </div>
+                ))}
 
-              {/* PROBLEMAS NA PRODUÇÃO */}
-              {Object.keys(groupedProblemasDecupagem).length > 0 && (
-                <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
-                  <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3 text-red-500"><AlertCircle size={28} /> Problemas</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>Resolva os problemas do Decupador para a produção continuar.</p></header>
+                {/* EM DECUPAGEM */}
+                {planSub === 'decupagem' && (Object.keys(groupedEmDecupagem).length === 0 ? emptyState('Nenhuma tarefa com o decupador no momento.') : (
                   <div className="space-y-4">
-                    {Object.entries(groupedProblemasDecupagem).map(([clienteId, group]) => (
-                      <div key={`prob-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-red-900/50 ring-red-900/20' : 'border-red-200 ring-red-50'} shadow-xl overflow-visible ring-4`}>
-                        <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-red-900/20 hover:bg-red-900/30' : 'bg-red-50 hover:bg-red-100'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`prob-${clienteId}`)}>
-                          <div className="flex items-center gap-3"><ChevronRight className={`text-red-600 transition-transform ${expandedClients.includes(`prob-${clienteId}`) ? 'rotate-90' : ''}`} /><AlertCircle className="text-red-500 hidden md:block" size={18} /><h3 className={`font-black text-base md:text-lg uppercase truncate ${theme === 'dark' ? 'text-red-400' : 'text-red-900'}`}>{group.cliente.nome}</h3></div>
-                          <span className="text-[10px] font-black uppercase text-white bg-red-500 px-2 py-1 rounded-full animate-pulse ml-2">Ação</span>
+                    {Object.entries(groupedEmDecupagem).map(([clienteId, group]) => clientGroup(`emdec-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'tarefa', 'tarefas'), (
+                      Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                        <div key={`emdec-ciclo-${cicloLabel}`}>
+                          {cicloBar(cicloLabel)}
+                          {taskHead()}
+                          {data.itens.map((m: Material) => taskRow({
+                            m,
+                            status: !m.link_bruto ? statusChip('Falta link bruto', STATUS_INFO.faltando_material.cls) : statusChip(m.planner_id ? `Com ${membros.find(mb => mb.id === m.planner_id)?.nome?.split(' ')[0] || 'o decupador'}` : 'Com o decupador', STATUS_INFO.em_organizacao.cls),
+                            actions: <>
+                              {timelineBtns(m)}
+                              {pastaBtn(m)}
+                              <IconAction icon={Link} variant={m.link_bruto ? 'line' : 'ink'} label={m.link_bruto ? 'Editar link bruto' : 'Adicionar link bruto'} onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} />
+                              <IconAction icon={RotateCcw} label="Retirar do decupador e devolver para aprovados" onClick={() => openResolveModal(m, 'planner')} />
+                              {m.planner_id && <IconAction icon={X} label="Cancelar delegação" onClick={() => handleCancelarDelegacaoDecupagem(m)} />}
+                            </>,
+                          }))}
                         </div>
-                        {expandedClients.includes(`prob-${clienteId}`) && (
-                          <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                            {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                              <div key={`prob-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-500" /><h4 className="font-black text-[11px] text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-200'} md:ml-1`}>
-                                  {data.itens.map((m: Material) => (
-                                    <div key={m.id} className={`${theme === 'dark' ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50/30 border-red-100'} p-4 md:p-5 rounded-2xl shadow-sm border flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
-                                      <div className="flex-1 min-w-0 w-full">
-                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${m.status === 'faltando_material' ? (theme === 'dark' ? 'bg-red-900/50 text-red-400' : 'bg-red-100 text-red-700') : (theme === 'dark' ? 'bg-yellow-900/50 text-yellow-400' : 'bg-yellow-100 text-yellow-700')}`}>{m.status === 'faltando_material' ? 'Falta Material' : 'Verificar Material'}</span>
-                                        {m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) && (
-                                          <span className="ml-2 text-[10px] font-black uppercase px-2 py-1 rounded-md bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                        )}
-                                        <div className="flex items-center gap-1 group/title">
-                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
-<button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-    <>
-      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-        {AVAILABLE_TAGS.map(tag => (
-          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-            <span className={tc.textMain}>{tag}</span>
-          </label>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                        {(() => {
-                                          const author = getAuthorInfo(m.feedback);
-                                          if (!author) return null;
-                                          return (
-                                            <div className="mt-3 flex flex-col gap-2 w-full">
-                                              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200'} border self-start`}>
-                                                <Users size={12} className="opacity-60" />
-                                                <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span> ({author.role})</span>
-                                              </div>
-                                              <div className={`p-3 border rounded-xl ${theme === 'dark' ? 'bg-red-900/20 border-red-900/50' : 'bg-red-50/50 border-red-100'}`}>
-                                                {(() => {
-                                                  const feedbacks = m.feedback ? m.feedback.split('\n\n').map((f: string) => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
-                                                  return feedbacks.length > 0 ? (
-                                                    <div className={`text-[10px] font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} whitespace-pre-wrap flex flex-col gap-2`}>
-                                                      {feedbacks.map((fb: string, idx: number) => (
-                                                        <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-red-200 dark:border-red-900/50' : ''}>
-                                                          {renderTextWithLinks(fb)}
-                                                        </div>
-                                                      ))}
-                                                    </div>
-                                                  ) : <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>Motivo não informado.</span>;
-                                                })()}
-                                              </div>
-                                            </div>
-                                          );
-                                        })()}
-
-                                      </div>
-                                      <div className="flex flex-wrap lg:flex-nowrap gap-2 w-full md:w-auto justify-center items-center md:shrink-0">
-                                        <button onClick={() => openResolveModal(m)} className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none transition-colors"><CheckCircle2 size={16} /> Resolver</button>
-                                        <button onClick={() => openConfirm('Arquivar Tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`px-4 py-4 ${tc.bgCard} border ${theme === 'dark' ? 'border-red-900/50 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'} rounded-xl font-bold text-[10px] flex items-center gap-2 justify-center flex-1 lg:flex-none disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />} Arquivar</button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))
+                    ), 'bg-blue-500'))}
                   </div>
-                </div>
-              )}
+                ))}
 
-              {/* MATERIAL DECUPADO (ANTIGAS PASTAS PRONTAS) */}
-              <div className={`space-y-6 pt-6 border-t ${tc.borderStrong}`}>
-                <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><Folder className="text-indigo-600" size={28} /> Material Decupado</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>O Decupador organizou. Delegue para o Editor e/ou Designer.</p></header>
-                {Object.keys(groupedProducao).length === 0 ? (
-                  <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[24px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhuma pasta organizada pendente.</p></div>
-                ) : (
+                {/* PROBLEMAS */}
+                {planSub === 'problemas' && (Object.keys(groupedProblemasDecupagem).length === 0 ? emptyState('Nenhum problema reportado pelo decupador.') : (
                   <div className="space-y-4">
-                    {Object.entries(groupedProducao).map(([clienteId, group]) => (
-                      <div key={`prod-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} shadow-sm overflow-visible`}>
-                        <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-indigo-900/10 hover:bg-indigo-900/20' : 'bg-indigo-50/50 hover:bg-indigo-50'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`prod-${clienteId}`)}>
-                          <div className="flex items-center gap-3"><ChevronRight className={`text-indigo-500 transition-transform ${expandedClients.includes(`prod-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-indigo-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
+                    {Object.entries(groupedProblemasDecupagem).map(([clienteId, group]) => clientGroup(`prob-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'tarefa', 'tarefas'), (
+                      Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                        <div key={`prob-ciclo-${cicloLabel}`}>
+                          {cicloBar(cicloLabel)}
+                          {taskHead()}
+                          {data.itens.map((m: Material) => {
+                            const author = getAuthorInfo(m.feedback);
+                            const feedbacks = m.feedback ? m.feedback.split('\n\n').map((f: string) => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
+                            return taskRow({
+                              m,
+                              actions: <>
+                                <IconAction icon={CheckCircle2} variant="ink" label="Resolver problema" onClick={() => openResolveModal(m)} />
+                                <IconAction icon={Archive} label="Arquivar tarefa" loading={actionLoading === m.id} onClick={() => openConfirm('Arquivar tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} />
+                              </>,
+                              below: (
+                                <div className={`p-3 rounded-lg text-[13px] ${theme === 'dark' ? 'bg-red-900/20 text-red-300' : 'bg-red-50 text-red-700'}`}>
+                                  {author && <div className="text-xs text-zinc-500 mb-1">Reportado por <span className="font-medium text-brand">{author.nome}</span> ({author.role})</div>}
+                                  {feedbacks.length > 0 ? feedbacks.map((fb: string, idx: number) => (
+                                    <div key={idx} className={`whitespace-pre-wrap ${idx > 0 ? 'opacity-70 pt-2 mt-2 border-t border-red-200 dark:border-red-900/50' : ''}`}>{renderTextWithLinks(fb)}</div>
+                                  )) : 'Motivo não informado.'}
+                                </div>
+                              ),
+                            });
+                          })}
                         </div>
-                        {expandedClients.includes(`prod-${clienteId}`) && (
-                          <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                            {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                              <div key={`prod-ciclo-${cicloLabel}`} className="space-y-3">
-                                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} pb-3`}>
-                                  <div className="flex items-center gap-2"><Calendar size={14} className="text-indigo-500" /><h4 className="font-black text-[11px] text-indigo-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                                  <button onClick={(e) => { e.stopPropagation(); setDelegationType('editor'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setDelegationDeadline(''); setDelegationDeadlineEditor(''); setDelegationDeadlineDesigner(''); setIsDelegateModalOpen(true); }} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-colors`}><Send size={14} /> Delegar Todos</button>
-                                </div>
-                                <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-indigo-900/30' : 'border-indigo-100'} md:ml-1`}>
-                                  {data.itens.map((m: Material) => (
-                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 ${theme === 'dark' ? 'hover:border-indigo-900/50' : 'hover:border-indigo-200'} transition-colors`}>
-                                      <div className="flex-1 w-full text-left">
-                                        <span className={`${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400' : 'bg-indigo-100 text-indigo-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Drive Pronto</span>
-                                        {m.data_limite && isDateLate(m.data_limite) && (
-                                          <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                        )}
-                                        <div className="flex items-center gap-1 group/title">
-                                          <h5 className="font-bold text-sm">{m.titulo}</h5>
-<button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-    <>
-      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-        {AVAILABLE_TAGS.map(tag => (
-          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-            <span className={tc.textMain}>{tag}</span>
-          </label>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                      </div>
-                                      <div className="grid grid-cols-2 lg:flex gap-2 w-full md:w-auto md:shrink-0">
-                                        <button onClick={() => setTimelineMaterial(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
-                                              {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
-                                        {m.link_organizado ? (
-                                          <a href={m.link_organizado.startsWith('http') ? m.link_organizado : `https://${m.link_organizado}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Decupada"><ExternalLink size={14} /> Pasta Decupada</a>
-                                        ) : m.link_bruto ? (
-                                          <a href={m.link_bruto.startsWith('http') ? m.link_bruto : `https://${m.link_bruto}`} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Pasta Bruta"><ExternalLink size={14} /> Pasta Bruta</a>
-                                        ) : (
-                                          <button disabled className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center opacity-50 cursor-not-allowed`} title="Sem Pasta"><Eye size={14} /> Sem Pasta</button>
-                                        )}
-
-                                        {/* NOVOS BOTÕES SOLICITADOS */}
-                                        <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-xl transition-colors`} title="Editar Link da Pasta (Decupagem)"><Link size={18} /></button>
-                                        <button onClick={() => openResolveModal(m, 'planner')} className={`p-3 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-xl transition-colors`} title="Devolver ao Decupador"><RotateCcw size={18} /></button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))
+                    ), 'bg-red-500'))}
                   </div>
-                )}
-              </div>
+                ))}
 
-              {/* CRIADOR MANUAL */}
-              <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-[32px] p-6 md:p-10 shadow-sm space-y-8`}>
-                <header className={`border-b ${tc.borderStrong} pb-6`}><h2 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><LayoutList className="text-blue-500" size={24} /> Criação Manual</h2><p className={`${tc.textMuted} text-[11px] md:text-sm mt-2`}>Crie tarefas manualmente. Elas irão para análise.</p></header>
-                <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 md:p-6 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'} rounded-2xl border ${tc.borderStrong}`}>
-                  <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Cliente</label><select className={`w-full p-4 ${tc.bgCard} border ${tc.borderStrong} rounded-xl font-bold outline-none text-sm`} value={loteForm.cliente_id} onChange={e => setLoteForm({ ...loteForm, cliente_id: e.target.value })} required><option value="">Selecionar...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                  <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Ciclo</label><input type="number" min="1" max="12" className={`w-full p-4 ${tc.bgCard} border ${tc.borderStrong} rounded-xl font-bold outline-none text-sm`} value={loteForm.ciclo} onChange={e => setLoteForm({ ...loteForm, ciclo: e.target.value })} required /></div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center"><h3 className="text-sm font-black uppercase tracking-widest">Roteiros ({loteItens.length})</h3><button type="button" onClick={adicionarItemLote} className={`px-4 py-2 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'} rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-colors`}><Plus size={14} /> Adicionar Item</button></div>
+                {/* MATERIAL DECUPADO */}
+                {planSub === 'decupado' && (Object.keys(groupedProducao).length === 0 ? emptyState('Nenhuma pasta organizada pendente.') : (
                   <div className="space-y-4">
-                    {loteItens.map((item, index) => (
-                      <div key={item.id} className={`p-4 md:p-6 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl shadow-sm flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 relative group`}>
-                        <div className="absolute -left-2 top-4 w-6 h-6 bg-[#A25431] text-white rounded-full flex items-center justify-center text-[10px] font-black shadow-md">{index + 1}</div>
-                        <div className="w-full md:w-1/3 space-y-2 mt-4 md:mt-0"><label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest`}>Título</label><input className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} rounded-xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="Ex: Reel 01" value={item.titulo} onChange={e => atualizarItemLote(item.id, 'titulo', e.target.value)} /></div>
-                        <div className="w-full md:w-2/3 space-y-2">
-                          <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest`}>Roteiro / Instrução</label>
-                          <div className="flex flex-col sm:flex-row gap-2"><textarea className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} rounded-xl font-medium outline-none text-sm resize-none focus:border-[#A25431] transition-colors min-h-[80px]`} placeholder="Escreva o roteiro aqui..." value={item.roteiro} onChange={e => atualizarItemLote(item.id, 'roteiro', e.target.value)} />{loteItens.length > 1 && (<button type="button" onClick={() => removerItemLote(item.id)} className={`p-4 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'} rounded-xl flex justify-center w-full sm:w-auto transition-colors`}><Trash2 size={20} /></button>)}</div>
+                    {Object.entries(groupedProducao).map(([clienteId, group]) => clientGroup(`prod-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'tarefa', 'tarefas'), (
+                      Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                        <div key={`prod-ciclo-${cicloLabel}`}>
+                          {cicloBar(cicloLabel, <IconAction icon={Users} variant="soft" label="Delegar todos para editor e designer" onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId, ciclo: cicloLabel, itens: data.itens, clienteNome: group.cliente.nome }); setSelectedItemsToDelegate(data.itens.map((i: any) => i.id)); setDelegationDeadline(''); setDelegationDeadlineEditor(''); setDelegationDeadlineDesigner(''); setIsDelegateModalOpen(true); }} />)}
+                          {taskHead()}
+                          {data.itens.map((m: Material) => taskRow({
+                            m,
+                            status: statusChip('Drive pronto', STATUS_INFO.organizado.cls),
+                            actions: <>
+                              {timelineBtns(m)}
+                              {pastaBtn(m)}
+                              <IconAction icon={Link} label="Editar link da pasta" onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} />
+                              <IconAction icon={RotateCcw} label="Devolver ao decupador" onClick={() => openResolveModal(m, 'planner')} />
+                            </>,
+                          }))}
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ), 'bg-purple-500'))}
                   </div>
-                </div>
-                <div className={`pt-6 border-t ${tc.borderStrong}`}>
-                  <button onClick={criarLoteProducao} disabled={loading} className="w-full md:w-auto float-right px-10 py-5 bg-[#A25431] hover:bg-[#8a4729] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg flex items-center justify-center gap-3 disabled:opacity-50 transition-colors">{loading ? <><Loader2 size={18} className="animate-spin" /> A processar...</> : <><Send size={18} /> Salvar e Enviar p/ Análise</>}</button>
-                  <div className="clear-both"></div>
-                </div>
-              </div>
-            </div>
-          )}
+                ))}
 
-          {/* ABA: MATERIAIS P/ APROVAÇÃO */}
-          {activeTab === 'materiais-aprovacao' && (
-            <div className="max-w-7xl mx-auto space-y-8 text-left animate-in slide-in-from-bottom-4 duration-500">
-              <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><ClipboardCheck className="text-purple-600" size={28} /> Aprovação Interna</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>Valide a edição antes do cliente ver no portal. Inclui entregas parciais.</p></header>
-              {Object.keys(groupedMateriaisAprovacao).length === 0 ? (
-                <div className={`${tc.bgCard} p-10 md:p-20 rounded-[32px] text-center border-2 border-dashed ${tc.borderStrong}`}><CheckCircle2 size={48} className={`mx-auto ${tc.textMuted} opacity-50 mb-4`} /><p className={`${tc.textMuted} font-bold`}>Nenhum arquivo a aguardar aprovação.</p></div>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(groupedMateriaisAprovacao).map(([clienteId, group]) => (
-                    <div key={`rev-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-100'} shadow-sm overflow-visible`}>
-                      <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-purple-900/10 hover:bg-purple-900/20' : 'bg-purple-50/50 hover:bg-purple-50'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`rev-${clienteId}`)}>
-                        <div className="flex items-center gap-3"><ChevronRight className={`text-purple-500 transition-transform ${expandedClients.includes(`rev-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-purple-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
-                      </div>
-                      {expandedClients.includes(`rev-${clienteId}`) && (
-                        <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                          {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                            <div key={`rev-ciclo-${cicloLabel}`} className="space-y-3">
-
-                              {/* 🔥 BOTÃO APROVAR LOTE */}
-                              <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-100'} pb-2`}>
-                                <div className="flex items-center gap-2">
-                                  <Calendar size={14} className="text-purple-500" />
-                                  <h4 className="font-black text-[11px] text-purple-500 uppercase tracking-widest">{cicloLabel}</h4>
-                                </div>
-                                <button onClick={(e) => { e.stopPropagation(); setBatchApprovalData({itens: data.itens, cicloLabel: cicloLabel}); setBatchScheduleDate(''); }} disabled={loading} className={`w-full md:w-auto px-4 py-2 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white'} rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
-                                  {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Aprovar Lote p/ Cliente
-                                </button>
-                              </div>
-
-                              <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-100'} md:ml-1`}>
-                                {data.itens.map((m: Material) => {
-                                  const isPartial = m.status === 'em_edicao' || m.status === 'ajustes';
-
-                                  // Lógica inteligente de pendências baseada na delegação
-                                  const temEditor = !!m.editor_id;
-                                  const temDesigner = !!m.designer_id;
-
-                                  return (
-                                    <div key={m.id} className={`${tc.bgHighlight} p-4 rounded-2xl shadow-sm border ${tc.borderStrong} flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4`}>
-                                      <div className="flex-1 min-w-[200px] w-full">
-                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${isPartial ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
-                                          {isPartial ? 'Entrega Parcial' : 'Edição Pronta'}
-                                        </span>
-                                        {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                          <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                        )}
-                                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                                          <div className="flex items-center gap-1 group/title">
-                                            <h5 className="font-bold text-sm">{m.titulo}</h5>
-<button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-    <>
-      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-        {AVAILABLE_TAGS.map(tag => (
-          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-            <span className={tc.textMain}>{tag}</span>
-          </label>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                          {m.agendado_para && !m.wpp_enviado && (
-                                            <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center gap-1">
-                                              <Clock size={10} /> Agendado: {new Date(m.agendado_para).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                          )}
-                                        </div>
-
-                                        {/* Indicadores Dinâmicos */}
-                                        <div className={`mt-2 text-[10px] font-bold uppercase tracking-widest flex gap-3 ${tc.textMuted}`}>
-                                          {/* Só mostra vídeo se houver editor ou se já houver um link de vídeo */}
-                                          {(temEditor || m.link_drive) && (
-                                            <span className={m.video_entregue ? "text-green-500 flex items-center gap-1" : "flex items-center gap-1"}>
-                                              {m.video_entregue ? "✓ Vídeo OK" : "⌛ Falta Vídeo"}
-                                            </span>
-                                          )}
-
-                                          {/* Só mostra design se houver designer ou se já houver um link de capa */}
-                                          {(temDesigner || m.link_capa) && (
-                                            <span className={m.design_entregue ? "text-green-500 flex items-center gap-1" : "flex items-center gap-1"}>
-                                              {m.design_entregue ? "✓ Design OK" : "⌛ Falta Design"}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      <div className="flex flex-wrap gap-2 w-full 2xl:w-auto">
-                                        <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
-                                              {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
-              <button onClick={() => {
-                setRoteiroToEdit(m);
-                let txt = m.roteiro || '';
-                txt = txt.replace(/<br\s*\/?>/gi, '\n');
-                setNovoTituloText(m.titulo);
-                setNewRoteiroText(txt);
-                setIsEditRoteiroModalOpen(true);
-              }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Editar Roteiro"><Edit3 size={14} /> Editar</button>
-
-                                        {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Post</button>}
-                                        {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa"><ImageIcon size={14} /> Capa/Card</button>}
-
-                                        <button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center disabled:opacity-50 transition-colors">
-                                          {actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} {m.agendado_para && !m.wpp_enviado ? 'Enviar Agora' : 'Aprovar Cliente'}
-                                        </button>
-
-                                        {m.agendado_para && !m.wpp_enviado ? (
-                                          <button onClick={() => handleCancelarAgendamento(m.id)} disabled={actionLoading === m.id} className="col-span-2 md:col-span-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">
-                                            <X size={14} /> Cancelar Agend.
-                                          </button>
-                                        ) : (
-                                          <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} className="col-span-2 md:col-span-1 px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center transition-colors">Devolver</button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                {/* CRIAÇÃO MANUAL */}
+                {planSub === 'manual' && (
+                  <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl p-5 md:p-6 space-y-6`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5"><label className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300">Cliente</label><select className={`w-full px-3 py-2.5 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand`} value={loteForm.cliente_id} onChange={e => setLoteForm({ ...loteForm, cliente_id: e.target.value })} required><option value="">Selecionar...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                      <div className="space-y-1.5"><label className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300">Ciclo</label><input type="number" min="1" max="12" className={`w-full px-3 py-2.5 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand`} value={loteForm.ciclo} onChange={e => setLoteForm({ ...loteForm, ciclo: e.target.value })} required /></div>
                     </div>
-                  ))}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center"><h3 className="text-sm font-semibold">Roteiros ({loteItens.length})</h3><button type="button" onClick={adicionarItemLote} className={btnLine}><Plus size={15} /> Adicionar item</button></div>
+                      {loteItens.map((item, index) => (
+                        <div key={item.id} className={`p-4 border ${tc.borderStrong} rounded-xl flex flex-col md:flex-row gap-4`}>
+                          <span className="w-6 h-6 rounded-full bg-brand-soft text-brand text-xs font-semibold inline-flex items-center justify-center shrink-0">{index + 1}</span>
+                          <div className="w-full md:w-1/3 space-y-1.5"><label className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300">Título</label><input className={`w-full px-3 py-2.5 ${tc.bgInput} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand`} placeholder="Ex.: Reels 01" value={item.titulo} onChange={e => atualizarItemLote(item.id, 'titulo', e.target.value)} /></div>
+                          <div className="flex-1 space-y-1.5">
+                            <label className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300">Roteiro / instrução</label>
+                            <div className="flex gap-2"><textarea className={`w-full px-3 py-2.5 ${tc.bgInput} border ${tc.borderStrong} rounded-[10px] outline-none text-sm resize-none focus:border-brand min-h-[80px]`} placeholder="Escreva o roteiro aqui..." value={item.roteiro} onChange={e => atualizarItemLote(item.id, 'roteiro', e.target.value)} />{loteItens.length > 1 && <IconAction icon={Trash2} label="Remover item" onClick={() => removerItemLote(item.id)} />}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <button onClick={criarLoteProducao} disabled={loading} className={btnInk}>{loading ? <><Loader2 size={16} className="animate-spin" /> Processando...</> : <><Send size={16} /> Salvar e enviar para análise</>}</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ABA: MATERIAIS PARA APROVAÇÃO (Aprovação interna) */}
+          {activeTab === 'materiais-aprovacao' && (
+            <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+              {pageHeader({ title: 'Aprovação interna', icon: ClipboardCheck, meta: `${qtd(filaMateriaisAprovacao.length, 'material', 'materiais')} · ${qtd(Object.keys(groupedMateriaisAprovacao).length, 'cliente', 'clientes')}` })}
+              {Object.keys(groupedMateriaisAprovacao).length === 0 ? emptyState('Nenhum material aguardando aprovação.') : (
+                <div className="space-y-4">
+                  {Object.entries(groupedMateriaisAprovacao).map(([clienteId, group]) => clientGroup(`rev-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'material', 'materiais'), (
+                    Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                      <div key={`rev-ciclo-${cicloLabel}`}>
+                        {cicloBar(cicloLabel, <IconAction icon={CheckCheck} variant="soft" label="Aprovar lote para o cliente" loading={loading} onClick={() => { setBatchApprovalData({ itens: data.itens, cicloLabel }); setBatchScheduleDate(''); }} />)}
+                        <div className="space-y-2 mt-2">
+                          {data.itens.map((m: Material) => {
+                            const isPartial = m.status === 'em_edicao' || m.status === 'ajustes';
+                            const temVideo = !!m.editor_id || !!m.link_drive;
+                            const temDesign = !!m.designer_id || !!m.link_capa;
+                            const editor = membros.find(mb => mb.id === m.editor_id);
+                            const designer = membros.find(mb => mb.id === m.designer_id);
+                            const late = m.data_limite && isDateLate(m.data_limite);
+                            const thumb = (url: string | undefined, label: string, Icon: any, gradient: string) => (
+                              <button type="button" disabled={!url} onClick={(e) => { e.stopPropagation(); if (url) setPreviewUrl(url); }} title={url ? `Abrir ${label.toLowerCase()}` : `${label} ainda não enviado`} className={`relative overflow-hidden w-14 h-14 rounded-[10px] text-white flex flex-col items-center justify-center gap-0.5 shrink-0 transition ${url ? `${gradient} hover:brightness-95` : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'}`}>
+                                <Icon size={16} /><span className="text-[10px] font-semibold">{label}</span>
+                                {url && <ThumbImage key={url} url={url} label={label} small />}
+                              </button>
+                            );
+                            const ready = (Icon: any, label: string, ok: boolean) => (
+                              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md ${ok ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                                <Icon size={12} /> {label} {ok ? '✓' : '· pendente'}
+                              </span>
+                            );
+                            const role = (label: string, p?: MembroComNome) => p && (
+                              <div className="flex items-center gap-2 text-xs"><span className="text-zinc-500 w-14">{label}</span><span title={p.nome || p.email} style={{ background: avatarColor(p.id) }} className="w-6 h-6 rounded-full text-[10px] font-semibold text-white inline-flex items-center justify-center">{initials(p.nome || p.email)}</span></div>
+                            );
+                            return (
+                              <div key={m.id} onClick={() => openRoteiro(m)} className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} p-3 flex flex-col lg:flex-row lg:items-center gap-3 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {(temVideo || !temDesign) && thumb(m.link_drive, 'Vídeo', PlayCircle, 'bg-gradient-to-br from-[#F0C9AE] to-brand')}
+                                  {temDesign && thumb(m.link_capa, 'Capa', ImageIcon, 'bg-gradient-to-br from-pink-200 to-pink-500')}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-sm">{m.titulo}</span>
+                                    {tagChips(m)}
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
+                                    {tagControl(m)}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                                    {statusChip(isPartial ? 'Entrega parcial' : 'Edição pronta', isPartial ? STATUS_INFO.roteiro_aprovado.cls : STATUS_INFO.revisao.cls)}
+                                    {late && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"><Flag size={12} /> Atrasada · {fmtDate(m.data_limite!)}</span>}
+                                    {m.agendado_para && !m.wpp_enviado && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"><Clock size={12} /> Agendado: {new Date(m.agendado_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                                    {temVideo && ready(Clapperboard, 'Vídeo', !!m.video_entregue)}
+                                    {temDesign && ready(Images, 'Capa', !!m.design_entregue)}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 lg:shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex flex-col gap-1.5 min-w-[110px]">{role('Editor', editor)}{role('Designer', designer)}</div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
+                                    <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
+                                    {m.agendado_para && !m.wpp_enviado ? (
+                                      <IconAction icon={X} label="Cancelar agendamento" loading={actionLoading === m.id} onClick={() => handleCancelarAgendamento(m.id)} />
+                                    ) : (
+                                      <button type="button" onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} className={btnLine}><MessageSquare size={15} /> Pedir ajuste</button>
+                                    )}
+                                    <button type="button" onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className={btnInk}>
+                                      {actionLoading === m.id ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {m.agendado_para && !m.wpp_enviado ? 'Enviar agora' : 'Aprovar'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  ), 'bg-purple-500'))}
                 </div>
               )}
             </div>
@@ -2453,172 +2467,53 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
           {/* ABA: SOLICITAÇÃO DE AJUSTES */}
           {activeTab === 'solicitacao-ajustes' && (
-            <div className="max-w-6xl mx-auto space-y-8 text-left animate-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight uppercase flex items-center gap-3"><Bell className="text-red-600" size={28} /> Solicitação de Ajustes</h2>
-              {Object.keys(groupedAjustes).length === 0 ? (
-                <div className={`${tc.bgCard} border border-dashed ${tc.borderStrong} rounded-[32px] p-10 text-center`}><p className={`${tc.textMuted} font-bold`}>Nenhum pedido de ajuste pendente.</p></div>
-              ) : (
+            <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+              {pageHeader({ title: 'Solicitação de ajustes', icon: Bell, iconCls: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400', meta: `${qtd(notificacoesAjustes.length, 'pedido', 'pedidos')} · ${qtd(Object.keys(groupedAjustes).length, 'cliente', 'clientes')}` })}
+              {Object.keys(groupedAjustes).length === 0 ? emptyState('Nenhum pedido de ajuste pendente.') : (
                 <div className="space-y-4">
-                  {Object.entries(groupedAjustes).map(([clienteId, group]) => (
-                    <div key={`notif-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border {theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} shadow-sm overflow-visible`}>
-                      <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-red-900/10 hover:bg-red-900/20' : 'bg-red-50/50 hover:bg-red-50'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`notif-${clienteId}`)}>
-                        <div className="flex items-center gap-3"><ChevronRight className={`text-red-600 transition-transform ${expandedClients.includes(`notif-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-red-500 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
-                      </div>
-                      {expandedClients.includes(`notif-${clienteId}`) && (
-                        <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                          {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                            <div key={`notif-ciclo-${cicloLabel}`} className="space-y-3">
-                              <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} pb-2`}><Calendar size={14} className="text-red-600" /><h4 className="font-black text-[11px] text-red-600 uppercase tracking-widest">{cicloLabel}</h4></div>
-                              <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-red-900/50' : 'border-red-100'} md:ml-1`}>
-                                {data.itens.map((m) => (
-                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col items-start gap-4 ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-200') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-200')} transition-colors`}>
-                                    <div className="flex-1 min-w-0 w-full text-left">
-                                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700') : (theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700')}`}>
-                                        {(!m.link_drive && !m.link_capa) ? '🔔 Ajuste Planejamento' : '🎬 Ajuste Produção'}
-                                      </span>
-                                      {m.data_limite && new Date(m.data_limite) < new Date() && (
-                                        <span className="ml-2 text-[8px] font-black uppercase px-2 py-1 rounded bg-red-600 text-white animate-pulse">ATRASADA - {new Date(m.data_limite + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                      )}
-                                      <div className="flex items-center gap-1 group/title min-w-0">
-                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
-                                        <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-    <>
-      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-        {AVAILABLE_TAGS.map(tag => (
-          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-            <span className={tc.textMain}>{tag}</span>
-          </label>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                      {(() => {
-                                        const author = getAuthorInfo(m.feedback);
-                                        if (!author) return null;
-                                        return (
-                                          <div className={`mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${theme === 'dark' ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-white text-zinc-500 border-zinc-200'} border`}>
-                                            <Users size={10} className="opacity-60" />
-                                            <span>Reportado por: <span className="text-[#A25431]">{author.nome}</span></span>
-                                          </div>
-                                        );
-                                      })()}
-                                      <div className={`mt-3 p-3 border rounded-xl ${tc.bgCard} ${(!m.link_drive && !m.link_capa) ? (theme === 'dark' ? 'border-orange-900/50' : 'border-orange-100') : (theme === 'dark' ? 'border-red-900/50' : 'border-red-100')}`}>
-                                        {(() => {
-                                          const feedbacks = m.feedback ? m.feedback.split('\n\n').map(f => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
-                                          return feedbacks.length > 0 ? (
-                                            <div className={`text-[10px] font-bold ${textSecundario} whitespace-pre-wrap flex flex-col gap-2`}>
-                                              {feedbacks.map((fb, idx) => (
-                                                <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-zinc-200 dark:border-zinc-800' : ''}>
-                                                  {renderTextWithLinks(fb)}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <div className={`text-[10px] font-bold ${textSecundario} italic opacity-50`}>
-                                              Motivo não detalhado no campo principal. Consulte os ajustes no botão da linha do tempo.
-                                            </div>
-                                          );
-                                        })()}
-
-
-
-
-
-
-
-
-
-
-
-
-                                      </div>
-                                      {/* 🔥 BOTÕES DE VISUALIZAÇÃO DA VERSÃO ENVIADA */}
-                                      {(m.link_drive || m.link_capa) && (
-                                        <div className="flex flex-wrap gap-2 mt-3">
-                                          {m.link_drive && (
-                                            <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' : 'bg-blue-50 text-blue-600 border-blue-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest`}>
-                                              <FileVideo size={14} /> Visualizar Video
-                                            </button>
-                                          )}
-                                          {m.link_capa && (
-                                            <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/30' : 'bg-pink-50 text-pink-600 border-pink-100'} hover:opacity-80 transition-all border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest`}>
-                                              <ImageIcon size={14} /> Visualizar Imagem
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2 w-full mt-2 shrink-0 justify-end">
-                                      <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
-                                              {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-all flex items-center justify-center gap-2 shadow-sm`}><FileText size={14} /> Roteiro</button>
-                                      {(!m.link_drive && !m.link_capa) ? (
-                                        <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
-                                          <button onClick={() => {
-                                            setRoteiroToEdit(m);
-                                            let txt = m.roteiro || '';
-                                            if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
-                                            txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
-                                            txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
-                                            setNovoTituloText(m.titulo);
-                                            setNewRoteiroText(txt);
-                                            setIsEditRoteiroModalOpen(true);
-                                          }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${theme === 'dark' ? 'border-orange-900/50 text-orange-500 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'} rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-sm flex items-center justify-center gap-2`}><Edit3 size={14} /> Editar Roteiro</button>
-                                          <button onClick={() => handleReenviarRoteiroAjustado(m)} disabled={actionLoading === m.id} className="flex-1 sm:flex-none px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50">{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Reenviar Cliente</button>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><FileVideo size={14} /> Ver Post</button>}
-                                          {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`}><ImageIcon size={14} /> Capa/Card</button>}
-                                          <button onClick={() => {
-                                            setRoteiroToEdit(m);
-                                            let txt = m.roteiro || '';
-                                            txt = txt.replace(/<br\s*\/?>/gi, '\n');
-                                            setNovoTituloText(m.titulo);
-                                            setNewRoteiroText(txt);
-                                            setIsEditRoteiroModalOpen(true);
-                                          }} className={`flex-1 sm:flex-none px-5 py-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-lg font-bold text-[11px] ${tc.bgHover} transition-colors flex items-center justify-center gap-2 shadow-sm`} title="Editar Roteiro"><Edit3 size={14} /> Editar</button>
-                                          {(m.tags || []).includes('_ajuste_delegado') ? (
-                                            <div className="flex w-full sm:w-auto items-center gap-2">
-                                              <span className={`flex-1 text-center px-4 py-2 ${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} rounded-lg font-black text-[10px] uppercase`}>Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'Equipe'}</span>
-                                              <button onClick={(e) => { e.stopPropagation(); handleCancelarDelegacaoAjuste(m); }} className="p-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white rounded-lg transition-colors" title="Cancelar Delegação"><X size={14}/></button>
-                                            </div>
-                                          ) : (
-                                            <button onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} className="w-full sm:w-auto px-8 py-2 text-white rounded-lg font-black text-[11px] tracking-widest uppercase transition-colors shadow-md flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700">Delegar</button>
-                                          )}
-                                        </>
-                                      )}
-                                    </div>
+                  {Object.entries(groupedAjustes).map(([clienteId, group]) => clientGroup(`notif-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'pedido', 'pedidos'), (
+                    Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                      <div key={`notif-ciclo-${cicloLabel}`}>
+                        {cicloBar(cicloLabel)}
+                        {taskHead()}
+                        {data.itens.map((m: Material) => {
+                          const planejamentoAjuste = !m.link_drive && !m.link_capa;
+                          const author = getAuthorInfo(m.feedback);
+                          const feedbacks = m.feedback ? m.feedback.split('\n\n').map(f => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
+                          const delegado = (m.tags || []).includes('_ajuste_delegado');
+                          return taskRow({
+                            m,
+                            status: statusChip(planejamentoAjuste ? 'Ajuste de planejamento' : 'Ajuste de produção', planejamentoAjuste ? STATUS_INFO.roteiro_aprovado.cls : STATUS_INFO.ajustes.cls),
+                            actions: <>
+                              <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
+                              <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
+                              {m.link_drive && <IconAction icon={FileVideo} label="Ver vídeo enviado" onClick={() => setPreviewUrl(m.link_drive || null)} />}
+                              {m.link_capa && <IconAction icon={ImageIcon} label="Ver capa enviada" onClick={() => setPreviewUrl(m.link_capa || null)} />}
+                              {planejamentoAjuste ? (
+                                <IconAction icon={Send} variant="ink" label="Reenviar roteiro para o cliente" loading={actionLoading === m.id} onClick={() => handleReenviarRoteiroAjustado(m)} />
+                              ) : delegado ? (
+                                <IconAction icon={X} label={`Cancelar delegação (${membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'equipe'})`} onClick={() => handleCancelarDelegacaoAjuste(m)} />
+                              ) : (
+                                <IconAction icon={UserPlus} variant="ink" label="Delegar ajuste" onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} />
+                              )}
+                            </>,
+                            below: (
+                              <div className="space-y-2">
+                                {delegado && <span className="inline-flex text-xs font-medium px-2 py-0.5 rounded-md bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400">Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'equipe'}</span>}
+                                {feedbacks.length > 0 ? feedbacks.map((fb, idx) => (
+                                  <div key={idx} className={`max-w-[85%] ${idx > 0 ? 'opacity-70' : ''}`}>
+                                    {idx === 0 && author && <div className="text-xs text-zinc-500 mb-1">{author.nome} · {author.role}</div>}
+                                    {idx === 0 && !author && <div className="text-xs text-zinc-500 mb-1">{m.cliente?.nome || 'Cliente'}</div>}
+                                    <div className={`px-3 py-2 rounded-xl rounded-bl-sm text-[13px] whitespace-pre-wrap ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>{renderTextWithLinks(fb)}</div>
                                   </div>
-                                ))}
+                                )) : <p className="text-xs text-zinc-400 italic">Motivo não detalhado. Consulte os ajustes no botão de comentários.</p>}
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                            ),
+                          });
+                        })}
+                      </div>
+                    ))
+                  ), 'bg-red-500'))}
                 </div>
               )}
             </div>
@@ -2626,80 +2521,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
           {/* ABA: MATERIAIS APROVADOS */}
           {activeTab === 'materiais-aprovados' && (
-            <div className="max-w-7xl mx-auto space-y-8 text-left animate-in slide-in-from-bottom-4 duration-500">
-              <header><h2 className="text-2xl md:text-3xl font-black uppercase flex items-center gap-3"><CheckCircle2 className="text-green-500" size={28} /> Prontos para Postar</h2><p className={`${tc.textMuted} font-medium text-sm md:text-base mt-1`}>Materiais que o cliente já aprovou e estão prontos para publicação.</p></header>
-              {Object.keys(groupedMateriaisAprovados).length === 0 ? (
-                <div className={`${tc.bgCard} p-10 md:p-20 rounded-[32px] text-center border-2 border-dashed ${tc.borderStrong}`}><CheckCircle2 size={48} className={`mx-auto ${tc.textMuted} opacity-50 mb-4`} /><p className={`${tc.textMuted} font-bold`}>Nenhum material aprovado pendente de publicação.</p></div>
-              ) : (
+            <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+              {pageHeader({ title: 'Prontos para postar', icon: CheckCircle2, iconCls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400', meta: `${qtd(filaMateriaisAprovados.length, 'material', 'materiais')} · ${qtd(Object.keys(groupedMateriaisAprovados).length, 'cliente', 'clientes')}` })}
+              {Object.keys(groupedMateriaisAprovados).length === 0 ? emptyState('Nenhum material aprovado pendente de publicação.') : (
                 <div className="space-y-4">
-                  {Object.entries(groupedMateriaisAprovados).map(([clienteId, group]) => (
-                    <div key={`ok-${clienteId}`} className={`${tc.bgCard} rounded-[24px] border ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} shadow-sm overflow-visible`}>
-                      <div className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-green-900/10 hover:bg-green-900/20' : 'bg-green-50/50 hover:bg-green-50'} cursor-pointer flex items-center justify-between transition-colors`} onClick={() => toggleClient(`ok-${clienteId}`)}>
-                        <div className="flex items-center gap-3"><ChevronRight className={`text-green-500 transition-transform ${expandedClients.includes(`ok-${clienteId}`) ? 'rotate-90' : ''}`} /><Folder className="text-green-400 hidden md:block" size={18} /><h3 className="font-black text-base md:text-lg uppercase truncate">{group.cliente.nome}</h3></div>
+                  {Object.entries(groupedMateriaisAprovados).map(([clienteId, group]) => clientGroup(`ok-${clienteId}`, group.cliente.nome, qtd(countItens(group), 'material', 'materiais'), (
+                    Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
+                      <div key={`ok-ciclo-${cicloLabel}`}>
+                        {cicloBar(cicloLabel)}
+                        {taskHead()}
+                        {data.itens.map((m: Material) => taskRow({
+                          m, ignoreLate: true,
+                          status: statusChip('Pronto para postar', STATUS_INFO.aprovado.cls),
+                          actions: <>
+                            <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
+                            <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
+                            {m.link_drive && <IconAction icon={FileVideo} label="Ver vídeo" onClick={() => setPreviewUrl(m.link_drive || null)} />}
+                            {m.link_capa && <IconAction icon={ImageIcon} label="Ver capa" onClick={() => setPreviewUrl(m.link_capa || null)} />}
+                            <IconAction icon={Archive} variant="ink" label="Marcar como postado e arquivar" loading={actionLoading === m.id} onClick={() => openConfirm('Arquivar e finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} />
+                          </>,
+                        }))}
                       </div>
-                      {expandedClients.includes(`ok-${clienteId}`) && (
-                        <div className={`p-4 md:p-5 space-y-6 ${tc.bgCard}`}>
-                          {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
-                            <div key={`ok-ciclo-${cicloLabel}`} className="space-y-3">
-                              <div className={`flex items-center gap-2 border-b ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} pb-2`}><Calendar size={14} className="text-green-500" /><h4 className="font-black text-[11px] text-green-500 uppercase tracking-widest">{cicloLabel}</h4></div>
-                              <div className={`grid gap-3 pl-0 md:pl-2 md:border-l-2 ${theme === 'dark' ? 'border-green-900/50' : 'border-green-100'} md:ml-1`}>
-                                {data.itens.map((m: Material) => (
-                                  <div key={m.id} className={`${theme === 'dark' ? 'bg-zinc-950/50 border-zinc-800' : 'bg-zinc-50/50 border-zinc-100'} p-4 rounded-2xl shadow-sm border flex flex-col 2xl:flex-row items-start 2xl:items-center gap-4 transition-colors`}>
-                                    <div className="flex-1 min-w-[200px] w-full"><span className={`${theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'} text-[10px] font-black uppercase px-2 py-1 rounded-md mb-2 inline-block`}>Pronto Final</span>
-                                      <div className="flex items-center gap-1 group/title">
-                                        <h5 className="font-bold text-sm">{m.titulo}</h5>
-<button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-    <>
-      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-      <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
-        {AVAILABLE_TAGS.map(tag => (
-          <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-            <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
-            <span className={tc.textMain}>{tag}</span>
-          </label>
-        ))}
-      </div>
-    </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 w-full 2xl:w-auto">
-                                      <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
-                                              {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl ${tc.bgHover} flex justify-center`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
-
-                                      {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Vídeo"><FileVideo size={14} /> Ver Post</button>}
-                                      {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} ${tc.textMuted} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center ${tc.bgHover}`} title="Ver Capa/Card"><ImageIcon size={14} /> Capa/Card</button>}
-
-                                      <button onClick={() => openConfirm('Arquivar e Finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} disabled={actionLoading === m.id} className={`col-span-2 md:col-span-1 px-4 py-3 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-black'} rounded-xl font-bold text-[11px] flex items-center gap-2 justify-center disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />} Arquivar</button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))
+                  ), 'bg-green-500'))}
                 </div>
               )}
             </div>
@@ -2707,116 +2551,80 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
           {/* ABA: VISÃO GERAL */}
           {activeTab === 'geral' && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 text-left">
+            <div className="max-w-7xl mx-auto space-y-5 text-left animate-in fade-in duration-300">
+              {pageHeader({
+                title: showArchived ? 'Arquivo' : 'Visão geral', icon: showArchived ? Archive : LayoutDashboard, crumb: 'Planejamento',
+                meta: `${qtd(Object.keys(groupedVisaoGeral).length, 'cliente', 'clientes')} ${showArchived ? 'com materiais arquivados' : 'ativos'}`,
+                actions: <>
+                  <button onClick={syncWithClickUp} disabled={syncing} className={btnLine}><RefreshCw size={15} className={syncing ? 'animate-spin' : ''} /> Sync ClickUp</button>
+                  <button onClick={() => setShowArchived(!showArchived)} className={btnLine}><Archive size={15} /> {showArchived ? 'Ver ativos' : 'Ver arquivados'}</button>
+                </>,
+              })}
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[
-                  { label: 'Pendentes', val: metrics.pendentes, color: 'text-blue-600', icon: Clock },
-                  { label: 'Ajustes', val: metrics.ajustes, color: 'text-orange-500', icon: MessageSquare },
-                  { label: 'Aprovados', val: metrics.aprovados, color: 'text-green-500', icon: CheckCircle },
-                  { label: 'Eficiência', val: `${metrics.eficiencia}%`, color: theme === 'dark' ? 'text-zinc-100' : 'text-zinc-800', icon: TrendingUp },
+                  { label: 'Pendentes', val: metrics.pendentes, icon: Clock, cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
+                  { label: 'Ajustes', val: metrics.ajustes, icon: MessageSquare, cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' },
+                  { label: 'Aprovados', val: metrics.aprovados, icon: CheckCircle, cls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' },
+                  { label: 'Eficiência', val: `${metrics.eficiencia}%`, icon: TrendingUp, cls: 'bg-brand-soft text-brand' },
                 ].map((m, i) => (
-                  <div key={i} className={`${tc.bgCard} p-4 md:p-6 rounded-[24px] border ${tc.borderStrong} shadow-sm transition-colors`}>
-                    <p className={`${tc.textMuted} text-[10px] md:text-[10px] font-black uppercase tracking-widest mb-1`}>{m.label}</p>
-                    <div className="flex items-end justify-between"><h3 className={`text-2xl md:text-3xl font-black ${m.color}`}>{m.val}</h3><m.icon className="opacity-10 hidden sm:block" size={24} /></div>
+                  <div key={i} className={`${tc.bgCard} p-4 md:p-5 rounded-2xl border ${tc.borderStrong} flex items-center gap-3.5`}>
+                    <span className={`w-10 h-10 rounded-xl inline-flex items-center justify-center shrink-0 ${m.cls}`}><m.icon size={19} /></span>
+                    <div><div className="text-2xl font-semibold leading-tight">{m.val}</div><div className="text-[13px] text-zinc-500">{m.label}</div></div>
                   </div>
                 ))}
               </div>
 
-              {/* CENTRO DE COMANDO: FLUXO NEURAL */}
-              <div className={`w-full ${tc.bgCard} p-6 md:p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm transition-colors relative overflow-hidden min-h-[300px] flex flex-col justify-center`}>
-                {/* Background Grid Pattern for futuristic vibe */}
-                <div className={`absolute inset-0 opacity-[0.03] ${theme === 'dark' ? 'bg-[radial-gradient(#fff_1px,transparent_1px)]' : 'bg-[radial-gradient(#000_1px,transparent_1px)]'} [background-size:20px_20px] pointer-events-none`}></div>
-
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
-                  <div>
-                    <h3 className={`text-[11px] md:text-sm font-black uppercase tracking-widest ${tc.textMuted} flex items-center gap-2`}>
-                      <Activity size={16} className="text-blue-500" /> Fluxo Operacional
-                    </h3>
-                    <p className={`text-[10px] font-bold uppercase mt-1 ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                      Monitoramento em tempo real
-                    </p>
-                  </div>
-                  {gargalo.count > 0 && (
-                    <div className={`px-4 py-2 rounded-full border ${theme === 'dark' ? 'bg-red-900/20 border-red-900/50 text-red-400' : 'bg-red-50 border-red-200 text-red-600'} flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.2)]`}>
-                      <AlertCircle size={14} className="animate-pulse" /> Gargalo Atual: {gargalo.name} ({gargalo.count})
-                    </div>
-                  )}
+              {/* FLUXO OPERACIONAL: etapas em sequência; clique leva para a página da etapa */}
+              <div className={`${tc.bgCard} p-4 md:p-5 rounded-2xl border ${tc.borderStrong}`}>
+                <div className="flex flex-wrap items-center gap-3 mb-3.5">
+                  <span className="text-[11px] font-semibold tracking-wider uppercase text-zinc-500">Fluxo operacional</span>
+                  {gargalo.count > 0 && <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"><AlertCircle size={13} /> Gargalo atual: {gargalo.name} ({gargalo.count})</span>}
                 </div>
-
-                <div className="relative w-full overflow-x-auto pb-10 pt-4 custom-scrollbar">
-                  <div className="min-w-[800px] flex items-center justify-between relative px-10">
-                    {/* MAIN CONNECTION LINE */}
-                    <div className={`absolute top-1/2 left-14 right-14 h-1 -translate-y-1/2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-200'} z-0 rounded-full overflow-hidden`}>
-                      {/* Glowing pulse on the line */}
-                      <div className="w-1/3 h-full bg-gradient-to-r from-transparent via-blue-500/50 to-transparent animate-[pulse_3s_ease-in-out_infinite] translate-x-full opacity-50"></div>
-                    </div>
-
-                    {/* NODES */}
-                    {pipeline.map((node, i) => {
-                      const isGargalo = gargalo.name === node.label && node.count > 0;
-                      return (
-                        <div key={node.id} className="relative z-10 flex flex-col items-center gap-3">
-                          {/* Node Circle */}
-                          <div className={`w-14 h-14 rounded-full flex items-center justify-center border-4 transition-all duration-500 relative
-                              ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-100'}
-                              ${node.count > 0 ? (theme === 'dark' ? 'border-zinc-700' : 'border-zinc-300') : ''}
-                              ${isGargalo ? `scale-110 !border-red-500` : ''}
-                            `}
-                            style={{ boxShadow: isGargalo ? `0 0 20px ${node.glow}` : node.count > 0 ? (theme === 'dark' ? `0 0 10px rgba(255,255,255,0.05)` : `0 0 10px rgba(0,0,0,0.05)`) : 'none' }}>
-
-                            {/* Pulse ring if it has tasks but isn't necessarily the bottleneck */}
-                            {isGargalo && <div className="absolute inset-0 rounded-full border-2 border-red-500 animate-ping opacity-30"></div>}
-
-                            <node.icon size={20} className={node.count > 0 ? (isGargalo ? 'text-red-500' : node.color) : tc.textMuted} />
-
-                            {/* Task Badge */}
-                            {node.count > 0 && (
-                              <div className={`absolute -top-2 -right-2 ${isGargalo ? 'bg-red-500' : node.bg} text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md`}>
-                                {node.count}
-                              </div>
-                            )}
-                          </div>
-                          {/* Label */}
-                          <div className="text-center absolute -bottom-10 w-32">
-                            <p className={`text-[10px] font-black uppercase tracking-widest ${node.count > 0 ? tc.textMain : tc.textMuted}`}>{node.label}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+                  {pipeline.map((node, i) => {
+                    const isGargalo = gargalo.name === node.label && node.count > 0;
+                    const target: Record<string, [string, string?]> = { roteiro: ['planejamento', 'analise'], decupagem: ['planejamento', 'decupagem'], revisao: ['materiais-aprovacao'], ajustes: ['solicitacao-ajustes'], aprovado: ['materiais-aprovados'] };
+                    const go = target[node.id];
+                    return (
+                      <button key={node.id} type="button" disabled={!go} onClick={() => go && setActiveTab(go[0], go[1])} className={`flex-1 min-w-[132px] flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors ${isGargalo ? 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-900/10' : `${tc.borderStrong} ${go ? (theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50') : 'cursor-default'}`}`}>
+                        <span className={`w-[3px] h-8 rounded-full ${isGargalo ? 'bg-red-500' : node.bg}`} />
+                        <span className="min-w-0">
+                          <span className="block text-[10px] font-semibold tracking-wider uppercase text-zinc-400">Etapa {i + 1}</span>
+                          <span className="block text-[13px] font-medium whitespace-nowrap">{node.label}</span>
+                        </span>
+                        <span className={`ml-auto text-xs font-semibold ${isGargalo ? 'text-red-500' : node.color}`}>{node.count}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">{showArchived ? 'ARQUIVO MORTO' : 'FLUXO DE APROVAÇÃO'}</h2>
-                  <div className="flex w-full md:w-auto gap-3">
-                    <button onClick={syncWithClickUp} disabled={syncing} className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 md:py-2 ${tc.bgCard} border ${tc.borderStrong} rounded-xl text-[10px] font-black uppercase ${tc.textMuted} ${tc.bgHover} disabled:opacity-50 transition-colors`}><RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> <span className="hidden sm:inline">Sync ClickUp</span></button>
-                    <button onClick={() => setShowArchived(!showArchived)} className={`flex-1 md:flex-none px-4 py-3 md:py-2 rounded-xl text-[11px] font-bold transition-colors ${showArchived ? (theme === 'dark' ? 'bg-white text-black' : 'bg-zinc-900 text-white') : (theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-500')}`}>{showArchived ? 'Ver Ativos' : 'Ver Arquivados'}</button>
-                  </div>
-                </div>
+              <div className="space-y-4">
                 {showArchived && <StorageWidget materiais={materiais} theme={theme} />}
 
-                {/* FILTROS RÁPIDOS GLOBAIS */}
-                <div className="flex gap-2 overflow-x-hidden pb-2 no-scrollbar py-2">
-                  {[
-                    { id: 'todos', label: 'TODOS', color: 'bg-zinc-500' },
-                    { id: 'urgentes', label: '🔥 ATRASADOS', color: 'bg-red-600' },
-                    { id: 'ajustes', label: '💬 AJUSTES', color: 'bg-orange-500' },
-                    { id: 'pendentes', label: '⏳ PENDENTES', color: 'bg-blue-500' }
-                  ].map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => setActiveFilter(f.id)}
-                      className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all shrink-0 border-2 ${activeFilter === f.id ? `${f.color} text-white border-transparent shadow-lg scale-105` : `${theme === 'dark' ? 'border-zinc-800 text-zinc-500 hover:border-zinc-600' : 'border-zinc-200 text-zinc-400 hover:border-zinc-300'}`}`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
+                {/* FILTROS RÁPIDOS + BUSCA */}
+                <div className="flex flex-col md:flex-row md:items-center gap-3">
+                  <h2 className="text-lg font-semibold">{showArchived ? 'Materiais arquivados' : 'Fluxo de aprovação'}</h2>
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar md:ml-auto">
+                    {[
+                      { id: 'todos', label: 'Todos', icon: null },
+                      { id: 'urgentes', label: 'Atrasados', icon: Flame },
+                      { id: 'ajustes', label: 'Ajustes', icon: MessageSquare },
+                      { id: 'pendentes', label: 'Pendentes', icon: Clock },
+                    ].map(f => (
+                      <button key={f.id} onClick={() => setActiveFilter(f.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium shrink-0 transition-colors ${activeFilter === f.id ? 'bg-brand-soft text-brand' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'}`}>
+                        {f.icon && <f.icon size={14} />}{f.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`flex items-center gap-2 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] px-3 py-2 md:w-64`}>
+                    <Search size={15} className="text-zinc-400 shrink-0" />
+                    <input type="text" placeholder="Procurar por cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400" />
+                  </div>
                 </div>
-                <div className="relative group"><Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-400" size={20} /><input type="text" placeholder="Procurar por cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`w-full p-4 pl-14 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl font-bold shadow-sm outline-none focus:border-blue-400 transition-colors text-sm`} /></div>
 
-                <div className={`${tc.bgCard} border rounded-[24px] overflow-hidden shadow-xl ${tc.borderStrong} transition-colors`}>
+                <div className={`${tc.bgCard} border rounded-2xl overflow-hidden ${tc.borderStrong} transition-colors`}>
                   <div className={`divide-y ${theme === 'dark' ? 'divide-zinc-800' : 'divide-zinc-100'} text-left`}>
                     {Object.entries(groupedVisaoGeral).map(([clienteId, group]) => {
                       let countPendentes = 0, countAjustes = 0, countAprovadosRoteiro = 0, countAprovadosVideo = 0, countRevisao = 0, countEmEdicao = 0;
@@ -2832,18 +2640,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       });
                       return (
                         <div key={`geral-${clienteId}`} className={`group border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} last:border-0`}>
-                          <div className={`w-full flex flex-col p-4 md:p-6 ${theme === 'dark' ? 'hover:bg-zinc-900/80' : 'hover:bg-zinc-50/80'} cursor-pointer transition-colors`} onClick={() => toggleClient(`geral-${clienteId}`)}>
+                          <div className={`w-full flex flex-col md:flex-row md:items-center gap-2 md:gap-4 px-5 py-3.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} cursor-pointer transition-colors`} onClick={() => toggleClient(`geral-${clienteId}`)}>
                             <div className="flex items-center">
-                              <ChevronRight className={`text-blue-600 transition-transform ${expandedClients.includes(`geral-${clienteId}`) ? 'rotate-90' : ''}`} size={20} />
-                              <div className="relative mx-2 md:mx-3"><Folder className={`${tc.textMuted}`} size={20} /></div>
-                              <span className="text-lg md:text-xl font-black uppercase truncate">{group.cliente?.nome}</span>
+                              <ChevronRight className={`text-zinc-400 transition-transform ${expandedClients.includes(`geral-${clienteId}`) ? 'rotate-90' : ''}`} size={18} />
+                              <span className="mx-2.5">{clientInitial(group.cliente?.nome)}</span>
+                              <span className="text-[15px] font-semibold truncate md:min-w-[200px]">{group.cliente?.nome}</span>
                             </div>
-                            <div className="flex gap-2 mt-3 ml-8 md:ml-10 flex-wrap">
-                              {countEmEdicao > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-md text-[10px] font-black uppercase border`}>{countEmEdicao} Em Produção</span>}
-                              {countRevisao > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} rounded-md text-[10px] font-black uppercase border animate-pulse`}>{countRevisao} P/ Aprovação</span>}
-                              {countAjustes > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-100 text-red-700 border-red-200'} rounded-md text-[10px] font-black uppercase border`}>{countAjustes} Ajustes</span>}
-                              {countAprovadosVideo > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-green-600 text-white' : 'bg-green-500 text-white'} rounded-md text-[10px] font-black uppercase`}>{countAprovadosVideo} P/ Postar</span>}
-                              {countAprovadosRoteiro > 0 && <span className={`px-2 py-1 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 border-green-900/50' : 'bg-green-100 text-green-700 border-green-200'} rounded-md text-[10px] font-black uppercase border`}>{countAprovadosRoteiro} Roteiros Aprov.</span>}
+                            <div className="flex gap-1.5 ml-8 md:ml-0 flex-wrap">
+                              {countEmEdicao > 0 && <span className={`px-2 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 rounded-md text-xs font-medium`}>{countEmEdicao} em produção</span>}
+                              {countRevisao > 0 && <span className={`px-2 py-0.5 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 rounded-md text-xs font-medium`}>{countRevisao} para aprovação</span>}
+                              {countAjustes > 0 && <span className={`px-2 py-0.5 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-md text-xs font-medium`}>{countAjustes} {countAjustes === 1 ? 'ajuste' : 'ajustes'}</span>}
+                              {countAprovadosVideo > 0 && <span className={`px-2 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-md text-xs font-medium`}>{countAprovadosVideo} para postar</span>}
+                              {countAprovadosRoteiro > 0 && <span className={`px-2 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-md text-xs font-medium`}>{countAprovadosRoteiro} roteiros aprovados</span>}
                             </div>
                           </div>
                           {expandedClients.includes(`geral-${clienteId}`) && (
@@ -2863,14 +2671,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                       <div className="flex items-center gap-2 cursor-pointer flex-1 flex-wrap" onClick={() => toggleCiclo(clienteId, cicloLabel)}>
                                         <ChevronRight size={16} className={`${textSecundario} transition-transform ${expandedCiclos.includes(`${clienteId}-${cicloLabel}`) ? 'rotate-90' : ''}`} />
                                         <Calendar size={16} className="text-blue-500 shrink-0" />
-                                        <span className={`text-[11px] font-black uppercase tracking-widest truncate ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>{cicloLabel}</span>
-                                        <span className={`text-[10px] font-black uppercase shrink-0 px-1 ${textSecundario}`}>{data.aprovados}/{data.total} OK</span>
+                                        <span className={`text-[12px] font-semibold   truncate ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>{fmtCiclo(cicloLabel)}</span>
+                                        <span className={`text-[11px] font-semibold  shrink-0 px-1 ${textSecundario}`}>{data.aprovados}/{data.total} ok</span>
 
                                         <div className="flex gap-1.5 flex-wrap ml-1">
-                                          {cicloEdicao > 0 && <span className={`px-1.5 py-0.5 ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-200'} rounded-md text-[8px] font-black uppercase border`}>{cicloEdicao} Produção</span>}
-                                          {cicloRevisao > 0 && <span className={`px-1.5 py-0.5 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} rounded-md text-[8px] font-black uppercase border animate-pulse`}>{cicloRevisao} P/ Aprovação</span>}
-                                          {cicloAjustes > 0 && <span className={`px-1.5 py-0.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 border-red-900/50' : 'bg-red-100 text-red-700 border-red-200'} rounded-md text-[8px] font-black uppercase border`}>{cicloAjustes} Ajustes</span>}
-                                          {cicloAprovadosVideo > 0 && <span className={`px-1.5 py-0.5 ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} text-white rounded-md text-[8px] font-black uppercase`}>{cicloAprovadosVideo} P/ Postar</span>}
+                                          {cicloEdicao > 0 && <span className={`px-2 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 rounded-md text-xs font-medium`}>{cicloEdicao} em produção</span>}
+                                          {cicloRevisao > 0 && <span className={`px-2 py-0.5 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 rounded-md text-xs font-medium`}>{cicloRevisao} para aprovação</span>}
+                                          {cicloAjustes > 0 && <span className={`px-2 py-0.5 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-md text-xs font-medium`}>{cicloAjustes} {cicloAjustes === 1 ? 'ajuste' : 'ajustes'}</span>}
+                                          {cicloAprovadosVideo > 0 && <span className={`px-2 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-md text-xs font-medium`}>{cicloAprovadosVideo} para postar</span>}
                                         </div>
                                       </div>
 
@@ -2878,14 +2686,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         {!showArchived && (
                                           <button
                                             onClick={(e) => { e.stopPropagation(); setCycleToArchive({ itens: data.itens, cicloLabel }); setIsArchiveCycleModalOpen(true); }}
-                                            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white'} rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-sm`}
+                                            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white'} rounded-lg text-[11px] font-semibold  flex items-center justify-center gap-2 transition-all shadow-sm`}
                                             title="Arquivar todo o Ciclo"
                                           >
                                             <Archive size={14} className="sm:w-3 sm:h-3" /> Arquivar
                                           </button>
                                         )}
                                         {!showArchived && (
-                                          <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all shadow-sm`}>
+                                          <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[11px] font-semibold  flex items-center justify-center gap-2 transition-all shadow-sm`}>
                                             <Send size={14} className="sm:w-3 sm:h-3" /> Avisar Cliente
                                           </button>
                                         )}
@@ -2903,7 +2711,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
                                                     {...provided.dragHandleProps}
-                                                    className={`flex flex-col ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-[20px] shadow-sm group/item gap-4 transition-colors mb-2`}
+                                                    className={`flex flex-col ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-2xl shadow-sm group/item gap-4 transition-colors mb-2`}
                                                   >
                                                     <div className="flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between w-full gap-4">
                                             <div className="flex-1 w-full">
@@ -2919,10 +2727,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   <>
     <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
     <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2 px-2">Tags</div>
+      <div className="text-[11px] font-semibold text-zinc-500 mb-2 px-2">Tags</div>
       {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[11px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-[#A25431]" />
+        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[12px]`}>
+          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-brand" />
           <span className={tc.textMain}>{tag}</span>
         </label>
       ))}
@@ -2937,29 +2745,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 {m.tags && m.tags.length > 0 && (
   <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
     {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(t)}>
+      <span key={t} className="px-2 py-0.5 border rounded-md text-[11px] font-semibold " style={getTagStyle(t)}>
         {t}
       </span>
     ))}
   </div>
 )}
-                                                {(m.status === 'aprovado' || m.status === 'concluido') && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} px-1.5 py-0.5 rounded shadow-sm`}>Arquivado / Finalizado</span>)}
-                                                {m.status === 'post_aprovado' && (<span className={`text-[8px] font-black uppercase text-white ${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} px-1.5 py-0.5 rounded shadow-sm`}>Post Aprovado (Cliente)</span>)}
-                                                {m.status === 'roteiro_aprovado' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado (Cliente)</span>)}
-                                                {m.status === 'ajustes' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-red-400 bg-red-900/30 border-red-900/50' : 'text-red-700 bg-red-100 border-red-200'} px-1.5 py-0.5 rounded border`}>Ajustes Solicitados</span>)}
-                                                {m.status === 'em_edicao' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 border-blue-900/50' : 'text-blue-700 bg-blue-100 border-blue-200'} px-1.5 py-0.5 rounded border`}>Em Edição / Design</span>)}
-                                                {m.status === 'analise_roteiro' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-pink-400 bg-pink-900/30 border-pink-900/50' : 'text-pink-700 bg-pink-100 border-pink-200'} px-1.5 py-0.5 rounded border`}>Roteiro em Análise</span>)}
-                                                {m.status === 'revisao' && (<span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 border-purple-900/50' : 'text-purple-700 bg-purple-100 border-purple-200'} px-1.5 py-0.5 rounded border`}>Revisão Agência</span>)}
+                                                {(m.status === 'aprovado' || m.status === 'concluido') && (<span className={`text-[10px] font-semibold  text-white ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} px-1.5 py-0.5 rounded shadow-sm`}>Arquivado / Finalizado</span>)}
+                                                {m.status === 'post_aprovado' && (<span className={`text-[10px] font-semibold  text-white ${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} px-1.5 py-0.5 rounded shadow-sm`}>Post Aprovado (Cliente)</span>)}
+                                                {m.status === 'roteiro_aprovado' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado (Cliente)</span>)}
+                                                {m.status === 'ajustes' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-red-400 bg-red-900/30 border-red-900/50' : 'text-red-700 bg-red-100 border-red-200'} px-1.5 py-0.5 rounded border`}>Ajustes Solicitados</span>)}
+                                                {m.status === 'em_edicao' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 border-blue-900/50' : 'text-blue-700 bg-blue-100 border-blue-200'} px-1.5 py-0.5 rounded border`}>Em Edição / Design</span>)}
+                                                {m.status === 'analise_roteiro' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-pink-400 bg-pink-900/30 border-pink-900/50' : 'text-pink-700 bg-pink-100 border-pink-200'} px-1.5 py-0.5 rounded border`}>Roteiro em Análise</span>)}
+                                                {m.status === 'revisao' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 border-purple-900/50' : 'text-purple-700 bg-purple-100 border-purple-200'} px-1.5 py-0.5 rounded border`}>Revisão Agência</span>)}
                                                 {m.link_bruto ? (
-                                                  <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 border-indigo-900/50' : 'text-indigo-700 bg-indigo-100 border-indigo-200'} px-1.5 py-0.5 rounded border flex items-center gap-1`} title={m.link_bruto}><Link size={8} /> Pasta inserida</span>
+                                                  <span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 border-indigo-900/50' : 'text-indigo-700 bg-indigo-100 border-indigo-200'} px-1.5 py-0.5 rounded border flex items-center gap-1`} title={m.link_bruto}><Link size={8} /> Pasta inserida</span>
                                                 ) : (
-                                                  <span className={`text-[8px] font-black uppercase ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 border-amber-900/50' : 'text-amber-700 bg-amber-100 border-amber-200'} px-1.5 py-0.5 rounded border flex items-center gap-1 animate-pulse`}><Link size={8} /> Sem Pasta</span>
+                                                  <span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 border-amber-900/50' : 'text-amber-700 bg-amber-100 border-amber-200'} px-1.5 py-0.5 rounded border flex items-center gap-1 `}><Link size={8} /> Sem Pasta</span>
                                                 )}
                                                 {renderDeadline(m.data_limite)}
                                               </div>
 
                                               <div className="relative inline-block w-full md:w-auto mt-3">
-                                                <select value={m.status} onChange={e => handleUpdateStatus(m.id, e.target.value)} disabled={actionLoading === m.id} className={`appearance-none px-3 py-1.5 pr-7 rounded-md text-[10px] font-black uppercase outline-none border transition-all cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 ${getStatusColor(m.status)} ${theme === 'dark' ? 'bg-opacity-20 border-opacity-30' : ''}`}>
+                                                <select value={m.status} onChange={e => handleUpdateStatus(m.id, e.target.value)} disabled={actionLoading === m.id} className={`appearance-none px-3 py-1.5 pr-7 rounded-md text-[11px] font-semibold  outline-none border transition-all cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 ${getStatusColor(m.status)} ${theme === 'dark' ? 'bg-opacity-20 border-opacity-30' : ''}`}>
                                                   <option value="analise_roteiro">Roteiro em Análise</option>
                                                   <option value="roteiro_pendente">Aguardando Cliente (Roteiro)</option>
                                                   <option value="roteiro_aprovado">Roteiro Aprovado (Pelo Cliente)</option>
@@ -2967,7 +2775,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                   <option value="em_organizacao">Decupagem em Andamento</option>
                                                   <option value="faltando_material">Falta Material Bruto</option>
                                                   <option value="verificar_material">Verificar Material</option>
-                                                  <option value="organizado">Pasta Pronta (P/ Editor)</option>
+                                                  <option value="organizado">Pasta pronta (para o editor)</option>
                                                   <option value="em_edicao">Em Edição / Design</option>
                                                   <option value="pendente">Aguardando Aprovação Cliente</option>
                                                   <option value="ajustes">Ajustes Solicitados</option>
@@ -2989,10 +2797,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 <button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Devolver ao Decupador"><RotateCcw size={16} /></button>
                                               )}
                                               {m.status === 'analise_roteiro' && (<button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 hover:bg-purple-600 hover:text-white' : 'text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Enviar Roteiro para o Cliente">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>)}
-                                              <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
+                                              <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[11px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
                                               {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[10px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
+                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[11px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
+              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[11px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
                                               <button onClick={() => {
                                                 setRoteiroToEdit(m);
                                                 let txt = m.roteiro || '';
@@ -3064,125 +2872,143 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
           )}
 
-          {/* ABA: CADASTRO DO CLIENTE */}
-          {activeTab === 'cadastro-clientes' && (
-            <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 text-left">
-              <h2 className="text-2xl md:text-3xl font-black tracking-tight uppercase">{editingCliente ? 'A Editar Cliente' : 'Cadastro do Cliente'}</h2>
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                setLoading(true);
-                try {
-                  const nome = f.get('nome') as string;
-                  const telefone = f.get('telefone') as string;
-                  const wpp_suporte = f.get('wpp_suporte') as string;
-                  const ciclos = parseInt(f.get('ciclos_contratados') as string) || 12;
-                  const cor_marca = f.get('cor_marca') as string || '#1e3a5f';
-                  const whatsapp_group_id = f.get('whatsapp_group_id') as string;
+          {/* ABA: CADASTRO DO CLIENTE (lista de clientes; o formulário abre em modal) */}
+          {activeTab === 'cadastro-clientes' && (() => {
+            const inputCls = `w-full px-3 py-2.5 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand transition-colors`;
+            const labelCls = 'block text-[13px] font-medium text-zinc-600 dark:text-zinc-300 mb-1.5';
+            const lista = clientes.filter(c => c.nome.toLowerCase().includes(clienteBusca.toLowerCase()));
+            const fechar = () => { setIsClienteModalOpen(false); setEditingCliente(null); };
+            return (
+              <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+                {pageHeader({
+                  title: 'Cadastro do cliente', icon: Users, meta: `${qtd(clientes.length, 'cliente', 'clientes')}`,
+                  actions: <>
+                    <div className={`flex items-center gap-2 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] px-3 py-2 w-full md:w-60`}>
+                      <Search size={15} className="text-zinc-400 shrink-0" />
+                      <input type="text" placeholder="Buscar cliente..." value={clienteBusca} onChange={e => setClienteBusca(e.target.value)} className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400" />
+                    </div>
+                    <button onClick={() => { setEditingCliente(null); setWppGroupId(''); setIsClienteModalOpen(true); }} className={btnInk}><Plus size={16} /> Novo cliente</button>
+                  </>,
+                })}
 
-                  if (editingCliente) {
-                    let logoUrl = editingCliente.logo_url;
-                    const logoFile = f.get('logo') as File;
-                    if (logoFile && logoFile.size > 0) { const fname = `${Math.random()}.${logoFile.name.split('.').pop()}`; await supabase.storage.from('logos').upload(fname, logoFile); logoUrl = supabase.storage.from('logos').getPublicUrl(fname).data.publicUrl; }
-
-                    await supabase.from('clientes').update({ nome, telefone, wpp_suporte, ciclos_contratados: ciclos, logo_url: logoUrl, cor_marca, whatsapp_group_id }).eq('id', editingCliente.id);
-                    toast.success("Atualizado!"); setEditingCliente(null);
-                  } else {
-                    await cadastrarClienteCompleto(f);
-                    toast.success("Criado com sucesso!");
-                  }
-                  loadData();
-                } catch { toast.error("Erro"); } finally { setLoading(false); }
-              }} className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 md:gap-6 p-6 md:p-8 ${tc.bgCard} border-2 rounded-[24px] md:rounded-[32px] shadow-sm items-end ${editingCliente ? (theme === 'dark' ? 'border-blue-500' : 'border-blue-500') : tc.borderStrong}`}>
-
-                <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>Empresa</label><input name="nome" className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-[#A25431] transition-colors`} defaultValue={editingCliente?.nome || ""} key={editingCliente?.id} required /></div>
-                <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>WhatsApp Cliente</label><input name="telefone" className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-[#A25431] transition-colors`} defaultValue={editingCliente?.telefone || ""} key={editingCliente?.id + 'tel'} required /></div>
-                <div className="space-y-1"><label className={`text-[10px] font-black ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'} uppercase ml-2`}>Wpp Agência (Suporte)</label><input name="wpp_suporte" placeholder="Ex: 5511999999999" className={`w-full p-4 ${theme === 'dark' ? 'bg-blue-900/10 border-blue-900/30 text-blue-100' : 'bg-blue-50 border-blue-100'} rounded-2xl outline-none font-bold text-sm focus:border-blue-400 transition-colors`} defaultValue={editingCliente?.wpp_suporte || ""} key={editingCliente?.id + 'wppsup'} /></div>
-                <div className="space-y-1">
-                  <label className={`text-[10px] font-black ${theme === 'dark' ? 'text-green-400' : 'text-green-500'} uppercase ml-2 flex justify-between items-center`}>
-                    ID do Grupo WhatsApp
-                    <button type="button" onClick={async () => {
-                      setCarregandoGrupos(true);
-                      const res = await buscarGruposWhatsApp();
-                      if (res.data) { setListagemGrupos(res.data); setIsGruposModalOpen(true); }
-                      else { toast.error(res.error || "Verifique as credenciais da Green API"); }
-                      setCarregandoGrupos(false);
-                    }} className="text-[8px] underline hover:no-underline">Listar Grupos</button>
-                  </label>
-                  <input
-                    name="whatsapp_group_id"
-                    placeholder="Ex: 123456789@g.us"
-                    className={`w-full p-4 ${theme === 'dark' ? 'bg-green-900/10 border-green-900/30 text-green-100' : 'bg-green-50 border-green-100'} rounded-2xl outline-none font-bold text-sm focus:border-green-400 transition-colors`}
-                    value={wppGroupId || ''}
-                    onChange={e => setWppGroupId(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>Ciclos</label><input name="ciclos_contratados" type="number" min="1" className={`w-full p-4 ${tc.bgInput} border ${tc.borderStrong} rounded-2xl outline-none font-bold text-sm focus:border-[#A25431] transition-colors`} defaultValue={editingCliente?.ciclos_contratados || 12} key={editingCliente?.id + 'ciclo'} required /></div>
-
-                <div className="space-y-1"><label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>{editingCliente ? 'Trocar Logo' : 'Logo'}</label>
-                  <div className="relative group"><input type="file" name="logo" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className={`w-full h-[54px] ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-400'} border-2 border-dashed rounded-2xl flex items-center justify-center transition-colors`}><Upload size={16} /></div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className={`text-[10px] font-black ${tc.textMuted} uppercase ml-2`}>Cor do Portal</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      name="cor_marca"
-                      type="color"
-                      className={`h-[54px] w-[54px] rounded-2xl cursor-pointer ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} p-1`}
-                      defaultValue={editingCliente?.cor_marca || "#1e3a5f"}
-                      key={editingCliente?.id + 'cor'}
-                    />
-                    <span className={`text-[10px] font-bold ${tc.textMuted} uppercase`}>Escolha a cor</span>
-                  </div>
-                </div>
-
-                <button disabled={loading} className={`w-full lg:w-auto h-[54px] rounded-2xl font-black uppercase text-[10px] transition-colors flex items-center justify-center gap-2 ${editingCliente ? 'bg-[#A25431] hover:bg-[#8a4729] text-white' : (theme === 'dark' ? 'bg-white hover:bg-zinc-200 text-black disabled:opacity-50' : 'bg-[#212013] hover:bg-black text-white disabled:opacity-50')}`}>
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-                  {editingCliente ? "Guardar" : "Registrar"}
-                </button>
-              </form>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                {clientes.map((c, idx) => (
-                  <div key={`card-cliente-${c.id}-${idx}`} className={`p-5 md:p-8 ${tc.bgCard} border ${tc.borderStrong} rounded-[24px] shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4 group transition-colors`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} flex shrink-0 items-center justify-center border shadow-inner`}>
-                        {c.logo_url ? (
-                          <img
-                            src={c.logo_url}
-                            className="w-full h-full object-contain p-1"
-                            onError={(e) => { e.currentTarget.src = 'https://placehold.co/150x150/f4f4f5/a1a1aa?text=Sem+Logo'; }}
-                            alt="Logo do Cliente"
-                          />
-                        ) : (
-                          <Users className="text-[#A25431]" size={24} />
-                        )}
+                {lista.length === 0 ? emptyState(clientes.length === 0 ? 'Nenhum cliente cadastrado.' : 'Nenhum cliente encontrado.') : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+                    {lista.map((c, idx) => (
+                      <div key={`card-cliente-${c.id}-${idx}`} className={`p-4 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl flex flex-col gap-4`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-11 h-11 rounded-xl overflow-hidden flex shrink-0 items-center justify-center text-white font-semibold`} style={{ background: c.logo_url ? undefined : (c.cor_marca || '#A25431') }}>
+                            {c.logo_url
+                              ? <img src={c.logo_url} className={`w-full h-full object-contain p-1 border ${tc.borderStrong} rounded-xl`} onError={(e) => { e.currentTarget.src = 'https://placehold.co/150x150/f4f4f5/a1a1aa?text=Sem+Logo'; }} alt={`Logo ${c.nome}`} />
+                              : (c.nome.trim()[0] || '?').toUpperCase()}
+                          </div>
+                          <div className="min-w-0"><h3 className="font-semibold text-[14.5px] truncate">{c.nome}</h3><p className="text-[13px] text-zinc-500 truncate flex items-center gap-1"><Phone size={12} /> {c.telefone}</p></div>
+                        </div>
+                        <p className="text-xs text-zinc-500">{c.ciclos_contratados || 12} ciclos contratados</p>
+                        <div className={`flex items-center gap-1.5 pt-3 border-t ${tc.borderStrong}`}>
+                          <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); setIsClienteModalOpen(true); }} className={`${btnLine} !px-3 !py-2`}><Edit3 size={14} /> Editar</button>
+                          <span className="ml-auto" />
+                          <IconAction icon={Link} label="Copiar link do portal" onClick={() => copyToClipboard(getSafePortalUrl(window.location.origin, c.token_magico))} />
+                          <IconAction icon={Send} label="Avisar no WhatsApp" onClick={() => handleAvisarPortalWhatsApp(c)} />
+                          <IconAction icon={Trash2} label="Excluir cliente" onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} />
+                        </div>
                       </div>
-                      <div className="min-w-0"><h3 className="font-black text-lg md:text-xl uppercase truncate">{c.nome}</h3><p className={`${tc.textMuted} font-bold text-[11px] truncate`}><Phone size={12} className="inline mr-1" /> {c.telefone}</p></div>
-                    </div>
-                    <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all justify-end">
-                      <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`p-3 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-600'} rounded-xl transition-colors`} title="Editar Cliente"><RotateCcw size={18} /></button>
-                      <button onClick={() => handleAvisarPortalWhatsApp(c)} className={`p-3 ${theme === 'dark' ? 'bg-green-900/30 hover:bg-green-900/50 text-green-400' : 'bg-green-50 hover:bg-green-600 hover:text-white text-green-600'} rounded-xl transition-colors`} title="Avisar no WhatsApp Automático"><Send size={18} /></button>
-                      <button onClick={() => copyToClipboard(getSafePortalUrl(window.location.origin, c.token_magico))} className={`p-3 ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-600'} rounded-xl transition-colors`} title="Copiar Link do Portal"><Link size={18} /></button>
-                      <button onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} className={`p-3 ${theme === 'dark' ? 'bg-red-900/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-600 hover:text-white text-red-500'} rounded-xl transition-colors`} title="Excluir Cliente"><Trash2 size={18} /></button>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                {isClienteModalOpen && (
+                  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-zinc-950/40 p-4 animate-in fade-in duration-200" onClick={fechar}>
+                    <form
+                      onClick={(e) => e.stopPropagation()}
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        setLoading(true);
+                        try {
+                          const nome = f.get('nome') as string;
+                          const telefone = f.get('telefone') as string;
+                          const wpp_suporte = f.get('wpp_suporte') as string;
+                          const ciclos = parseInt(f.get('ciclos_contratados') as string) || 12;
+                          const cor_marca = f.get('cor_marca') as string || '#1e3a5f';
+                          const whatsapp_group_id = f.get('whatsapp_group_id') as string;
+
+                          if (editingCliente) {
+                            let logoUrl = editingCliente.logo_url;
+                            const logoFile = f.get('logo') as File;
+                            if (logoFile && logoFile.size > 0) { const fname = `${Math.random()}.${logoFile.name.split('.').pop()}`; await supabase.storage.from('logos').upload(fname, logoFile); logoUrl = supabase.storage.from('logos').getPublicUrl(fname).data.publicUrl; }
+
+                            await supabase.from('clientes').update({ nome, telefone, wpp_suporte, ciclos_contratados: ciclos, logo_url: logoUrl, cor_marca, whatsapp_group_id }).eq('id', editingCliente.id);
+                            toast.success("Cliente atualizado!");
+                          } else {
+                            await cadastrarClienteCompleto(f);
+                            toast.success("Cliente cadastrado!");
+                          }
+                          fechar();
+                          loadData();
+                        } catch { toast.error("Erro ao salvar o cliente."); } finally { setLoading(false); }
+                      }}
+                      className={`${tc.bgCard} w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl text-left`}
+                    >
+                      <div className={`flex items-center gap-3 px-6 py-4 border-b ${tc.borderStrong}`}>
+                        <span className="w-9 h-9 rounded-xl bg-brand-soft text-brand inline-flex items-center justify-center"><UserPlus size={18} /></span>
+                        <h2 className="text-[17px] font-semibold">{editingCliente ? 'Editar cliente' : 'Novo cliente'}</h2>
+                        <span className="ml-auto"><IconAction icon={X} label="Fechar" onClick={fechar} /></span>
+                      </div>
+                      <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="sm:col-span-2"><label className={labelCls}>Empresa</label><input name="nome" className={inputCls} defaultValue={editingCliente?.nome || ""} key={editingCliente?.id} placeholder="Nome da empresa" required /></div>
+                        <div><label className={labelCls}>WhatsApp do cliente</label><input name="telefone" className={inputCls} defaultValue={editingCliente?.telefone || ""} key={editingCliente?.id + 'tel'} required /></div>
+                        <div><label className={labelCls}>WhatsApp da agência (suporte)</label><input name="wpp_suporte" placeholder="Ex.: 5511999999999" className={inputCls} defaultValue={editingCliente?.wpp_suporte || ""} key={editingCliente?.id + 'wppsup'} /></div>
+                        <div className="sm:col-span-2">
+                          <label className={`${labelCls} flex items-center`}>
+                            ID do grupo WhatsApp
+                            <button type="button" onClick={async () => {
+                              setCarregandoGrupos(true);
+                              const res = await buscarGruposWhatsApp();
+                              if (res.data) { setListagemGrupos(res.data); setIsGruposModalOpen(true); }
+                              else { toast.error(res.error || "Verifique as credenciais da Green API"); }
+                              setCarregandoGrupos(false);
+                            }} className="ml-auto inline-flex items-center gap-1 text-brand font-medium">{carregandoGrupos ? <Loader2 size={13} className="animate-spin" /> : <List size={13} />} Listar grupos</button>
+                          </label>
+                          <input name="whatsapp_group_id" placeholder="Ex.: 123456789@g.us" className={inputCls} value={wppGroupId || ''} onChange={e => setWppGroupId(e.target.value)} />
+                        </div>
+                        <div><label className={labelCls}>Ciclos contratados</label><input name="ciclos_contratados" type="number" min="1" className={inputCls} defaultValue={editingCliente?.ciclos_contratados || 12} key={editingCliente?.id + 'ciclo'} required /></div>
+                        <div>
+                          <label className={labelCls}>Cor do portal</label>
+                          <div className={`flex items-center gap-3 border ${tc.borderStrong} rounded-[10px] px-2 py-1.5`}>
+                            <input name="cor_marca" type="color" className="h-8 w-8 rounded-md cursor-pointer bg-transparent" defaultValue={editingCliente?.cor_marca || "#1e3a5f"} key={editingCliente?.id + 'cor'} />
+                            <span className="text-[13px] text-zinc-500">Cor usada no portal do cliente</span>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelCls}>{editingCliente ? 'Trocar logo' : 'Logo'}</label>
+                          <div className={`relative border-[1.5px] border-dashed ${tc.borderStrong} rounded-xl p-4 flex items-center gap-3.5 ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-50'}`}>
+                            <input type="file" name="logo" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <span className="w-10 h-10 rounded-xl bg-brand-soft text-brand inline-flex items-center justify-center"><Upload size={18} /></span>
+                            <div><div className="text-[13.5px] font-medium">Arraste a imagem ou <span className="text-brand">escolha um arquivo</span></div><div className="text-xs text-zinc-500">PNG ou JPG</div></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`flex justify-end gap-2.5 px-6 py-4 border-t ${tc.borderStrong}`}>
+                        <button type="button" onClick={fechar} className={btnLine}>Cancelar</button>
+                        <button type="submit" disabled={loading} className={btnInk}>{loading ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {editingCliente ? 'Salvar alterações' : 'Cadastrar cliente'}</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ABA: EQUIPE */}
           {activeTab === 'equipe' && (
-            <div className="max-w-7xl mx-auto space-y-8 md:space-y-12 animate-in slide-in-from-bottom-4 py-6 md:py-10">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10">
+            <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+              {pageHeader({ title: 'Equipe', icon: ShieldCheck, meta: qtd(membros.length, 'membro', 'membros') })}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 <div className="lg:col-span-1 space-y-6 text-left">
-                  <div className={`${tc.bgCard} p-6 md:p-8 rounded-[24px] md:rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
+                  <div className={`${tc.bgCard} p-6 md:p-8 rounded-2xl md:rounded-2xl border ${tc.borderStrong} shadow-sm`}>
 
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-lg md:text-xl font-black uppercase">
+                      <h3 className="text-lg md:text-xl font-semibold ">
                         {editingMembro ? 'Editar Membro' : 'Novo Membro'}
                       </h3>
                       {editingMembro && (
@@ -3212,47 +3038,47 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       }
                     }} className="space-y-4">
 
-                      <input name="nome" placeholder="Nome Completo" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={formE.nome} onChange={e => setFormE({ ...formE, nome: e.target.value })} required />
-                      <input name="email" placeholder="E-mail" disabled={!!editingMembro} className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors disabled:opacity-50`} value={formE.email} onChange={e => setFormE({ ...formE, email: e.target.value })} required={!editingMembro} />
-                      <input name="password" type="password" placeholder={editingMembro ? "Nova senha (opcional)" : "Senha"} className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={formE.password} onChange={e => setFormE({ ...formE, password: e.target.value })} required={!editingMembro} />
+                      <input name="nome" placeholder="Nome Completo" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.nome} onChange={e => setFormE({ ...formE, nome: e.target.value })} required />
+                      <input name="email" placeholder="E-mail" disabled={!!editingMembro} className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors disabled:opacity-50`} value={formE.email} onChange={e => setFormE({ ...formE, email: e.target.value })} required={!editingMembro} />
+                      <input name="password" type="password" placeholder={editingMembro ? "Nova senha (opcional)" : "Senha"} className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.password} onChange={e => setFormE({ ...formE, password: e.target.value })} required={!editingMembro} />
 
-                      <select name="role" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={formE.role} onChange={e => setFormE({ ...formE, role: e.target.value as any })}>
+                      <select name="role" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.role} onChange={e => setFormE({ ...formE, role: e.target.value as any })}>
                         <option value="editor">Editor</option>
                         <option value="designer">Designer</option>
                         <option value="planner">Decupador</option>
                         <option value="admin">Administrador (Gestor)</option>
                       </select>
 
-                      <input name="telegram_thread_id" placeholder="ID do Chat do ClickUp (View ID)" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={formE.telegram_thread_id} onChange={e => setFormE({ ...formE, telegram_thread_id: e.target.value })} />
+                      <input name="telegram_thread_id" placeholder="ID do Chat do ClickUp (View ID)" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.telegram_thread_id} onChange={e => setFormE({ ...formE, telegram_thread_id: e.target.value })} />
 
-                      <button disabled={isCreatingUser} className={`w-full py-4 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#212013] text-white hover:bg-black'} rounded-2xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center justify-center gap-2 disabled:opacity-50`}>
+                      <button disabled={isCreatingUser} className={`w-full py-4 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#212013] text-white hover:bg-black'} rounded-2xl font-semibold  text-[11px]  transition-colors flex items-center justify-center gap-2 disabled:opacity-50`}>
                         {isCreatingUser ? <Loader2 size={16} className="animate-spin" /> : null}
-                        {isCreatingUser ? "A processar..." : (editingMembro ? "Salvar Alterações" : "Registrar")}
+                        {isCreatingUser ? "Processando..." : (editingMembro ? "Salvar Alterações" : "Registrar")}
                       </button>
                     </form>
                   </div>
                 </div>
                 <div className="lg:col-span-2 space-y-6 text-left">
-                  <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-[24px] md:rounded-[32px] overflow-hidden shadow-sm overflow-x-hidden`}>
+                  <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl md:rounded-2xl overflow-hidden shadow-sm overflow-x-hidden`}>
                     <table className="w-full text-left border-collapse min-w-[500px] select-none">
-                      <thead><tr className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border-b text-[10px] font-black uppercase ${tc.textMuted}`}><th className="p-4 md:p-6">Utilizador</th><th className="p-4 md:p-6">Função</th><th className="p-4 md:p-6 text-right">Ações</th></tr></thead>
+                      <thead><tr className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border-b text-[11px] font-semibold  ${tc.textMuted}`}><th className="p-4 md:p-6">Usuário</th><th className="p-4 md:p-6">Função</th><th className="p-4 md:p-6 text-right">Ações</th></tr></thead>
                       <tbody className={`divide-y ${theme === 'dark' ? 'divide-zinc-800' : 'divide-zinc-50'}`}>
                         {membros.length === 0 ? <tr><td colSpan={3} className={`p-6 text-center ${tc.textMuted} font-bold text-sm`}>Nenhum membro listado.</td></tr> : membros.map((m) => (
                           <tr key={m.id} className={`${tc.bgHover} transition-colors group`}>
                             <td className="p-4 md:p-6">
                               <div className="flex items-center gap-3">
-                                <div className={`hidden sm:flex w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'} items-center justify-center font-black text-sm uppercase`}>
+                                <div className={`hidden sm:flex w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'} items-center justify-center font-semibold text-sm `}>
                                   {m.nome ? m.nome.substring(0, 2) : m.email.substring(0, 2)}
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-bold text-sm truncate">{m.nome || 'Sem Nome Registado'}</p>
-                                  <p className={`text-[10px] ${tc.textMuted} font-medium truncate`}>{m.email}</p>
+                                  <p className={`text-[11px] ${tc.textMuted} font-medium truncate`}>{m.email}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="p-4 md:p-6">
                               <div className="relative inline-block w-full md:w-auto">
-                                <select defaultValue={m.role} onChange={async (e) => { await supabase.from('perfis_equipe').update({ role: e.target.value }).eq('id', m.id); toast.success("Função alterada!"); }} className={`appearance-none ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} text-[10px] md:text-[10px] font-black uppercase px-4 py-2 pr-8 rounded-full outline-none border-none cursor-pointer transition-colors w-full`}>
+                                <select defaultValue={m.role} onChange={async (e) => { await supabase.from('perfis_equipe').update({ role: e.target.value }).eq('id', m.id); toast.success("Função alterada!"); }} className={`appearance-none ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} text-[11px] md:text-[11px] font-semibold  px-4 py-2 pr-8 rounded-full outline-none border-none cursor-pointer transition-colors w-full`}>
                                   <option value="editor">Editor</option><option value="designer">Designer</option><option value="planner">Decupador</option><option value="admin">Gestor</option>
                                 </select>
                                 <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
@@ -3278,9 +3104,88 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
             </div>
           )}
+          {/* ABA: CORES DO TEMA (seletor universal de cores) */}
+          {activeTab === 'cores-tema' && (() => {
+            const same = (a: BrandColors, b: BrandColors) => a.soft.toLowerCase() === b.soft.toLowerCase() && a.brand.toLowerCase() === b.brand.toLowerCase() && a.ink.toLowerCase() === b.ink.toLowerCase();
+            const picker = (key: keyof BrandColors, label: string, desc: string) => (
+              <div>
+                <div className="text-[13px] font-medium">{label}</div>
+                <div className="text-xs text-zinc-500 mt-0.5 mb-2">{desc}</div>
+                <label className={`flex items-center gap-2.5 border ${tc.borderStrong} rounded-[10px] px-2.5 py-1.5 cursor-pointer`}>
+                  <input type="color" value={brandColors[key]} onChange={e => previewBrandColors({ ...brandColors, [key]: e.target.value })} className="w-7 h-7 rounded-md cursor-pointer bg-transparent" />
+                  <span className="text-[13px] font-mono uppercase">{brandColors[key]}</span>
+                </label>
+              </div>
+            );
+            return (
+              <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+                {pageHeader({
+                  title: 'Cores do tema', icon: Palette, meta: 'Por enquanto as cores ficam salvas neste navegador',
+                  actions: <>
+                    <button onClick={() => previewBrandColors(DEFAULT_BRAND)} className={btnLine}><RotateCcw size={15} /> Restaurar padrão</button>
+                    <button onClick={saveBrandColors} className={btnInk}><Save size={15} /> Salvar</button>
+                  </>,
+                })}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-4 items-start">
+                  <div className="space-y-4">
+                    <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl p-5`}>
+                      <h3 className="text-[15px] font-semibold mb-3.5">Paletas prontas</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {THEME_PRESETS.map(p => {
+                          const on = same(p.cores, brandColors);
+                          return (
+                            <button key={p.nome} onClick={() => previewBrandColors(p.cores)} className={`flex items-center gap-2.5 p-3 rounded-xl text-left transition-colors ${on ? 'border-2 border-brand-ink dark:border-zinc-200' : `border ${tc.borderStrong} hover:bg-zinc-50 dark:hover:bg-zinc-800`}`}>
+                              <span className="flex"><span className="w-7 h-7 rounded-full border-2 border-white dark:border-zinc-900 shadow-[0_0_0_1px_rgba(0,0,0,0.08)]" style={{ background: p.cores.soft }} /><span className="w-7 h-7 rounded-full border-2 border-white dark:border-zinc-900 -ml-2" style={{ background: p.cores.brand }} /></span>
+                              <span className="text-[13.5px] font-medium">{p.nome}</span>
+                              {on && <CheckCircle2 size={16} className="ml-auto" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl p-5`}>
+                      <h3 className="text-[15px] font-semibold mb-3.5">Cor personalizada</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {picker('soft', 'Cor de destaque', 'Menu ativo, ícones de título, contadores')}
+                        {picker('brand', 'Cor de contraste', 'Ícones e textos sobre o destaque')}
+                        {picker('ink', 'Botões principais', 'Salvar, Aprovar, Enviar...')}
+                      </div>
+                    </div>
+                    <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl p-5`}>
+                      <h3 className="text-[15px] font-semibold mb-3.5">Modo</h3>
+                      <div className={`inline-flex p-1 rounded-[10px] ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                        {(['light', 'dark'] as const).map(mode => (
+                          <button key={mode} onClick={() => { if (theme !== mode) toggleTheme(); }} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${theme === mode ? `${tc.bgCard} shadow-sm` : 'text-zinc-500'}`}>
+                            {mode === 'light' ? <><Sun size={15} /> Claro</> : <><Moon size={15} /> Escuro</>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl p-5`}>
+                    <h3 className="text-[15px] font-semibold mb-3.5">Prévia</h3>
+                    <div className={`border ${tc.borderStrong} rounded-xl overflow-hidden flex h-[300px] ${tc.bgApp}`}>
+                      <div className={`w-40 ${tc.bgCard} border-r ${tc.borderStrong} p-3 space-y-0.5`}>
+                        {[[LayoutDashboard, 'Visão geral', true], [ListTodo, 'Planejamento'], [ClipboardCheck, 'Aprovação'], [Bell, 'Ajustes']].map(([Ic, l, a]: any) => (
+                          <div key={l} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${a ? 'bg-brand-soft text-brand font-medium' : 'text-zinc-500'}`}><Ic size={14} className={a ? 'text-brand' : 'text-zinc-400'} />{l}</div>
+                        ))}
+                      </div>
+                      <div className="flex-1 p-4 space-y-3">
+                        <div className="flex items-center gap-2.5"><span className="w-8 h-8 rounded-lg bg-brand-soft text-brand inline-flex items-center justify-center"><LayoutDashboard size={16} /></span><span className="text-[15px] font-medium">Visão geral</span></div>
+                        <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-lg p-3`}><div className="flex justify-between text-xs mb-1.5"><span>Ciclo 10</span><span className="text-zinc-500">5/8</span></div><div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800"><div className="h-full w-[62%] rounded-full bg-brand" /></div></div>
+                        <div className="flex gap-1.5"><span className="px-2 py-1 rounded-md text-xs font-medium bg-brand-soft text-brand">Todos</span><span className="px-2 py-1 rounded-md text-xs bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Atrasados</span></div>
+                        <div className="flex items-center gap-2"><span className={`${btnInk} !px-3 !py-1.5 !text-xs`}><CheckCircle2 size={13} /> Aprovar</span><span className="w-8 h-8 rounded-lg bg-brand-soft text-brand inline-flex items-center justify-center"><SendHorizontal size={14} /></span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ABA: RELATÓRIOS */}
           {activeTab === 'relatorios' && (
-            <div className="max-w-6xl mx-auto space-y-12 animate-in slide-in-from-bottom-4 duration-500 print:m-0 print:max-w-none">
+            <div className="max-w-7xl mx-auto space-y-5 text-left animate-in slide-in-from-bottom-4 duration-500 print:m-0 print:max-w-none">
               <style>{`
               @media print {
                 @page { size: landscape; margin: 10mm; }
@@ -3295,77 +3200,81 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               }
             `}</style>
 
-              <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <header>
                 <div className="hidden print:flex print-header w-full">
                   <div>
-                    <h1 className="text-2xl font-black uppercase">Relatório de Produtividade</h1>
+                    <h1 className="text-2xl font-semibold ">Relatório de Produtividade</h1>
                     <p className="text-sm font-bold text-zinc-500">EvertonCMI Portal • Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black uppercase">Filtro: Todos os Materiais</p>
+                    <p className="text-sm font-semibold ">Filtro: Todos os Materiais</p>
                   </div>
                 </div>
                 <div className="print:hidden">
-                  <h2 className="text-3xl font-black uppercase tracking-tight">Painel de Relatórios</h2>
-                  <p className={`${tc.textMuted} font-medium mt-1`}>Análise de produtividade da equipe e engajamento dos clientes.</p>
+                  {pageHeader({ title: REL_SUBS.find(s => s.id === relSub)!.label, icon: REL_SUBS.find(s => s.id === relSub)!.icon, crumb: 'Relatórios', meta: `Gerado em ${new Date().toLocaleDateString('pt-BR')} · Todos os materiais`, actions: <button onClick={() => window.print()} className={btnLine} title="Abre a impressão do navegador; escolha Salvar como PDF"><Download size={15} /> Baixar PDF</button> })}
+
                 </div>
               </header>
 
               {/* CARDS DE RESUMO */}
+              {relSub === 'resumo' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
-                  <div className="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-500/20"><Activity size={24} /></div>
-                  <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Total de Materiais</p>
-                  <h3 className="text-4xl font-black mt-2">{materiais.length}</h3>
-                  <p className="text-[11px] text-blue-500 font-bold mt-4 flex items-center gap-1">Histórico completo</p>
+                <div className={`${tc.bgCard} p-5 rounded-2xl border ${tc.borderStrong} shadow-sm`}>
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4"><Activity size={20} /></div>
+                  <p className={`${tc.textMuted} text-[11px] font-semibold  `}>Total de Materiais</p>
+                  <h3 className="text-3xl font-semibold mt-1">{materiais.length}</h3>
+                  <p className="text-[12px] text-blue-500 font-bold mt-4 flex items-center gap-1">Histórico completo</p>
                 </div>
-                <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
-                  <div className="w-12 h-12 bg-green-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-green-500/20"><CheckCircle2 size={24} /></div>
-                  <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Taxa de Aprovação</p>
-                  <h3 className="text-4xl font-black mt-2">{metrics.eficiencia}%</h3>
+                <div className={`${tc.bgCard} p-5 rounded-2xl border ${tc.borderStrong} shadow-sm`}>
+                  <div className="w-10 h-10 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-xl flex items-center justify-center mb-4"><CheckCircle2 size={20} /></div>
+                  <p className={`${tc.textMuted} text-[11px] font-semibold  `}>Taxa de Aprovação</p>
+                  <h3 className="text-3xl font-semibold mt-1">{metrics.eficiencia}%</h3>
                   <div className="mt-4 w-full bg-zinc-100 rounded-full h-2">
                     <div className="bg-green-500 h-2 rounded-full" style={{ width: `${metrics.eficiencia}%` }}></div>
                   </div>
                 </div>
-                <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
-                  <div className="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-red-500/20"><AlertCircle size={24} /></div>
-                  <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Total em Atraso</p>
-                  <h3 className="text-4xl font-black mt-2">{relatorioData.totalAtrasos}</h3>
-                  <p className="text-[11px] text-red-500 font-bold mt-4 flex items-center gap-1">Atenção aos prazos</p>
+                <div className={`${tc.bgCard} p-5 rounded-2xl border ${tc.borderStrong} shadow-sm`}>
+                  <div className="w-10 h-10 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-xl flex items-center justify-center mb-4"><AlertCircle size={20} /></div>
+                  <p className={`${tc.textMuted} text-[11px] font-semibold  `}>Total em Atraso</p>
+                  <h3 className="text-3xl font-semibold mt-1">{relatorioData.totalAtrasos}</h3>
+                  <p className="text-[12px] text-red-500 font-bold mt-4 flex items-center gap-1">Atenção aos prazos</p>
                 </div>
-                <div className={`${tc.bgCard} p-8 rounded-[32px] border ${tc.borderStrong} shadow-sm`}>
-                  <div className="w-12 h-12 bg-purple-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/20"><Clock size={24} /></div>
-                  <p className={`${tc.textMuted} text-[10px] font-black uppercase tracking-widest`}>Gargalo Atual</p>
-                  <h3 className="text-xl font-black mt-3 leading-tight">{gargalo.name || 'Nenhum'}</h3>
-                  <p className="text-[11px] text-purple-500 font-bold mt-3">{gargalo.count} itens aguardando</p>
+                <div className={`${tc.bgCard} p-5 rounded-2xl border ${tc.borderStrong} shadow-sm`}>
+                  <div className="w-10 h-10 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 rounded-xl flex items-center justify-center mb-4"><Clock size={20} /></div>
+                  <p className={`${tc.textMuted} text-[11px] font-semibold  `}>Gargalo Atual</p>
+                  <h3 className="text-xl font-semibold mt-3 leading-tight">{gargalo.name || 'Nenhum'}</h3>
+                  <p className="text-[12px] text-purple-500 font-bold mt-3">{gargalo.count} itens aguardando</p>
                 </div>
               </div>
+              )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {(relSub === 'equipe' || relSub === 'clientes') && (
+              <div className={relSub === 'equipe' ? 'grid grid-cols-1 lg:grid-cols-2 gap-5' : ''}>
                 {/* DESEMPENHO DA EQUIPE */}
-                <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
-                  <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
+                {relSub === 'equipe' && (<>
+                <div className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-hidden shadow-sm`}>
+                  <header className={`px-5 py-4 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                     <div>
-                      <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Rendimento e Atrasos</h3>
-                      <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Produtividade vs. Cumprimento de Prazos.</p>
+                      <h3 className={`font-semibold  text-sm ${tc.textMain}`}>Rendimento e Atrasos</h3>
+                      <p className={`text-[12px] ${tc.textMuted} font-medium mt-1`}>Produtividade vs. Cumprimento de Prazos.</p>
                     </div>
-                    <Users size={20} className={theme === 'dark' ? 'text-zinc-400' : 'text-[#A25431]'} />
+                    <Users size={20} className={theme === 'dark' ? 'text-zinc-400' : 'text-brand'} />
                   </header>
                   <div className="p-6 md:p-8 space-y-6">
                     {relatorioData.performance.map((m, i) => (
                       <div key={i} className="space-y-3">
                         <div className="flex justify-between items-end">
                           <div className="flex flex-col">
-                            <span className="text-[11px] font-black uppercase">{m.nome}</span>
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{m.role}</span>
+                            <span className="text-[12px] font-semibold ">{m.nome}</span>
+                            <span className="text-[11px] font-bold text-zinc-400 ">{m.role}</span>
                           </div>
                           <div className="text-right">
-                            <span className="text-[11px] font-bold text-zinc-400 block">{m.entregas} entregas</span>
-                            {m.atrasos > 0 && <span className="text-[10px] font-black text-red-500 uppercase">🔥 {m.atrasos} em atraso</span>}
+                            <span className="text-[12px] font-bold text-zinc-400 block">{m.entregas} entregas</span>
+                            {m.atrasos > 0 && <span className="text-[11px] font-semibold text-red-500 ">🔥 {m.atrasos} em atraso</span>}
                           </div>
                         </div>
                         <div className="w-full bg-zinc-100 rounded-full h-3 overflow-hidden flex">
-                          <div className="bg-[#A25431] h-3 transition-all duration-1000" style={{ width: `${m.total > 0 ? (m.entregas / m.total) * 100 : 0}%` }}></div>
+                          <div className="bg-brand h-3 transition-all duration-1000" style={{ width: `${m.total > 0 ? (m.entregas / m.total) * 100 : 0}%` }}></div>
                           {m.atrasos > 0 && <div className="bg-red-500 h-3" style={{ width: `${(m.atrasos / m.total) * 100}%` }}></div>}
                         </div>
                       </div>
@@ -3373,11 +3282,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                 </div>
 
-                <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
-                  <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
+                <div className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-hidden shadow-sm`}>
+                  <header className={`px-5 py-4 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                     <div>
-                      <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Ajustes por Equipe</h3>
-                      <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Ranking de quem recebe mais correções.</p>
+                      <h3 className={`font-semibold  text-sm ${tc.textMain}`}>Ajustes por Equipe</h3>
+                      <p className={`text-[12px] ${tc.textMuted} font-medium mt-1`}>Ranking de quem recebe mais correções.</p>
                     </div>
                     <PenTool size={20} className="text-pink-500" />
                   </header>
@@ -3388,10 +3297,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       <div key={p.nome} className="space-y-2">
                         <div className="flex justify-between items-end">
                           <div>
-                            <span className={`text-[10px] font-black uppercase ${tc.textMuted}`}>{p.role}</span>
-                            <p className="font-bold text-sm uppercase">{p.nome}</p>
+                            <span className={`text-[11px] font-semibold  ${tc.textMuted}`}>{p.role}</span>
+                            <p className="font-bold text-sm ">{p.nome}</p>
                           </div>
-                          <span className="text-[11px] font-black text-pink-500">{p.ajustesHistoricos} ajustes</span>
+                          <span className="text-[12px] font-semibold text-pink-500">{p.ajustesHistoricos} ajustes</span>
                         </div>
                         <div className="w-full bg-zinc-100 dark:bg-zinc-950 rounded-full h-1.5 overflow-hidden">
                           <div
@@ -3404,12 +3313,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                 </div>
 
+                </>)}
                 {/* RANKING DE AJUSTES (CLIENTES) */}
-                <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm`}>
-                  <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
+                {relSub === 'clientes' && (
+                <div className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-hidden shadow-sm`}>
+                  <header className={`px-5 py-4 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-800/20' : 'bg-zinc-50/50'} flex items-center justify-between`}>
                     <div>
-                      <h3 className={`font-black uppercase text-sm ${tc.textMain}`}>Nível de Ajustes p/ Cliente</h3>
-                      <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Clientes que mais solicitam alterações.</p>
+                      <h3 className={`font-semibold  text-sm ${tc.textMain}`}>Nível de ajustes por cliente</h3>
+                      <p className={`text-[12px] ${tc.textMuted} font-medium mt-1`}>Clientes que mais solicitam alterações.</p>
                     </div>
                     <MessageSquare size={20} className="text-orange-500" />
                   </header>
@@ -3417,38 +3328,41 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     {relatorioData.topAjustesClientes.map((c, i) => (
                       <div key={i} className={`flex items-center justify-between p-4 rounded-2xl ${tc.bgHighlight} border ${tc.borderStrong}`}>
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center font-black">{i + 1}</div>
+                          <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center font-semibold">{i + 1}</div>
                           <div>
-                            <p className="font-black uppercase text-[11px] truncate max-w-[150px]">{c.nome}</p>
-                            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{c.total} materiais</p>
+                            <p className="font-semibold text-[12px] truncate max-w-[150px]">{c.nome}</p>
+                            <p className="text-[11px] text-zinc-400 font-bold ">{c.total} materiais</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`font-black text-lg ${c.ajustes > 5 ? 'text-red-500' : 'text-orange-500'}`}>{c.ajustes}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold uppercase">Ajustes ativos</p>
+                          <p className={`font-semibold text-lg ${c.ajustes > 5 ? 'text-red-500' : 'text-orange-500'}`}>{c.ajustes}</p>
+                          <p className="text-[11px] text-zinc-400 font-bold ">Ajustes ativos</p>
                         </div>
                       </div>
                     ))}
                     {relatorioData.topAjustesClientes.length === 0 && (
-                      <p className="text-center py-10 text-zinc-400 font-bold text-[11px]">Nenhum ajuste pendente no momento.</p>
+                      <p className="text-center py-10 text-zinc-400 font-bold text-[12px]">Nenhum ajuste pendente no momento.</p>
                     )}
                   </div>
                 </div>
+                )}
               </div>
+              )}
 
               {/* TAREFAS CRÍTICAS (EM ATRASO) */}
-              <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm card-report`}>
-                <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-red-900/10' : 'bg-red-50/50'} flex items-center justify-between`}>
+              {relSub === 'atrasos' && (
+              <div className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-hidden shadow-sm card-report`}>
+                <header className={`px-5 py-4 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-red-900/10' : 'bg-red-50/50'} flex items-center justify-between`}>
                   <div>
-                    <h3 className="font-black uppercase text-sm text-red-600">Tarefas Críticas (Em Atraso)</h3>
-                    <p className="text-[11px] text-red-400 font-medium mt-1">Materiais que ultrapassaram a data limite estipulada.</p>
+                    <h3 className="font-semibold text-sm text-red-600">Tarefas Críticas (Em Atraso)</h3>
+                    <p className="text-[12px] text-red-400 font-medium mt-1">Materiais que ultrapassaram a data limite estipulada.</p>
                   </div>
                   <AlertCircle size={20} className="text-red-500" />
                 </header>
                 <div className="overflow-x-hidden">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className={`border-b ${tc.borderStrong} text-[10px] font-black uppercase tracking-widest ${tc.textMuted}`}>
+                      <tr className={`border-b ${tc.borderStrong} text-[11px] font-semibold   ${tc.textMuted}`}>
                         <th className="p-6">Material</th>
                         <th className="p-6">Cliente</th>
                         <th className="p-6">Prazo Original</th>
@@ -3460,21 +3374,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       {materiais.filter(m => m.data_limite && isDateLate(m.data_limite) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)).map(m => (
                         <tr key={m.id} className="hover:bg-zinc-50/50 transition-colors group">
                           <td className="p-6">
-                            <p className="font-black text-[11px] uppercase">{m.titulo}</p>
+                            <p className="font-semibold text-[12px] ">{m.titulo}</p>
                           </td>
                           <td className="p-6">
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase">{m.cliente?.nome}</span>
+                            <span className="text-[11px] font-bold text-zinc-500 ">{m.cliente?.nome}</span>
                           </td>
-                          <td className="p-6 text-red-500 font-black text-[11px]">
+                          <td className="p-6 text-red-500 font-semibold text-[12px]">
                             {new Date(m.data_limite!).toLocaleDateString('pt-BR')}
                           </td>
                           <td className="p-6">
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            <span className="text-[11px] font-bold text-zinc-400 ">
                               {membros.find(mb => mb.id === m.editor_id)?.nome || membros.find(mb => mb.id === m.designer_id)?.nome || 'Não atribuído'}
                             </span>
                           </td>
                           <td className="p-6">
-                            <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md whitespace-nowrap ${getStatusColor(m.status)}`}>
+                            <span className={`text-[10px] font-semibold  px-2 py-1 rounded-md whitespace-nowrap ${getStatusColor(m.status)}`}>
                               {{
                                 'analise_roteiro': 'Roteiro em Análise', 'roteiro_pendente': 'Aguardando Cliente', 'roteiro_aprovado': 'Roteiro Aprovado', 'planejamento': 'Aguardando Decupagem', 'em_organizacao': 'Decupagem em Andamento', 'faltando_material': 'Falta Material', 'verificar_material': 'Verificar Material', 'organizado': 'Aguardando Edição', 'em_edicao': 'Em Edição', 'aprovado': 'Aguardando Cliente', 'ajustes': 'Ajustes', 'revisao': 'Revisão Agência', 'post_aprovado': 'Post Aprovado', 'concluido': 'Finalizado'
                               }[m.status] || m.status}
@@ -3489,18 +3403,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto border border-green-100 shadow-sm">
                         <CheckCircle2 size={32} />
                       </div>
-                      <p className="text-zinc-400 font-black text-[10px] uppercase tracking-[0.2em]">Sem atrasos. Tudo sob controle!</p>
+                      <p className="text-zinc-400 font-semibold text-[11px] ">Sem atrasos. Tudo sob controle!</p>
                     </div>
                   )}
                 </div>
               </div>
+              )}
 
               {/* CARGA DE TRABALHO DA EQUIPE */}
-              <div className={`${tc.bgCard} rounded-[32px] border ${tc.borderStrong} overflow-hidden shadow-sm card-report`}>
-                <header className={`p-6 md:p-8 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-blue-900/10' : 'bg-blue-50/50'} flex items-center justify-between`}>
+              {relSub === 'equipe' && (
+              <div className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-hidden shadow-sm card-report`}>
+                <header className={`px-5 py-4 border-b ${tc.borderStrong} ${theme === 'dark' ? 'bg-blue-900/10' : 'bg-blue-50/50'} flex items-center justify-between`}>
                   <div>
-                    <h3 className="font-black uppercase text-sm text-blue-600">Carga de Trabalho Atual da Equipe</h3>
-                    <p className="text-[11px] text-blue-400 font-medium mt-1">Materiais em produção destinados a cada membro da equipe.</p>
+                    <h3 className="font-semibold text-sm text-blue-600">Carga de Trabalho Atual da Equipe</h3>
+                    <p className="text-[12px] text-blue-400 font-medium mt-1">Materiais em produção destinados a cada membro da equipe.</p>
                   </div>
                   <ClipboardCheck size={20} className="text-blue-500" />
                 </header>
@@ -3509,19 +3425,19 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     <div key={i} className={`p-5 rounded-2xl border ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50'}`}>
                       <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                         <div>
-                          <p className="font-black text-sm uppercase">{w.nome}</p>
-                          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{w.role}</p>
+                          <p className="font-semibold text-sm ">{w.nome}</p>
+                          <p className="text-[11px] font-bold text-zinc-400 ">{w.role}</p>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-black text-[11px]">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-[12px]">
                           {w.tarefas.length}
                         </div>
                       </div>
                       <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                         {w.tarefas.map(t => (
                           <div key={t.id} className={`p-3 rounded-xl border ${theme === 'dark' ? 'border-zinc-800 bg-zinc-950' : 'border-zinc-200 bg-white'}`}>
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase">{t.cliente} - CICLO {t.ciclo}</p>
-                            <p className="text-[11px] font-black mt-1 mb-2 line-clamp-2">{t.titulo}</p>
-                            <span className={`inline-block text-[8px] font-black uppercase px-2 py-1 rounded-md ${getStatusColor(t.status)}`}>
+                            <p className="text-[11px] font-bold text-zinc-500 ">{t.cliente} - CICLO {t.ciclo}</p>
+                            <p className="text-[12px] font-semibold mt-1 mb-2 line-clamp-2">{t.titulo}</p>
+                            <span className={`inline-block text-[10px] font-semibold  px-2 py-1 rounded-md ${getStatusColor(t.status)}`}>
                               {{
                                 'analise_roteiro': 'Roteiro em Análise', 'roteiro_pendente': 'Aguardando Cliente', 'roteiro_aprovado': 'Roteiro Aprovado', 'planejamento': 'Aguardando Decupagem', 'em_organizacao': 'Decupagem em Andamento', 'faltando_material': 'Falta Material', 'verificar_material': 'Verificar Material', 'organizado': 'Aguardando Edição', 'em_edicao': 'Em Edição', 'aprovado': 'Aguardando Cliente', 'ajustes': 'Ajustes', 'revisao': 'Revisão Agência', 'post_aprovado': 'Post Aprovado', 'concluido': 'Finalizado'
                               }[t.status] || t.status}
@@ -3532,12 +3448,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     </div>
                   ))}
                   {relatorioData.workload.length === 0 && (
-                    <div className="col-span-full py-10 text-center text-zinc-400 font-bold text-[11px] uppercase">
+                    <div className="col-span-full py-10 text-center text-zinc-400 font-bold text-[12px] ">
                       Nenhum material em produção no momento.
                     </div>
                   )}
                 </div>
               </div>
+              )}
 
             </div>
           )}
@@ -3548,10 +3465,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isDelegateModalOpen && selectedCicloDelegation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'}`}>
-            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Delegar</h3><button onClick={() => setIsDelegateModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
+          <div className={`${tc.bgCard} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'}`}>
+            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-semibold ">Delegar</h3><button onClick={() => setIsDelegateModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className={`${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} p-4 rounded-2xl border mb-2`}>
-              <p className={`text-[10px] font-black uppercase ${tc.textMuted} mb-2 flex items-center justify-between`}>
+              <p className={`text-[11px] font-semibold  ${tc.textMuted} mb-2 flex items-center justify-between`}>
                 <span>Selecione e arraste para reordenar:</span>
               </p>
               <DragDropContext onDragEnd={handleDragEnd}>
@@ -3574,8 +3491,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                 <GripVertical size={16} />
                               </div>
                               <label className="flex items-center gap-3 flex-1 cursor-pointer min-w-0">
-                                <input type="checkbox" className="w-4 h-4 accent-[#A25431] shrink-0" checked={selectedItemsToDelegate.includes(item.id)} onChange={(e) => { if (e.target.checked) setSelectedItemsToDelegate([...selectedItemsToDelegate, item.id]); else setSelectedItemsToDelegate(selectedItemsToDelegate.filter(id => id !== item.id)); }} />
-                                <span className="text-[11px] font-bold truncate select-none">{item.titulo}</span>
+                                <input type="checkbox" className="w-4 h-4 accent-brand shrink-0" checked={selectedItemsToDelegate.includes(item.id)} onChange={(e) => { if (e.target.checked) setSelectedItemsToDelegate([...selectedItemsToDelegate, item.id]); else setSelectedItemsToDelegate(selectedItemsToDelegate.filter(id => id !== item.id)); }} />
+                                <span className="text-[12px] font-bold truncate select-none">{item.titulo}</span>
                               </label>
                             </div>
                           )}
@@ -3591,11 +3508,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               {delegationType === 'planner' && (
                 <div className="space-y-1">
-                  <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Link Bruto (Opcional)</label>
+                  <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1`}>Link Bruto (Opcional)</label>
                   <input
                     type="text"
                     placeholder="https://drive.google.com/..."
-                    className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`}
+                    className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`}
                     value={newLinkBruto}
                     onChange={e => setNewLinkBruto(e.target.value)}
                   />
@@ -3604,7 +3521,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               {delegationType === 'planner' ? (
                 <div className="space-y-1">
-                  <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Selecionar Decupador</label>
+                  <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1`}>Selecionar Decupador</label>
                   <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedPlannerId} onChange={e => setSelectedPlannerId(e.target.value)}>
                     <option value="">Nenhum</option>
                     {planners.map(m => (
@@ -3615,7 +3532,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               ) : (
                 <div className="flex flex-col gap-3">
                   <div className="space-y-1">
-                    <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PlayCircle size={12} /> Editor (Vídeos/Reels)</label>
+                    <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PlayCircle size={12} /> Editor (Vídeos/Reels)</label>
                     <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedEditorId} onChange={e => setSelectedEditorId(e.target.value)}>
                       <option value="">Nenhum</option>
                       {editores.map(m => (
@@ -3624,7 +3541,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PenTool size={12} /> Designer (Capas/Carrosséis)</label>
+                    <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1 flex items-center gap-1.5`}><PenTool size={12} /> Designer (Capas/Carrosséis)</label>
                     <select className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} value={selectedDesignerId} onChange={e => setSelectedDesignerId(e.target.value)}>
                       <option value="">Nenhum</option>
                       {designers.map(m => (
@@ -3637,7 +3554,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               {delegationType === 'planner' ? (
                 <div className="space-y-1">
-                  <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Data Limite de Entrega (Decupador)</label>
+                  <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1`}>Data Limite de Entrega (Decupador)</label>
                   <div className="relative group w-full" onClick={(e) => {
                     const input = e.currentTarget.querySelector('input');
                     if (input && 'showPicker' in input) {
@@ -3646,7 +3563,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   }}>
                     <input
                       type="date"
-                      className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                      className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[12px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
                       value={delegationDeadline}
                       onChange={e => setDelegationDeadline(e.target.value)}
                     />
@@ -3657,7 +3574,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
                   {selectedEditorId && (
                     <div className="space-y-1">
-                      <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Prazo do Editor</label>
+                      <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1`}>Prazo do Editor</label>
                       <div className="relative group w-full" onClick={(e) => {
                         const input = e.currentTarget.querySelector('input');
                         if (input && 'showPicker' in input) {
@@ -3666,7 +3583,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       }}>
                         <input
                           type="date"
-                          className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                          className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[12px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
                           value={delegationDeadlineEditor}
                           onChange={e => setDelegationDeadlineEditor(e.target.value)}
                         />
@@ -3676,7 +3593,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   )}
                   {selectedDesignerId && (
                     <div className="space-y-1">
-                      <label className={`text-[10px] font-black uppercase tracking-widest ${tc.textMuted} ml-1`}>Prazo do Designer</label>
+                      <label className={`text-[11px] font-semibold   ${tc.textMuted} ml-1`}>Prazo do Designer</label>
                       <div className="relative group w-full" onClick={(e) => {
                         const input = e.currentTarget.querySelector('input');
                         if (input && 'showPicker' in input) {
@@ -3685,7 +3602,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       }}>
                         <input
                           type="date"
-                          className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
+                          className={`w-full py-3 px-3 md:px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[12px] md:text-sm transition-colors [color-scheme:dark] min-w-0 cursor-pointer`}
                           value={delegationDeadlineDesigner}
                           onChange={e => setDelegationDeadlineDesigner(e.target.value)}
                         />
@@ -3709,7 +3626,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
               )}
             </div>
-            <button onClick={handleDelegarItems} disabled={loading || selectedItemsToDelegate.length === 0} className="w-full py-4 bg-[#A25431] hover:bg-[#8a4729] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            <button onClick={handleDelegarItems} disabled={loading || selectedItemsToDelegate.length === 0} className="w-full py-4 bg-brand hover:brightness-90 text-white rounded-2xl font-semibold text-[12px]  flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Delegar Selecionados
             </button>
@@ -3719,18 +3636,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isLinkBrutoModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
-            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Link Bruto</h3><button onClick={() => setIsLinkBrutoModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-semibold ">Link Bruto</h3><button onClick={() => setIsLinkBrutoModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm font-medium`}>Insira o link da pasta com os materiais brutos gravados para esta tarefa.</p>
               <div className="flex flex-col gap-3">
-                <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} placeholder="https://drive.google.com/..." value={newLinkBruto} onChange={e => setNewLinkBruto(e.target.value)} />
+                <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-brand text-sm transition-colors`} placeholder="https://drive.google.com/..." value={newLinkBruto} onChange={e => setNewLinkBruto(e.target.value)} />
                 <div className="flex justify-center">
                   <GoogleDrivePicker onSelect={(url) => setNewLinkBruto(url)} type="folder" label="Selecionar Pasta no Google Drive" />
                 </div>
               </div>
             </div>
-            <button onClick={handleUpdateLinkBruto} disabled={loading || !newLinkBruto} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-[#8a4729] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            <button onClick={handleUpdateLinkBruto} disabled={loading || !newLinkBruto} className="w-full py-4 bg-brand text-white rounded-2xl font-semibold text-[12px]  hover:brightness-90 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Salvar Link
             </button>
           </div>
@@ -3739,53 +3656,53 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isResolveIssueModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
-            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-semibold text-red-500">Resolver Problema</h3><button onClick={() => setIsResolveIssueModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} p-4 rounded-2xl border mb-2`}>
               <div className="flex justify-between items-center mb-1">
-                <p className="text-[10px] font-black uppercase text-red-500">Motivo do Problema:</p>
+                <p className="text-[11px] font-semibold text-red-500">Motivo do Problema:</p>
                 {(() => {
                   const author = getAuthorInfo(selectedMaterial.feedback);
                   if (!author) return null;
-                  return <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Reportado por: {author.nome}</span>;
+                  return <span className="text-[11px] font-bold text-red-400 ">Reportado por: {author.nome}</span>;
                 })()}
               </div>
               {(() => {
                 const feedbacks = selectedMaterial.feedback ? selectedMaterial.feedback.split('\n\n').map((f: string) => f.replace(/\[ID:.*?\]/g, '').trim()).filter(Boolean) : [];
                 return feedbacks.length > 0 ? (
-                  <div className={`text-[11px] font-medium text-red-500 whitespace-pre-wrap flex flex-col gap-2 mt-2`}>
+                  <div className={`text-[12px] font-medium text-red-500 whitespace-pre-wrap flex flex-col gap-2 mt-2`}>
                     {feedbacks.map((fb: string, idx: number) => (
                       <div key={idx} className={idx > 0 ? 'opacity-70 pt-2 border-t border-red-200 dark:border-red-900' : ''}>
                         {renderTextWithLinks(fb)}
                       </div>
                     ))}
                   </div>
-                ) : <span className="text-[11px] font-medium text-red-500">Motivo não informado.</span>;
+                ) : <span className="text-[12px] font-medium text-red-500">Motivo não informado.</span>;
               })()}
             </div>
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Destino da Resolução</label>
+                <label className={`text-[11px] font-semibold ${tc.textMuted}   ml-2`}>Destino da Resolução</label>
                 <div className="flex gap-2">
-                  <button onClick={() => setResolveType('planner')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'planner' ? 'bg-red-600 text-white border-red-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Decupador</button>
-                  <button onClick={() => setResolveType('editor')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${resolveType === 'editor' ? 'bg-blue-600 text-white border-blue-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Produção (Edição/Design)</button>
+                  <button onClick={() => setResolveType('planner')} className={`flex-1 py-3 rounded-xl text-[11px] font-semibold   border transition-all ${resolveType === 'planner' ? 'bg-red-600 text-white border-red-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Decupador</button>
+                  <button onClick={() => setResolveType('editor')} className={`flex-1 py-3 rounded-xl text-[11px] font-semibold   border transition-all ${resolveType === 'editor' ? 'bg-blue-600 text-white border-blue-600' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Produção (Edição/Design)</button>
                 </div>
               </div>
 
               {resolveType === 'editor' && (
                 <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Quem Notificar?</label>
+                  <label className={`text-[11px] font-semibold ${tc.textMuted}   ml-2`}>Quem Notificar?</label>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setNotifyTarget('both')} className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase border transition-all ${notifyTarget === 'both' ? 'bg-zinc-800 text-white border-zinc-800' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Ambos</button>
-                    <button onClick={() => setNotifyTarget('editor')} className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase border transition-all ${notifyTarget === 'editor' ? 'bg-blue-500 text-white border-blue-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Editor</button>
-                    <button onClick={() => setNotifyTarget('designer')} className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-black uppercase border transition-all ${notifyTarget === 'designer' ? 'bg-pink-500 text-white border-pink-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Designer</button>
+                    <button onClick={() => setNotifyTarget('both')} className={`flex-1 py-2 px-3 rounded-lg text-[11px] font-semibold  border transition-all ${notifyTarget === 'both' ? 'bg-zinc-800 text-white border-zinc-800' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Ambos</button>
+                    <button onClick={() => setNotifyTarget('editor')} className={`flex-1 py-2 px-3 rounded-lg text-[11px] font-semibold  border transition-all ${notifyTarget === 'editor' ? 'bg-blue-500 text-white border-blue-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Editor</button>
+                    <button onClick={() => setNotifyTarget('designer')} className={`flex-1 py-2 px-3 rounded-lg text-[11px] font-semibold  border transition-all ${notifyTarget === 'designer' ? 'bg-pink-500 text-white border-pink-500' : `${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'} ${tc.textMuted}`}`}>Apenas Designer</button>
                   </div>
                 </div>
               )}
 
               <div className="space-y-1">
-                <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Link Bruto (Opcional)</label>
+                <label className={`text-[11px] font-semibold ${tc.textMuted}   ml-2`}>Link Bruto (Opcional)</label>
                 <div className="flex flex-col gap-2">
                   <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm transition-colors`} placeholder="Link se tiver mudado..." value={resolveLinkBruto} onChange={e => setResolveLinkBruto(e.target.value)} />
                   <div className="flex justify-center">
@@ -3794,11 +3711,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
               </div>
               <div className="space-y-1">
-                <label className={`text-[10px] font-black ${tc.textMuted} uppercase tracking-widest ml-2`}>Instrução de Resolução</label>
+                <label className={`text-[11px] font-semibold ${tc.textMuted}   ml-2`}>Instrução de Resolução</label>
                 <textarea className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-medium outline-none focus:border-red-500 min-h-[100px] text-sm resize-none transition-colors`} placeholder="Explique o que foi feito ou o que fazer agora..." value={resolveText} onChange={e => setResolveText(e.target.value)} />
               </div>
             </div>
-            <button onClick={handleResolveIssue} disabled={loading || !resolveText} className={`w-full py-4 ${resolveType === 'planner' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
+            <button onClick={handleResolveIssue} disabled={loading || !resolveText} className={`w-full py-4 ${resolveType === 'planner' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl font-semibold  text-[12px]  flex items-center justify-center gap-2 disabled:opacity-50 transition-colors`}>
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} {resolveType === 'planner' ? 'Confirmar & Devolver' : 'Confirmar & Reenviar'}
             </button>
           </div>
@@ -3807,26 +3724,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isImportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
-            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Importar</h3><button onClick={() => setIsImportModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-semibold ">Importar</h3><button onClick={() => setIsImportModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <div className="space-y-4">
-              <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="ID da Tarefa" value={plannerTaskId} onChange={e => setPlannerTaskId(e.target.value)} />
-              <input type="number" min="1" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} placeholder="Ciclo" value={importCiclo} onChange={e => setImportCiclo(e.target.value)} />
-              <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-[#A25431] transition-colors`} value={importClienteId} onChange={e => setImportClienteId(e.target.value)}><option value="">Selecionar Cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+              <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} placeholder="ID da Tarefa" value={plannerTaskId} onChange={e => setPlannerTaskId(e.target.value)} />
+              <input type="number" min="1" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} placeholder="Ciclo" value={importCiclo} onChange={e => setImportCiclo(e.target.value)} />
+              <select className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={importClienteId} onChange={e => setImportClienteId(e.target.value)}><option value="">Selecionar Cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
               
               <div className="flex items-center gap-3 pt-2">
-                <input type="checkbox" id="create-folders" className={`w-4 h-4 rounded accent-[#A25431] cursor-pointer`} checked={createDriveFolders} onChange={e => setCreateDriveFolders(e.target.checked)} />
+                <input type="checkbox" id="create-folders" className={`w-4 h-4 rounded accent-brand cursor-pointer`} checked={createDriveFolders} onChange={e => setCreateDriveFolders(e.target.checked)} />
                 <label htmlFor="create-folders" className="text-sm font-bold cursor-pointer">Criar pastas automaticamente no Drive</label>
               </div>
 
               {createDriveFolders && (
                 <div className="flex gap-2">
-                  <input className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[11px] focus:border-[#A25431] transition-colors`} placeholder="Link da Pasta Mãe..." value={parentFolderUrl} readOnly />
+                  <input className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-[12px] focus:border-brand transition-colors`} placeholder="Link da Pasta Mãe..." value={parentFolderUrl} readOnly />
                   <GoogleDrivePicker onSelect={(url) => setParentFolderUrl(url)} type="folder" label="Selecionar Pasta" />
                 </div>
               )}
             </div>
-            <button onClick={handleImportPlanner} disabled={loading || !plannerTaskId} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-[#8a4729] transition-colors">
+            <button onClick={handleImportPlanner} disabled={loading || !plannerTaskId} className="w-full py-4 bg-brand text-white rounded-2xl font-semibold text-[12px]  flex items-center justify-center gap-2 disabled:opacity-50 hover:brightness-90 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Sincronizar
             </button>
           </div>
@@ -3838,16 +3755,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} border w-full max-w-2xl rounded-3xl p-6 shadow-2xl flex flex-col`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-2">
                 <Edit3 size={20} />
                 Editar Instrução
               </h3>
               <button onClick={() => setIsEditInstructionModalOpen(false)} className={`p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full`}><X size={18} /></button>
             </div>
-            <p className="text-[11px] font-bold uppercase text-zinc-500 mb-4">{materialToEditInstruction.titulo}</p>
+            <p className="text-[12px] font-bold text-zinc-500 mb-4">{materialToEditInstruction.titulo}</p>
             <div className="flex flex-col gap-4 mb-4">
               <div className="flex-1">
-                <p className="text-[10px] font-black uppercase text-blue-500 mb-1 flex items-center gap-1.5"><PlayCircle size={12}/> Instrução para Editor</p>
+                <p className="text-[11px] font-semibold text-blue-500 mb-1 flex items-center gap-1.5"><PlayCircle size={12}/> Instrução para Editor</p>
                 <textarea
                   className={`w-full h-40 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-blue-500 outline-none resize-none font-medium text-sm whitespace-pre-wrap custom-scrollbar`}
                   value={instructionEditorText}
@@ -3856,7 +3773,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 />
               </div>
               <div className="flex-1">
-                <p className="text-[10px] font-black uppercase text-pink-500 mb-1 flex items-center gap-1.5"><PenTool size={12}/> Instrução para Designer</p>
+                <p className="text-[11px] font-semibold text-pink-500 mb-1 flex items-center gap-1.5"><PenTool size={12}/> Instrução para Designer</p>
                 <textarea
                   className={`w-full h-40 p-4 rounded-xl border ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-800'} focus:border-pink-500 outline-none resize-none font-medium text-sm whitespace-pre-wrap custom-scrollbar`}
                   value={instructionDesignerText}
@@ -3866,8 +3783,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setIsEditInstructionModalOpen(false)} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold uppercase text-[11px] transition-colors">Cancelar</button>
-              <button onClick={handleSaveInstruction} disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase text-[11px] flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
+              <button onClick={() => setIsEditInstructionModalOpen(false)} className="flex-1 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold text-[12px] transition-colors">Cancelar</button>
+              <button onClick={handleSaveInstruction} disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-[12px] flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar Instrução
               </button>
             </div>
@@ -3875,39 +3792,67 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </div>
       )}
 
-      {isEditRoteiroModalOpen && roteiroToEdit && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-7xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
-            <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
-              <div className="flex-1 min-w-0 pr-4">
-                <h3 className="text-lg md:text-xl font-black uppercase flex items-center gap-3">
-                  <FileText size={20} className="text-pink-500" />
-                  Editar Roteiro
-                </h3>
-                <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-[11px] md:text-sm font-bold mt-1 w-full bg-transparent border border-transparent hover:border-pink-500/30 outline-none focus:border-pink-500 rounded px-2 py-1 -ml-2 transition-colors resize-none overflow-hidden ${tc.textMuted}`} placeholder="Título da Tarefa" />
+      {/* TAREFA ABERTA: painel lateral com campos estilo ClickUp e o roteiro editável */}
+      {isEditRoteiroModalOpen && roteiroToEdit && (() => {
+        const m = materiais.find(x => x.id === roteiroToEdit.id) || roteiroToEdit;
+        const st = statusOf(m);
+        const field = (Icon: any, label: string, value: React.ReactNode) => (
+          <div className="flex items-center gap-3 py-2">
+            <span className="flex items-center gap-2 w-32 shrink-0 text-[13px] text-zinc-500"><Icon size={16} /> {label}</span>
+            <div className="flex items-center gap-2 flex-wrap min-w-0">{value}</div>
+          </div>
+        );
+        const thumb = (url: string, label: string, Icon: any, gradient: string) => (
+          <button type="button" onClick={() => setPreviewUrl(url)} title={`Abrir ${label.toLowerCase()}`} className={`relative overflow-hidden w-[84px] h-[84px] rounded-xl text-white flex flex-col items-center justify-center gap-1 shrink-0 hover:brightness-95 transition ${gradient}`}>
+            <Icon size={20} /><span className="text-[11px] font-semibold">{label}</span>
+            <ThumbImage key={url} url={url} label={label} />
+          </button>
+        );
+        return (
+          <div className="fixed inset-0 z-[9999] flex justify-end bg-zinc-950/30 animate-in fade-in duration-200" onClick={() => setIsEditRoteiroModalOpen(false)}>
+            <div onClick={(e) => e.stopPropagation()} className={`${tc.bgCard} w-full md:w-[760px] h-full shadow-2xl flex flex-col text-left animate-in slide-in-from-right duration-300`}>
+              <div className={`px-5 md:px-6 py-4 border-b ${tc.borderStrong} flex items-start gap-3 shrink-0`}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-zinc-500 truncate">{m.cliente?.nome}{m.ciclo ? ` · Ciclo ${m.ciclo}` : ''}</div>
+                  <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-lg font-semibold mt-0.5 w-full bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 focus:border-brand outline-none rounded-md px-1.5 py-0.5 -ml-1.5 resize-none overflow-hidden ${tc.textMain}`} placeholder="Título da tarefa" />
+                </div>
+                <IconAction icon={X} label="Fechar" onClick={() => setIsEditRoteiroModalOpen(false)} />
               </div>
-              <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
-            </div>
-            <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
-              <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`w-full h-full max-w-3xl ${theme === 'dark' ? 'bg-[#18181b] text-zinc-300 border-zinc-800 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-[#18181b]' : 'bg-white text-zinc-800 border-zinc-200'} md:shadow-lg border-x-0 border-y-0 md:border md:rounded-lg flex flex-col transition-colors overflow-hidden [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
-                <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="flex-1 flex flex-col overflow-hidden [&_.ql-container]:flex-1 [&_.ql-container]:min-h-0 [&_.ql-container]:overflow-y-auto [&_.ql-editor]:h-auto [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-[15px] [&_.ql-editor]:md:text-base" />
+
+              <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4">
+                {(m.link_drive || m.link_capa) && (
+                  <div className="flex items-center gap-3 mb-3">
+                    {m.link_drive && thumb(m.link_drive, 'Vídeo', PlayCircle, 'bg-gradient-to-br from-[#F0C9AE] to-brand')}
+                    {m.link_capa && thumb(m.link_capa, 'Capa', ImageIcon, 'bg-gradient-to-br from-pink-200 to-pink-500')}
+                    <p className="text-xs text-zinc-500">Clique na miniatura<br />para abrir o arquivo</p>
+                  </div>
+                )}
+                <div className={`border-b ${tc.borderStrong} pb-2 mb-4`}>
+                  {field(Activity, 'Status', statusChip(st.label, st.cls))}
+                  {field(Users, 'Responsáveis', avatars([m.planner_id, m.editor_id, m.designer_id]))}
+                  {field(Calendar, 'Entrega', entregaCell(m))}
+                  {field(Tag, 'Tags', <>{tagChips(m)}<span className="[&>span]:opacity-100">{tagControl(m)}</span></>)}
+                </div>
+                <div className="flex items-center gap-2 mb-2.5"><span className="text-[15px] font-semibold">Roteiro</span></div>
+                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`${theme === 'dark' ? 'bg-zinc-950 text-zinc-300 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-zinc-900' : 'bg-white text-zinc-800 [&_.ql-toolbar]:border-zinc-200 [&_.ql-container]:border-zinc-200'} rounded-xl overflow-hidden [&_.ql-toolbar]:rounded-t-xl [&_.ql-container]:rounded-b-xl [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
+                  <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="[&_.ql-editor]:min-h-[320px] [&_.ql-editor]:text-[15px]" />
+                </div>
               </div>
-            </div>
-            <div className={`p-4 md:p-6 border-t ${tc.borderStrong} ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'} flex justify-end gap-3`}>
-              <button onClick={() => setIsEditRoteiroModalOpen(false)} className={`px-4 py-3 font-bold ${tc.textMuted} ${tc.bgHover} rounded-xl transition-colors`}>Cancelar</button>
-              <button onClick={handleSaveRoteiro} disabled={loading} className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-black uppercase text-[11px] flex items-center gap-2 disabled:opacity-50 transition-colors">
-                {loading ? <Loader2 size={14} className="animate-spin" /> : null} Salvar
-              </button>
+
+              <div className={`px-5 md:px-6 py-4 border-t ${tc.borderStrong} flex justify-end gap-2.5 shrink-0`}>
+                <button onClick={() => setIsEditRoteiroModalOpen(false)} className={btnLine}>Cancelar</button>
+                <button onClick={handleSaveRoteiro} disabled={loading} className={btnInk}>{loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {previewRoteiro && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-7xl md:h-[90vh] rounded-none md:rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-full h-full md:w-[95%] md:max-w-7xl md:h-[90vh] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left`}>
             <div className={`p-5 md:p-6 border-b ${tc.borderStrong} flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900' : 'bg-white'} shrink-0 z-10 shadow-sm`}>
-              <div className="min-w-0 flex-1 pr-4"><h3 className="text-lg md:text-xl font-black uppercase truncate flex items-center gap-2" title={previewRoteiro.titulo}><FileText size={20} className="text-purple-500" /> {previewRoteiro.titulo}</h3></div>
+              <div className="min-w-0 flex-1 pr-4"><h3 className="text-lg md:text-xl font-semibold truncate flex items-center gap-2" title={previewRoteiro.titulo}><FileText size={20} className="text-purple-500" /> {previewRoteiro.titulo}</h3></div>
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${tc.bgHover} ${tc.textMuted} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
             <div className={`p-0 md:p-8 overflow-hidden ${theme === 'dark' ? 'bg-zinc-950' : 'bg-zinc-100'} flex-1 flex justify-center`}>
@@ -3921,10 +3866,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isVersionModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6`}>
-            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-black uppercase">Nova Versão</h3><button onClick={() => setIsVersionModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6`}>
+            <div className="flex justify-between items-center"><h3 className="text-xl md:text-2xl font-semibold ">Nova Versão</h3><button onClick={() => setIsVersionModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button></div>
             <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none text-sm focus:border-blue-500 transition-colors`} placeholder="Novo link..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
-            <button onClick={handleSendNewVersion} disabled={!newDriveLink || loading} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
+            <button onClick={handleSendNewVersion} disabled={!newDriveLink || loading} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold text-[12px]  flex justify-center items-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Atualizar
             </button>
           </div>
@@ -3933,9 +3878,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isDeleteClientModalOpen && clientToDelete && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl md:rounded-2xl p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
-              <h3 className="text-xl md:text-2xl font-black uppercase text-red-500 flex items-center gap-2">
+              <h3 className="text-xl md:text-2xl font-semibold text-red-500 flex items-center gap-2">
                 <AlertCircle size={24} /> Excluir
               </h3>
               <button onClick={() => setIsDeleteClientModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
@@ -3945,11 +3890,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm md:text-base font-medium leading-relaxed`}>
-                Tem a certeza que deseja excluir permanentemente o cliente <strong className={`${tc.textMain} uppercase`}>{clientToDelete.nome}</strong>?
+                Tem a certeza que deseja excluir permanentemente o cliente <strong className={`${tc.textMain} `}>{clientToDelete.nome}</strong>?
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'} border p-4 rounded-2xl`}>
-                <p className={`text-red-500 text-[10px] md:text-[11px] font-bold flex gap-2`}>
+                <p className={`text-red-500 text-[11px] md:text-[12px] font-bold flex gap-2`}>
                   <AlertCircle size={16} className="shrink-0" />
                   ATENÇÃO: Esta ação é irreversível. Todos os materiais, guias, links e históricos associados a este cliente serão apagados para sempre.
                 </p>
@@ -3957,8 +3902,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIsDeleteClientModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}>Cancelar</button>
-              <button onClick={async () => { setLoading(true); const { error } = await supabase.from('clientes').delete().eq('id', clientToDelete.id); if (error) { toast.error("Erro ao excluir: " + error.message); } else { toast.success("Cliente excluído com sucesso!"); loadData(); } setLoading(false); setIsDeleteClientModalOpen(false); setClientToDelete(null); }} disabled={loading} className="w-full sm:flex-1 py-3.5 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all flex justify-center items-center gap-2">
+              <button onClick={() => setIsDeleteClientModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors`}>Cancelar</button>
+              <button onClick={async () => { setLoading(true); const { error } = await supabase.from('clientes').delete().eq('id', clientToDelete.id); if (error) { toast.error("Erro ao excluir: " + error.message); } else { toast.success("Cliente excluído com sucesso!"); loadData(); } setLoading(false); setIsDeleteClientModalOpen(false); setClientToDelete(null); }} disabled={loading} className="w-full sm:flex-1 py-3.5 bg-red-600 text-white rounded-xl md:rounded-2xl font-semibold text-[12px]  hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all flex justify-center items-center gap-2">
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <><Trash2 size={16} /> Sim, Excluir</>}
               </button>
             </div>
@@ -3968,9 +3913,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isArchiveCycleModalOpen && cycleToArchive && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl md:rounded-2xl p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
-              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+              <h3 className={`text-xl md:text-2xl font-semibold  ${tc.textMain} flex items-center gap-2`}>
                 <Archive size={24} className={tc.textMuted} /> Arquivar Ciclo
               </h3>
               <button onClick={() => setIsArchiveCycleModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
@@ -3980,11 +3925,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm md:text-base font-medium leading-relaxed`}>
-                Tem a certeza que deseja arquivar todas as <strong className={tc.textMain}>{cycleToArchive.itens.length} tarefas</strong> do <strong className={`${tc.textMain} uppercase`}>{cycleToArchive.cicloLabel}</strong>?
+                Tem a certeza que deseja arquivar todas as <strong className={tc.textMain}>{cycleToArchive.itens.length} tarefas</strong> do <strong className={`${tc.textMain} `}>{cycleToArchive.cicloLabel}</strong>?
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border p-4 rounded-2xl`}>
-                <p className={`${tc.textMuted} text-[10px] md:text-[11px] font-bold flex gap-2`}>
+                <p className={`${tc.textMuted} text-[11px] md:text-[12px] font-bold flex gap-2`}>
                   <CheckCircle2 size={16} className="shrink-0 opacity-50" />
                   As tarefas serão marcadas como "Concluídas" e desaparecerão das listas de pendências de toda a equipe e do portal do cliente.
                 </p>
@@ -3992,8 +3937,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIsArchiveCycleModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors disabled:opacity-50`}>Cancelar</button>
-              <button onClick={async () => { setLoading(true); const ids = cycleToArchive.itens.map(i => i.id); const { error } = await supabase.from('materiais').update({ status: 'concluido' }).in('id', ids); if (error) { toast.error("Erro ao arquivar: " + error.message); } else { toast.success(`${cycleToArchive.cicloLabel} arquivado com sucesso!`); loadData(); } setLoading(false); setIsArchiveCycleModalOpen(false); setCycleToArchive(null); }} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 disabled:opacity-50`}>
+              <button onClick={() => setIsArchiveCycleModalOpen(false)} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors disabled:opacity-50`}>Cancelar</button>
+              <button onClick={async () => { setLoading(true); const ids = cycleToArchive.itens.map(i => i.id); const { error } = await supabase.from('materiais').update({ status: 'concluido' }).in('id', ids); if (error) { toast.error("Erro ao arquivar: " + error.message); } else { toast.success(`${cycleToArchive.cicloLabel} arquivado com sucesso!`); loadData(); } setLoading(false); setIsArchiveCycleModalOpen(false); setCycleToArchive(null); }} disabled={loading} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors flex justify-center items-center gap-2 disabled:opacity-50`}>
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <><Archive size={16} /> Sim, Arquivar</>}
               </button>
             </div>
@@ -4003,9 +3948,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {incompleteApprovalData && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl md:rounded-2xl p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
-              <h3 className="text-xl md:text-2xl font-black uppercase text-orange-500 flex items-center gap-2">
+              <h3 className="text-xl md:text-2xl font-semibold text-orange-500 flex items-center gap-2">
                 <AlertCircle size={24} /> Entrega Parcial
               </h3>
               <button onClick={() => setIncompleteApprovalData(null)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
@@ -4015,11 +3960,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm md:text-base font-medium leading-relaxed`}>
-                O material <strong className={`${tc.textMain} uppercase`}>{incompleteApprovalData.material.titulo}</strong> ainda não está completo.
+                O material <strong className={`${tc.textMain} `}>{incompleteApprovalData.material.titulo}</strong> ainda não está completo.
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-orange-900/20 border-orange-900/30' : 'bg-orange-50 border-orange-100'} border p-4 rounded-2xl`}>
-                <p className={`text-orange-500 text-[10px] md:text-[11px] font-bold flex flex-col gap-2`}>
+                <p className={`text-orange-500 text-[11px] md:text-[12px] font-bold flex flex-col gap-2`}>
                   <span className="flex items-center gap-2"><AlertCircle size={16} className="shrink-0" /> Faltam entregar:</span>
                   {incompleteApprovalData.missingVideo && <span className="ml-6">- Link do Vídeo / Post</span>}
                   {incompleteApprovalData.missingDesign && <span className="ml-6">- Link da Capa / Design</span>}
@@ -4028,8 +3973,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button onClick={() => setIncompleteApprovalData(null)} disabled={actionLoading === incompleteApprovalData.material.id} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}>Aguardar Equipe</button>
-              <button onClick={() => { handleAprovarParaCliente(incompleteApprovalData.material.id); setIncompleteApprovalData(null); }} disabled={actionLoading === incompleteApprovalData.material.id} className="w-full sm:flex-1 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2">
+              <button onClick={() => setIncompleteApprovalData(null)} disabled={actionLoading === incompleteApprovalData.material.id} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} ${tc.textMuted} hover:${tc.textMain} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors`}>Aguardar Equipe</button>
+              <button onClick={() => { handleAprovarParaCliente(incompleteApprovalData.material.id); setIncompleteApprovalData(null); }} disabled={actionLoading === incompleteApprovalData.material.id} className="w-full sm:flex-1 py-3.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl md:rounded-2xl font-semibold text-[12px]  transition-colors flex justify-center items-center gap-2">
                 {actionLoading === incompleteApprovalData.material.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Enviar Mesmo Assim</>}
               </button>
             </div>
@@ -4041,9 +3986,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       {/* MODAL DE HISTÓRICO DE DELEGAÇÕES (COMPLETO) */}
       {delegacaoModalAberto && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-[24px] p-6 w-full max-w-md shadow-2xl text-left flex flex-col max-h-[90vh]`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-2xl p-6 w-full max-w-md shadow-2xl text-left flex flex-col max-h-[90vh]`}>
             <div className="flex justify-between items-center mb-4 shrink-0">
-              <h3 className={`font-bold text-lg uppercase ${tc.textMain}`}>Histórico da Tarefa</h3>
+              <h3 className={`font-bold text-lg  ${tc.textMain}`}>Histórico da Tarefa</h3>
               <button onClick={() => setDelegacaoModalAberto(false)} className={`${tc.textMuted} ${tc.bgHover} p-2 rounded-full transition-colors`}>
                 <X size={18} />
               </button>
@@ -4053,7 +3998,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             
             <div className="overflow-y-auto space-y-4 pr-2 flex-1">
               <div className="space-y-3">
-                <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Linha do Tempo</div>
+                <div className="text-[11px] font-semibold text-zinc-500 mb-2">Linha do Tempo</div>
                 {delegacaoLogsAtuais.length === 0 ? (
                   <p className={`text-center text-sm ${tc.textMuted} py-4 font-bold`}>Nenhum registro encontrado.</p>
                 ) : (
@@ -4065,7 +4010,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     return (
                       <div key={index} className={`flex flex-col p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border rounded-xl relative`}>
                         <span className={`text-sm font-bold ${tc.textMain}`}>{log.evento}</span>
-                        <span className={`text-[10px] font-black tracking-widest uppercase ${tc.textMuted} mt-1`}>{dataFormatada}</span>
+                        <span className={`text-[11px] font-semibold   ${tc.textMuted} mt-1`}>{dataFormatada}</span>
                       </div>
                     );
                   })
@@ -4078,9 +4023,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {logsModalAberto && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-[24px] p-6 w-full max-w-md shadow-2xl text-left`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} rounded-2xl p-6 w-full max-w-md shadow-2xl text-left`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className={`font-bold text-lg uppercase ${tc.textMain}`}>Histórico de Visualizações</h3>
+              <h3 className={`font-bold text-lg  ${tc.textMain}`}>Histórico de Visualizações</h3>
               <button onClick={() => setLogsModalAberto(false)} className={`${tc.textMuted} ${tc.bgHover} p-2 rounded-full transition-colors`}>
                 <X size={18} />
               </button>
@@ -4098,7 +4043,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   return (
                     <div key={index} className={`flex flex-col p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border rounded-xl`}>
                       <span className={`text-sm font-bold ${tc.textMain}`}>{log.evento}</span>
-                      <span className={`text-[10px] font-black tracking-widest uppercase ${tc.textMuted} mt-1`}>{dataFormatada}</span>
+                      <span className={`text-[11px] font-semibold   ${tc.textMuted} mt-1`}>{dataFormatada}</span>
                     </div>
                   );
                 })
@@ -4111,10 +4056,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       {previewUrl && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black p-4 animate-in fade-in duration-300">
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-semibold text-[11px] ">
               <ExternalLink size={18} /> Abrir Original
             </a>
-            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-semibold text-[11px] ">
               <X size={20} /> Fechar
             </button>
           </div>
@@ -4126,9 +4071,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {isScheduleModalOpen && materialToSchedule && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-2xl md:rounded-2xl p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
             <div className="flex justify-between items-center shrink-0">
-              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+              <h3 className={`text-xl md:text-2xl font-semibold  ${tc.textMain} flex items-center gap-2`}>
                 <Clock size={24} className="text-blue-500" /> Agendar Envio
               </h3>
               <button onClick={() => setIsScheduleModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
@@ -4157,12 +4102,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={18} />
               </div>
 
-              <p className="text-[10px] text-zinc-500 font-medium italic">
+              <p className="text-[11px] text-zinc-500 font-medium italic">
                 💡 Clique no ícone de calendário para abrir o seletor visual ou digite manualmente.
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-blue-900/10 border-blue-900/20' : 'bg-blue-50 border-blue-100'} border p-4 rounded-2xl`}>
-                <p className="text-blue-600 text-[10px] md:text-[11px] font-bold flex gap-2 leading-relaxed">
+                <p className="text-blue-600 text-[11px] md:text-[12px] font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
                   O material continuará visível para você na lista de aprovação até o envio ser concluído.
                 </p>
@@ -4170,11 +4115,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
-              <button onClick={() => setIsScheduleModalOpen(false)} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}>Voltar</button>
+              <button onClick={() => setIsScheduleModalOpen(false)} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors`}>Voltar</button>
               <button
                 onClick={handleAgendarParaCliente}
                 disabled={!scheduledDate || actionLoading === materialToSchedule.id}
-                className="w-full sm:flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                className="w-full sm:flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl font-semibold text-[12px]  transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 disabled:opacity-50"
               >
                 {actionLoading === materialToSchedule.id ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
               </button>
@@ -4185,9 +4130,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       
       {batchApprovalData && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-2xl md:rounded-2xl p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
             <div className="flex justify-between items-center shrink-0">
-              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+              <h3 className={`text-xl md:text-2xl font-semibold  ${tc.textMain} flex items-center gap-2`}>
                 <Clock size={24} className="text-purple-500" /> Aprovar Lote
               </h3>
               <button onClick={() => setBatchApprovalData(null)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
@@ -4217,7 +4162,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
 
               <div className={`${theme === 'dark' ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50 border-purple-100'} border p-4 rounded-2xl`}>
-                <p className="text-purple-600 text-[10px] md:text-[11px] font-bold flex gap-2 leading-relaxed">
+                <p className="text-purple-600 text-[11px] md:text-[12px] font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
                   Deixe a data em branco para aprovar imediatamente.
                 </p>
@@ -4227,7 +4172,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
               <button
                 onClick={() => setBatchApprovalData(null)}
-                className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}
+                className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors`}
               >
                 Voltar
               </button>
@@ -4237,7 +4182,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   setBatchApprovalData(null);
                 }}
                 disabled={loading}
-                className="w-full sm:flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                className="w-full sm:flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl md:rounded-2xl font-semibold text-[12px]  transition-colors flex justify-center items-center gap-2 shadow-lg shadow-purple-500/20 disabled:opacity-50"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
               </button>
@@ -4247,10 +4192,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 {isApproveConfirmModalOpen && materialToApproveFinal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] md:rounded-[40px] p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl md:rounded-2xl p-5 md:p-10 shadow-2xl text-left space-y-5 md:space-y-6`}>
             <div className="flex justify-between items-center">
-              <h3 className="text-xl md:text-2xl font-black uppercase text-green-500 flex items-center gap-2">
-                <CheckCircle2 size={24} /> Aprovar p/ Cliente
+              <h3 className="text-xl md:text-2xl font-semibold text-green-500 flex items-center gap-2">
+                <CheckCircle2 size={24} /> Aprovar para o cliente
               </h3>
               <button onClick={() => setIsApproveConfirmModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
                 <X size={18} />
@@ -4259,11 +4204,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm md:text-base font-medium leading-relaxed`}>
-                Tem certeza que deseja enviar o material <strong className={`${tc.textMain} uppercase`}>{materialToApproveFinal.titulo}</strong> para o portal do cliente?
+                Tem certeza que deseja enviar o material <strong className={`${tc.textMain} `}>{materialToApproveFinal.titulo}</strong> para o portal do cliente?
               </p>
 
               <div className={`${theme === 'dark' ? 'bg-green-900/20 border-green-900/30' : 'bg-green-50 border-green-100'} border p-4 rounded-2xl`}>
-                <p className={`text-green-600 text-[10px] md:text-[11px] font-bold flex gap-2`}>
+                <p className={`text-green-600 text-[11px] md:text-[12px] font-bold flex gap-2`}>
                   <Send size={16} className="shrink-0" />
                   Isso irá notificar o cliente via WhatsApp e disponibilizar o material para aprovação final.
                 </p>
@@ -4271,24 +4216,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
-              <button onClick={() => { setMaterialToSchedule(materialToApproveFinal); setIsScheduleModalOpen(true); setIsApproveConfirmModalOpen(false); }} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex items-center justify-center gap-2 border border-transparent hover:border-zinc-500`}>
+              <button onClick={() => { setMaterialToSchedule(materialToApproveFinal); setIsScheduleModalOpen(true); setIsApproveConfirmModalOpen(false); }} className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors flex items-center justify-center gap-2 border border-transparent hover:border-zinc-500`}>
                 <Clock size={16} /> Agendar
               </button>
-              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-2 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
+              <button onClick={() => { handleAprovarParaCliente(materialToApproveFinal.id); setIsApproveConfirmModalOpen(false); }} disabled={actionLoading === materialToApproveFinal.id} className="w-full sm:flex-2 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-xl md:rounded-2xl font-semibold text-[12px]  transition-colors flex justify-center items-center gap-2 shadow-lg shadow-green-500/20">
                 {actionLoading === materialToApproveFinal.id ? <Loader2 size={16} className="animate-spin" /> : <><Send size={16} /> Enviar Agora</>}
               </button>
             </div>
-            <button onClick={() => setIsApproveConfirmModalOpen(false)} className={`w-full py-2 text-[10px] font-bold uppercase ${tc.textMuted} hover:text-zinc-500 transition-colors`}>Cancelar</button>
+            <button onClick={() => setIsApproveConfirmModalOpen(false)} className={`w-full py-2 text-[11px] font-bold  ${tc.textMuted} hover:text-zinc-500 transition-colors`}>Cancelar</button>
           </div>
         </div>
       )}
       {isGruposModalOpen && (
         <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-lg rounded-[32px] md:rounded-[40px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 animate-in zoom-in-95`}>
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-lg rounded-2xl md:rounded-2xl p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 animate-in zoom-in-95`}>
             <div className="flex justify-between items-center">
               <div>
-                <h3 className={`text-xl font-black uppercase ${tc.textMain}`}>Grupos do WhatsApp</h3>
-                <p className={`text-[11px] ${tc.textMuted} font-medium mt-1`}>Pesquise e selecione o grupo para vincular ao cliente.</p>
+                <h3 className={`text-xl font-semibold  ${tc.textMain}`}>Grupos do WhatsApp</h3>
+                <p className={`text-[12px] ${tc.textMuted} font-medium mt-1`}>Pesquise e selecione o grupo para vincular ao cliente.</p>
               </div>
               <button onClick={() => setIsGruposModalOpen(false)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full`}><X size={20} /></button>
             </div>
@@ -4330,8 +4275,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     className={`w-full flex items-center justify-between p-4 ${tc.bgHover} border ${tc.borderStrong} rounded-2xl transition-all group`}
                   >
                     <div className="text-left">
-                      <p className="font-bold text-sm uppercase group-hover:text-green-500 transition-colors truncate max-w-[200px] md:max-w-none">{g.name || 'Grupo sem nome'}</p>
-                      <p className={`text-[10px] font-mono ${tc.textMuted} truncate max-w-[200px] md:max-w-none`}>{g.id || g.phone || g.groupId || 'ID não encontrado'}</p>
+                      <p className="font-bold text-sm group-hover:text-green-500 transition-colors truncate max-w-[200px] md:max-w-none">{g.name || 'Grupo sem nome'}</p>
+                      <p className={`text-[11px] font-mono ${tc.textMuted} truncate max-w-[200px] md:max-w-none`}>{g.id || g.phone || g.groupId || 'ID não encontrado'}</p>
                     </div>
                     <div className={`p-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-lg group-hover:bg-green-500 group-hover:text-white transition-colors`}>
                       <CheckCircle2 size={14} />
@@ -4341,26 +4286,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               })()}
             </div>
 
-            <button onClick={() => setIsGruposModalOpen(false)} className="w-full py-4 font-black uppercase text-[10px] tracking-widest bg-zinc-100 dark:bg-zinc-800 rounded-2xl">Fechar</button>
+            <button onClick={() => setIsGruposModalOpen(false)} className="w-full py-4 font-semibold text-[11px]  bg-zinc-100 dark:bg-zinc-800 rounded-2xl">Fechar</button>
           </div>
         </div>
       )}
       {/* MODAL DE CONFIRMAÇÃO PERSONALIZADO */}
       {isConfirmModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} w-full max-w-sm rounded-[32px] p-8 shadow-2xl border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} text-center space-y-6`}>
+          <div className={`${tc.bgCard} w-full max-w-sm rounded-2xl p-8 shadow-2xl border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} text-center space-y-6`}>
             <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${confirmConfig.type === 'danger' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
               {confirmConfig.type === 'danger' ? <Trash2 size={32} /> : <AlertTriangle size={32} />}
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase">{confirmConfig.title}</h3>
+              <h3 className="text-xl font-semibold ">{confirmConfig.title}</h3>
               <p className={`mt-2 text-sm ${tc.textMuted} font-medium`}>{confirmConfig.text}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setIsConfirmModalOpen(false)} className={`py-4 rounded-2xl font-black uppercase text-[10px] ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancelar</button>
+              <button onClick={() => setIsConfirmModalOpen(false)} className={`py-4 rounded-2xl font-semibold  text-[11px] ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancelar</button>
               <button
                 onClick={() => { confirmConfig.onConfirm(); setIsConfirmModalOpen(false); }}
-                className={`py-4 rounded-2xl font-black uppercase text-[10px] text-white ${confirmConfig.type === 'danger' ? 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20' : 'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-600/20'}`}
+                className={`py-4 rounded-2xl font-semibold  text-[11px] text-white ${confirmConfig.type === 'danger' ? 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/20' : 'bg-amber-600 hover:bg-amber-700 shadow-lg shadow-amber-600/20'}`}
               >
                 Confirmar
               </button>
@@ -4370,101 +4315,45 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
       {isEditTituloModalOpen && materialBeingEdited && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-md rounded-2xl p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center">
-              <h3 className="text-xl md:text-2xl font-black uppercase flex items-center gap-2"><Edit3 size={24} className="text-[#A25431]" /> Editar Título</h3>
+              <h3 className="text-xl md:text-2xl font-semibold flex items-center gap-2"><Edit3 size={24} className="text-brand" /> Editar Título</h3>
               <button onClick={() => setIsEditTituloModalOpen(false)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button>
             </div>
             <div className="space-y-4">
               <p className={`${tc.textMuted} text-sm font-medium`}>Altere o nome desta tarefa.</p>
               <input 
-                className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] text-sm transition-colors`} 
+                className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-brand text-sm transition-colors`} 
                 value={novoTituloText} 
                 onChange={e => setNovoTituloText(e.target.value)} 
                 autoFocus
               />
             </div>
-            <button onClick={handleSaveTitulo} disabled={loading || !novoTituloText.trim()} className="w-full py-4 bg-[#A25431] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-[#8a4729] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            <button onClick={handleSaveTitulo} disabled={loading || !novoTituloText.trim()} className="w-full py-4 bg-brand text-white rounded-2xl font-semibold text-[12px]  hover:brightness-90 flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
               {loading ? <Loader2 size={16} className="animate-spin" /> : null} Salvar Alterações
             </button>
           </div>
         </div>
       )}
     
-      {/* 🏷️ MODAL DE TAGS */}
-      
-        {isTagsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div onClick={() => setIsTagsModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className={`relative w-full max-w-md ${tc.bgCard} rounded-3xl p-6 shadow-2xl overflow-hidden border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black uppercase tracking-widest">Gerenciar Tags</h2>
-                <button onClick={() => setIsTagsModalOpen(false)} className={`p-2 rounded-full hover:${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} transition-colors`}><X size={20} /></button>
-              </div>
 
-              <div className="mb-6 space-y-3 max-h-[300px] overflow-y-auto pr-2">
-                {systemTags.length === 0 ? <p className={`text-center text-sm font-bold ${tc.textMuted}`}>Nenhuma tag cadastrada.</p> : systemTags.map(tag => (
-                  <div key={tag.id} className={`flex items-center justify-between p-3 rounded-xl border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
-                    <span className="px-2 py-1 border rounded-md text-[10px] font-black uppercase tracking-widest" style={getTagStyle(tag.label)}>{tag.label}</span>
-                    <button onClick={async () => {
-                      setLoading(true);
-                      await supabase.from('tags').delete().eq('id', tag.id);
-                      setSystemTags(prev => prev.filter(t => t.id !== tag.id));
-                      setLoading(false);
-                      toast.success("Tag removida!");
-                    }} className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                  </div>
-                ))}
-              </div>
-
-              <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-zinc-900' : 'bg-zinc-50'}`}>
-                <h3 className="text-[10px] font-black uppercase tracking-widest mb-3">Criar Nova Tag</h3>
-                <div className="flex gap-2 mb-3">
-                  <input type="text" value={newTagLabel} onChange={e => setNewTagLabel(e.target.value)} placeholder="Nome da Tag..." className={`flex-1 p-3 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200'} rounded-xl text-sm font-bold border outline-none focus:border-[#A25431] uppercase`} />
-                  <div className="flex items-center gap-3">
-  <input
-    name="cor_tag"
-    type="color"
-    className={`h-12 w-12 rounded-xl cursor-pointer ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} p-1 border`}
-    value={newTagColor.startsWith('#') ? newTagColor : '#eab308'}
-    onChange={e => setNewTagColor(e.target.value)}
-  />
-  <span className={`text-[10px] font-bold ${tc.textMuted} uppercase`}>Escolha a cor da tag</span>
-</div>
-                </div>
-                <button disabled={loading || !newTagLabel.trim()} onClick={async () => {
-                   setLoading(true);
-                   const { data, error } = await supabase.from('tags').insert([{ label: newTagLabel.toUpperCase(), color: newTagColor }]).select();
-                   if (!error && data) {
-                     setSystemTags(prev => [...prev, data[0]]);
-                     setNewTagLabel('');
-                     toast.success("Tag criada!");
-                   } else {
-                     toast.error("Erro: " + (error?.message || "Erro desconhecido")); console.error("SUPABASE ERROR:", error);
-                   }
-                   setLoading(false);
-                }} className="w-full py-3 bg-[#A25431] text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#8a4729] transition-colors disabled:opacity-50">Adicionar Tag</button>
-              </div>
-            </div>
-          </div>
-        )}
     
 
       {/* MODAL DE TIMELINE DE COMENTÁRIOS */}
       {timelineMaterial && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-2xl rounded-[32px] p-5 md:p-8 shadow-2xl flex flex-col max-h-[85vh]`}>
+          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-2xl rounded-2xl p-5 md:p-8 shadow-2xl flex flex-col max-h-[85vh]`}>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="text-xl md:text-2xl font-black uppercase flex items-center gap-3"><MessageSquare size={24} className="text-[#A25431]" /> Linha do Tempo</h3>
-                <p className={`${tc.textMuted} text-[11px] font-bold uppercase tracking-widest mt-1`}>{timelineMaterial.titulo}</p>
+                <h3 className="text-xl md:text-2xl font-semibold flex items-center gap-3"><MessageSquare size={24} className="text-brand" /> Linha do Tempo</h3>
+                <p className={`${tc.textMuted} text-[12px] font-bold   mt-1`}>{timelineMaterial.titulo}</p>
               </div>
               <button onClick={() => setTimelineMaterial(null)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button>
             </div>
             
             <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
               {!timelineMaterial.feedback && !timelineMaterial.feedback_admin ? (
-                <div className="py-10 text-center opacity-40 font-bold uppercase text-[11px]">Nenhum comentário ou ajuste registrado.</div>
+                <div className="py-10 text-center opacity-40 font-bold text-[12px]">Nenhum comentário ou ajuste registrado.</div>
               ) : (
                 <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-300 dark:before:via-zinc-700 before:to-transparent">
                   {timelineMaterial.feedback_admin && (
@@ -4474,7 +4363,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       </div>
                       <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900/50">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-black text-[10px] uppercase text-blue-600 dark:text-blue-400">
+                          <span className="font-semibold text-[11px] text-blue-600 dark:text-blue-400">
                             {(() => {
                               const authorInfo = getAuthorInfo(timelineMaterial.feedback_admin);
                               return authorInfo ? `Instrução de ${authorInfo.nome}` : 'Instrução Interna';
@@ -4498,13 +4387,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     const authorRole = isClient ? 'Ajuste / Feedback' : (authorInfo ? authorInfo.role : 'Ajuste Interno');
                     return (
                       <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${isClient ? 'bg-[#A25431] text-white' : 'bg-zinc-600 text-white'}`}>
+                        <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${isClient ? 'bg-brand text-white' : 'bg-zinc-600 text-white'}`}>
                           <MessageSquare size={16} />
                         </div>
                         <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className={`font-black text-[10px] uppercase ${isClient ? 'text-[#A25431]' : 'text-zinc-500'}`}>{authorRole}: {authorName}</span>
-                            {timestamp && <span className={`text-[9px] font-bold ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{timestamp}</span>}
+                            <span className={`font-semibold text-[11px]  ${isClient ? 'text-brand' : 'text-zinc-500'}`}>{authorRole}: {authorName}</span>
+                            {timestamp && <span className={`text-[11px] font-bold ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{timestamp}</span>}
                           </div>
                           <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap break-words`}>{renderTextWithLinks(displayComentario)}</p>
                         </div>
@@ -4521,9 +4410,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       {batchApprovalData && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-[32px] md:rounded-[40px] p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
+          <div className={`${tc.bgCard} border ${tc.borderStrong} w-full max-w-md rounded-2xl md:rounded-2xl p-6 md:p-10 shadow-2xl space-y-5 md:space-y-6 overflow-hidden flex flex-col max-h-[90vh]`}>
             <div className="flex justify-between items-center shrink-0">
-              <h3 className={`text-xl md:text-2xl font-black uppercase ${tc.textMain} flex items-center gap-2`}>
+              <h3 className={`text-xl md:text-2xl font-semibold  ${tc.textMain} flex items-center gap-2`}>
                 <Clock size={24} className="text-purple-500" /> Aprovar Lote
               </h3>
               <button onClick={() => setBatchApprovalData(null)} className={`p-2 ${tc.textMuted} ${tc.bgHover} rounded-full transition-all`}>
@@ -4553,7 +4442,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
 
               <div className={`${theme === 'dark' ? 'bg-purple-900/10 border-purple-900/20' : 'bg-purple-50 border-purple-100'} border p-4 rounded-2xl`}>
-                <p className="text-purple-600 text-[10px] md:text-[11px] font-bold flex gap-2 leading-relaxed">
+                <p className="text-purple-600 text-[11px] md:text-[12px] font-bold flex gap-2 leading-relaxed">
                   <Activity size={16} className="shrink-0" />
                   Deixe a data em branco para aprovar imediatamente.
                 </p>
@@ -4563,7 +4452,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="flex flex-col sm:flex-row gap-3 pt-2 md:pt-4">
               <button
                 onClick={() => setBatchApprovalData(null)}
-                className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors`}
+                className={`w-full sm:flex-1 py-3.5 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} ${tc.textMuted} rounded-xl md:rounded-2xl font-semibold  text-[12px]  transition-colors`}
               >
                 Voltar
               </button>
@@ -4573,7 +4462,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   setBatchApprovalData(null);
                 }}
                 disabled={loading}
-                className="w-full sm:flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl md:rounded-2xl font-black uppercase text-[11px] tracking-widest transition-colors flex justify-center items-center gap-2 shadow-lg shadow-purple-500/20 disabled:opacity-50"
+                className="w-full sm:flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl md:rounded-2xl font-semibold text-[12px]  transition-colors flex justify-center items-center gap-2 shadow-lg shadow-purple-500/20 disabled:opacity-50"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <><CheckCircle2 size={16} /> Confirmar</>}
               </button>

@@ -1,8 +1,10 @@
 import { createServerClient } from '@/lib/supabase-server'
+import { requireEquipe } from '@/lib/auth-guard'
 
 // --- ACTIONS ORIGINAIS ---
 
 export async function createCliente(formData: FormData) {
+  await requireEquipe()
   const supabase = await createServerClient()
   const nome = formData.get('nome') as string
   const telefone = formData.get('telefone') as string
@@ -17,6 +19,7 @@ export async function createCliente(formData: FormData) {
 }
 
 export async function deleteCliente(id: string) {
+  await requireEquipe()
   const supabase = await createServerClient()
   const { error } = await supabase
     .from('clientes')
@@ -28,6 +31,7 @@ export async function deleteCliente(id: string) {
 }
 
 export async function createMaterial(formData: FormData) {
+  await requireEquipe()
   const supabase = await createServerClient()
   const cliente_id = formData.get('cliente_id') as string
   const titulo = formData.get('titulo') as string
@@ -45,6 +49,7 @@ export async function createMaterial(formData: FormData) {
 
 // 1. Ação para o EDITOR subir uma nova versão corrigida
 export async function updateMaterialVersion(id: string, newLinkDrive: string) {
+  await requireEquipe()
   const supabase = await createServerClient()
   
   const { error } = await supabase
@@ -62,6 +67,7 @@ export async function updateMaterialVersion(id: string, newLinkDrive: string) {
 
 // 2. Ação para o ADMIN mudar o status de um único material
 export async function updateMaterialStatus(id: string, novoStatus: string) {
+  await requireEquipe()
   const supabase = await createServerClient()
   
   const { error } = await supabase
@@ -75,6 +81,7 @@ export async function updateMaterialStatus(id: string, novoStatus: string) {
 
 // 3. Ação para o ADMIN mudar o status de VÁRIOS materiais de uma vez (Ações em Lote)
 export async function updateBulkMaterialStatus(ids: string[], novoStatus: string) {
+  await requireEquipe()
   if (!ids || ids.length === 0) return { success: false }
   
   const supabase = await createServerClient()

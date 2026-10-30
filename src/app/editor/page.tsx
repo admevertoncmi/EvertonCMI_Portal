@@ -31,12 +31,12 @@ const CollapsibleInstruction = ({ children, theme, isLong, title, icon: Icon, co
   const [expanded, setExpanded] = useState(false);
   return (
     <div className={`${bgClass} border ${borderClass} p-4 rounded-xl shadow-sm flex flex-col`}>
-      <p className={`text-[9px] font-black uppercase tracking-widest ${colorClass} mb-2 flex items-center gap-2`}><Icon size={12} /> {title}</p>
+      <p className={`text-[11px] font-semibold   ${colorClass} mb-2 flex items-center gap-2`}><Icon size={12} /> {title}</p>
       <div className={`${textClass} font-medium whitespace-pre-wrap text-sm break-words ${!expanded && isLong ? 'line-clamp-4' : ''}`}>
         {children}
       </div>
       {isLong && (
-        <button onClick={() => setExpanded(!expanded)} className="mt-2 self-start text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors">
+        <button onClick={() => setExpanded(!expanded)} className="mt-2 self-start text-[11px] font-semibold text-blue-500 hover:text-blue-700 transition-colors">
           {expanded ? 'Ver Menos' : 'Ver Mais'}
         </button>
       )}
@@ -410,7 +410,7 @@ export default function EditorDashboard() {
       return (
         <div className="flex flex-col items-center justify-center gap-3">
           <Loader2 className="animate-spin text-white opacity-40" size={40} />
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
+          <p className="text-xs font-semibold text-white/40">Carregando pasta...</p>
         </div>
       );
     }
@@ -467,21 +467,21 @@ export default function EditorDashboard() {
                 />
               ))}
             </div>
-            <span className="text-[10px] font-black text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-sm">{currentSlide + 1} / {links.length}</span>
+            <span className="text-[11px] font-semibold text-white bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">{currentSlide + 1} / {links.length}</span>
           </div>
         </div>
       );
     }
 
     if (url.match(/\.(jpeg|jpg|gif|png|webp|avif|jfif)$/i)) {
-      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-6xl max-h-[85vh] rounded-[24px] object-contain shadow-2xl" alt="Preview" />;
+      return <img src={url} className="w-full mx-auto aspect-[9/16] md:aspect-video md:max-w-6xl max-h-[85vh] rounded-2xl object-contain shadow-2xl" alt="Preview" />;
     }
 
     const finalUrl = getEmbedUrl(url) || url;
     const isDrive = isGoogleDriveVideo(url);
     return (
       <div 
-        className={`w-full mx-auto bg-black rounded-[24px] overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
+        className={`w-full mx-auto bg-black rounded-2xl overflow-hidden relative bg-black shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
           aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
           aspectRatio === 'video' ? 'aspect-video max-w-6xl' : 
           'aspect-square max-w-2xl'
@@ -515,14 +515,14 @@ export default function EditorDashboard() {
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
-      <div className={`md:hidden flex items-center justify-between p-5 pt-8 safe-pt-header-classic ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-[#A25431]'} text-white rounded-b-[24px] fixed top-0 w-full z-[100] shadow-lg border-b`}>
+      <div className={`md:hidden flex items-center justify-between p-5 pt-8 safe-pt-header-classic ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-brand'} text-white rounded-b-2xl fixed top-0 w-full z-[100] shadow-lg border-b`}>
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-black text-xl border border-white/20 shadow-inner">
+          <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center font-semibold text-xl border border-white/20 shadow-inner">
             {userProfile?.role === 'designer' ? 'DD' : 'ED'}
           </div>
           <div>
-            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">Olá, {firstName}!</p>
-            <h1 className="text-sm font-black uppercase tracking-wide">Painel {roleLabel}</h1>
+            <p className="text-[11px] font-medium text-zinc-400 ">Olá, {firstName}!</p>
+            <h1 className="text-sm font-semibold tracking-wide">Painel {roleLabel}</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -543,16 +543,16 @@ export default function EditorDashboard() {
       )}
 
       {/* SIDEBAR COM BOTÃO DARK/LIGHT NA BASE */}
-      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col z-[9999] shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none rounded-r-[32px] md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 w-72 md:w-64 bg-[#1a190f]/95 backdrop-blur-xl md:backdrop-blur-none md:bg-[#212013] text-white border-r border-white/10 md:border-[#212013] flex flex-col z-[9999] shadow-[15px_0_50px_rgba(0,0,0,0.5)] md:shadow-none rounded-r-2xl md:rounded-r-none transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0`}>
         <div className="pt-8 safe-pt-aside pb-4 px-6 flex flex-col items-center relative border-b border-white/5">
           <img src="/logo-light.png" alt="Everton" className="h-32 md:h-36 w-auto object-contain transition-transform duration-300" style={{ marginBottom: '-10px' }} />
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden absolute right-4 top-4 p-2 text-zinc-400 hover:text-white bg-white/10 rounded-full"><X size={18} /></button>
         </div>
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto mt-4 custom-scrollbar">
-          <button onClick={() => { setActiveTab('ajustes'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition-all ${activeTab === 'ajustes' ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+          <button onClick={() => { setActiveTab('ajustes'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition-all ${activeTab === 'ajustes' ? 'bg-brand text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
             <PenTool size={20} /> Minhas Tarefas
           </button>
-          <button onClick={() => { setActiveTab('revisao'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition-all ${activeTab === 'revisao' ? 'bg-[#A25431] text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
+          <button onClick={() => { setActiveTab('revisao'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-bold transition-all ${activeTab === 'revisao' ? 'bg-brand text-white shadow-lg' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>
             <Search size={20} /> Meus Entregues
           </button>
         </nav>
@@ -571,16 +571,16 @@ export default function EditorDashboard() {
         {activeTab === 'ajustes' && (
           <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
             <header>
-              <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal}`}>Tarefas Pendentes</h2>
+              <h2 className={`text-2xl md:text-3xl font-semibold   ${textPrincipal}`}>Tarefas Pendentes</h2>
               <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Sua fila de produção de Vídeos e Designs.</p>
 
             <div className="flex flex-wrap items-center gap-2 mt-4 mb-2">
-                <span className={`text-xs font-black uppercase ${textSecundario} mr-2`}>Filtrar:</span>
+                <span className={`text-xs font-semibold  ${textSecundario} mr-2`}>Filtrar:</span>
                 {['todas', 'hoje', 'semana', 'futura'].map(f => (
                     <button 
                         key={f}
                         onClick={() => setDateFilter(f as any)}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${dateFilter === f ? 'bg-[#A25431] text-white shadow-md' : `${bgSecundario} ${textSecundario} border ${borderSecundario} hover:bg-[#A25431]/10`}`}
+                        className={`px-4 py-2 rounded-xl text-[11px] font-semibold   transition-all ${dateFilter === f ? 'bg-brand text-white shadow-md' : `${bgSecundario} ${textSecundario} border ${borderSecundario} hover:bg-brand/10`}`}
                     >
                         {f === 'todas' ? 'Todas' : f === 'semana' ? 'Esta Semana' : f === 'futura' ? 'Próximas Demandas' : f}
                     </button>
@@ -590,13 +590,13 @@ export default function EditorDashboard() {
 </header>
 
             {loading ? (
-              <div className={`${textSecundario} animate-pulse font-bold flex items-center gap-2`}>
+              <div className={`${textSecundario}  font-bold flex items-center gap-2`}>
                 <Loader2 size={20} className="animate-spin" /> A buscar tarefas...
               </div>
             ) : minhaFilaProducao.length === 0 ? (
-              <div className={`p-10 md:p-20 text-center border border-dashed ${borderSecundario} rounded-[32px] ${bgSecundario}`}>
+              <div className={`p-10 md:p-20 text-center border border-dashed ${borderSecundario} rounded-2xl ${bgSecundario}`}>
                 <CheckCircle size={48} className={`mx-auto ${textSecundario} opacity-50 mb-4`} />
-                <h3 className={`text-xl font-black uppercase tracking-tight ${textSecundario}`}>Mesa Limpa, {firstName}!</h3>
+                <h3 className={`text-xl font-semibold   ${textSecundario}`}>Mesa Limpa, {firstName}!</h3>
                 <p className={`${textSecundario} mt-2 text-sm font-medium`}>Tudo entregue da sua parte.</p>
               </div>
             ) : (
@@ -606,17 +606,17 @@ export default function EditorDashboard() {
                   const totalTarefasCliente = Object.values(grupo.tarefasMae).reduce((acc, curr) => acc + curr.itens.length, 0);
 
                   return (
-                    <div key={clienteId} className={`${bgSecundario} border transition-all duration-300 overflow-hidden ${isExpanded ? `border-[#A25431]/50 shadow-xl` : `${borderSecundario} hover:border-[#A25431]/30 cursor-pointer`} rounded-[24px] md:rounded-[32px]`}>
+                    <div key={clienteId} className={`${bgSecundario} border transition-all duration-300 overflow-hidden ${isExpanded ? `border-brand/50 shadow-xl` : `${borderSecundario} hover:border-brand/30 cursor-pointer`} rounded-2xl md:rounded-2xl`}>
 
                       <div onClick={() => !isExpanded && toggleClient(clienteId)} className={`p-5 md:p-6 ${theme === 'dark' ? 'bg-zinc-900/50' : 'bg-zinc-50/50'} flex flex-col md:flex-row md:items-center justify-between gap-4 border-b ${borderSecundario}`}>
                         <div className="flex items-center gap-4 flex-1">
                           <button onClick={(e) => { e.stopPropagation(); toggleClient(clienteId); }} className={`${textSecundario} hover:${textPrincipal} transition-colors`}>
                             <ChevronRight size={24} className={`transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
                           </button>
-                          <div className="p-3 bg-[#A25431]/10 text-[#A25431] border border-[#A25431]/20 rounded-xl shrink-0"><Folder size={20} /></div>
-                          <h3 className={`text-xl md:text-2xl font-black tracking-tight ${textPrincipal} uppercase truncate`}>{grupo.clienteNome}</h3>
+                          <div className="p-3 bg-brand/10 text-brand border border-brand/20 rounded-xl shrink-0"><Folder size={20} /></div>
+                          <h3 className={`text-xl md:text-2xl font-semibold  ${textPrincipal}  truncate`}>{grupo.clienteNome}</h3>
                         </div>
-                        <span className={`w-full md:w-auto text-center ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-white text-zinc-600'} text-xs px-4 py-2 rounded-xl font-black uppercase tracking-widest border ${borderSecundario}`}>
+                        <span className={`w-full md:w-auto text-center ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-white text-zinc-600'} text-xs px-4 py-2 rounded-xl font-semibold   border ${borderSecundario}`}>
                           {totalTarefasCliente} Subtarefa(s)
                         </span>
                       </div>
@@ -628,13 +628,13 @@ export default function EditorDashboard() {
                             const isCicloExpanded = expandedCiclos.includes(maeId);
 
                             return (
-                              <div key={maeId} className={`${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl md:rounded-[24px] overflow-hidden shadow-sm min-w-0`}>
+                              <div key={maeId} className={`${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl md:rounded-2xl overflow-hidden shadow-sm min-w-0`}>
 
                                 <div onClick={() => toggleCiclo(maeId)} className={`p-4 md:p-5 ${theme === 'dark' ? 'bg-zinc-900/50 hover:bg-zinc-900' : 'bg-white hover:bg-zinc-50'} transition-colors cursor-pointer flex flex-col xl:flex-row xl:items-center justify-between gap-4`}>
                                   <div className="flex items-center gap-3">
                                     <ChevronRight size={18} className={`${textSecundario} transition-transform ${isCicloExpanded ? 'rotate-90' : ''}`} />
-                                    <ListTree size={18} className="text-[#A25431] hidden md:block" />
-                                    <h4 className={`font-black text-sm ${textPrincipal} uppercase tracking-widest`}>{cicloLabel}</h4>
+                                    <ListTree size={18} className="text-brand hidden md:block" />
+                                    <h4 className={`font-semibold text-sm ${textPrincipal}  `}>{cicloLabel}</h4>
                                   </div>
                                 </div>
 
@@ -649,52 +649,52 @@ export default function EditorDashboard() {
                                           <div className="space-y-4 flex-1 min-w-0">
                                             <div>
                                               <div className="flex items-center gap-2 flex-wrap mb-3">
-                                                {m.status === 'em_edicao' && <span className={`text-blue-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-blue-900/30 border-blue-900/50' : 'bg-blue-100 border-blue-200'} px-3 py-1 rounded-full border`}>Produção Inicial</span>}
-                                                {m.status === 'ajustes' && <span className={`text-orange-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-orange-900/30 border-orange-900/50' : 'bg-orange-100 border-blue-200'} px-3 py-1 rounded-full border`}>Ajuste Solicitado</span>}
-                                                {isReported && <span className={`text-red-500 font-black text-[9px] uppercase tracking-widest ${theme === 'dark' ? 'bg-red-900/30 border-red-900/50' : 'bg-red-100 border-red-200'} px-3 py-1 rounded-full border flex items-center gap-1`}><AlertCircle size={10} /> Em Análise (Admin)</span>}
+                                                {m.status === 'em_edicao' && <span className={`text-blue-500 font-semibold text-[11px]   ${theme === 'dark' ? 'bg-blue-900/30 border-blue-900/50' : 'bg-blue-100 border-blue-200'} px-3 py-1 rounded-full border`}>Produção Inicial</span>}
+                                                {m.status === 'ajustes' && <span className={`text-orange-500 font-semibold text-[11px]   ${theme === 'dark' ? 'bg-orange-900/30 border-orange-900/50' : 'bg-orange-100 border-blue-200'} px-3 py-1 rounded-full border`}>Ajuste Solicitado</span>}
+                                                {isReported && <span className={`text-red-500 font-semibold text-[11px]   ${theme === 'dark' ? 'bg-red-900/30 border-red-900/50' : 'bg-red-100 border-red-200'} px-3 py-1 rounded-full border flex items-center gap-1`}><AlertCircle size={10} /> Em Análise (Admin)</span>}
 
                                                 {(userProfile?.role === 'designer' ? (m.data_limite_designer || m.data_limite) : (m.data_limite_editor || m.data_limite)) && (
-                                                  <span className={`px-2 py-1 rounded text-[10px] font-black uppercase flex items-center gap-1 mt-1 sm:mt-0 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'}`}>
+                                                  <span className={`px-2 py-1 rounded text-[11px] font-semibold  flex items-center gap-1 mt-1 sm:mt-0 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'}`}>
                                                     <Calendar size={12} /> Prazo: {new Date((userProfile?.role === 'designer' ? (m.data_limite_designer || m.data_limite) : (m.data_limite_editor || m.data_limite)) + 'T12:00:00').toLocaleDateString('pt-BR')}
                                                   </span>
                                                 )}
                                               </div>
-                                              <h5 className={`text-base md:text-lg font-black tracking-tight ${textPrincipal} uppercase ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
+                                              <h5 className={`text-base md:text-lg font-semibold  ${textPrincipal}  ${isReported ? 'opacity-50' : ''}`}>{m.titulo}</h5>
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 md:gap-3 w-full">
                                               {m.link_bruto && (
-                                                <a href={m.link_bruto} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border-zinc-700' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border-zinc-300'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                                <a href={m.link_bruto} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border-zinc-700' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 border-zinc-300'} rounded-xl text-[11px] font-semibold   border transition-all shadow-sm`}>
                                                   <Folder size={14} /> Pasta Bruta
                                                 </a>
                                               )}
                                               {m.link_organizado && (
-                                                <a href={m.link_organizado} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                                <a href={m.link_organizado} target="_blank" rel="noopener noreferrer" className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-indigo-900/30 text-indigo-400 hover:bg-indigo-900/50 border-indigo-900/50' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200'} rounded-xl text-[11px] font-semibold   border transition-all shadow-sm`}>
                                                   <Folder size={14} /> Pasta Decupada
                                                 </a>
                                               )}
 
                                               {m.roteiro && (
-                                                <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm`}>
+                                                <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-purple-900/50' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200'} rounded-xl text-[11px] font-semibold   border transition-all shadow-sm`}>
                                                   <FileText size={14} /> Ler Roteiro
                                                 </button>
                                               )}
 
-                                              <button onClick={() => { setSelectedMaterial(m); setIssueType('verificar_material'); setIssueText(''); setIsIssueModalOpen(true); }} disabled={isReported} className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                              <button onClick={() => { setSelectedMaterial(m); setIssueType('verificar_material'); setIssueText(''); setIsIssueModalOpen(true); }} disabled={isReported} className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 ${theme === 'dark' ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border-red-900/50' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} rounded-xl text-[11px] font-semibold   border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}>
                                                 <AlertCircle size={14} /> {isReported ? 'Problema Reportado' : 'Relatar Problema'}
                                               </button>
 
                                               {/* 🔥 VER VERSÃO ANTERIOR (O QUE O CLIENTE VIU) */}
                                               {(m.link_drive || m.link_capa) && m.status === 'ajustes' && (
                                                 <div className={`w-full flex flex-wrap gap-2 pt-3 mt-1 border-t ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>
-                                                  <span className={`w-full text-[9px] font-bold uppercase ${textSecundario} mb-1 flex items-center gap-2`}><Eye size={12} /> Versão que o Cliente viu:</span>
+                                                  <span className={`w-full text-[11px] font-bold  ${textSecundario} mb-1 flex items-center gap-2`}><Eye size={12} /> Versão que o Cliente viu:</span>
                                                   {m.link_drive && (
-                                                    <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`flex items-center gap-2 px-3 py-2 ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-600 border-blue-100'} rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all`}>
+                                                    <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`flex items-center gap-2 px-3 py-2 ${theme === 'dark' ? 'bg-blue-900/20 text-blue-400 border-blue-900/40' : 'bg-blue-50 text-blue-600 border-blue-100'} rounded-lg text-[11px] font-semibold   border transition-all`}>
                                                       <FileVideo size={12} /> Ver Vídeo
                                                     </button>
                                                   )}
                                                   {m.link_capa && (
-                                                    <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`flex items-center gap-2 px-3 py-2 ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/40' : 'bg-pink-50 text-pink-600 border-pink-100'} rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all`}>
+                                                    <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`flex items-center gap-2 px-3 py-2 ${theme === 'dark' ? 'bg-pink-900/20 text-pink-400 border-pink-900/40' : 'bg-pink-50 text-pink-600 border-pink-100'} rounded-lg text-[11px] font-semibold   border transition-all`}>
                                                       <ImageIcon size={12} /> Ver Capa
                                                     </button>
                                                   )}
@@ -751,8 +751,8 @@ export default function EditorDashboard() {
                                               }
                                             }}
                                               disabled={isReported}
-                                              className={`w-full flex flex-col items-center justify-center gap-1 py-5 ${isReported ? 'bg-zinc-500 cursor-not-allowed' : 'bg-[#A25431] hover:bg-[#8a4729] active:scale-95'} text-white rounded-xl md:rounded-2xl transition-all shadow-lg`}>
-                                              <span className="font-black uppercase tracking-widest text-[11px] flex items-center gap-2">
+                                              className={`w-full flex flex-col items-center justify-center gap-1 py-5 ${isReported ? 'bg-zinc-500 cursor-not-allowed' : 'bg-brand hover:brightness-90 active:scale-95'} text-white rounded-xl md:rounded-2xl transition-all shadow-lg`}>
+                                              <span className="font-semibold text-[12px] flex items-center gap-2">
                                                 {isReported ? <><Loader2 size={16} className="animate-spin" /> Aguardando Admin</> : <><PenTool size={16} /> Entregar Minha Parte</>}
                                               </span>
                                             </button>
@@ -780,27 +780,27 @@ export default function EditorDashboard() {
         {activeTab === 'revisao' && (
           <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 text-left">
             <header>
-              <h2 className={`text-2xl md:text-3xl font-black tracking-tighter uppercase ${textPrincipal} flex items-center gap-3`}>
+              <h2 className={`text-2xl md:text-3xl font-semibold   ${textPrincipal} flex items-center gap-3`}>
                 <Search className="text-purple-500" size={28} /> Meus Entregues
               </h2>
               <p className={`${textSecundario} font-medium text-sm md:text-base mt-1`}>Materiais que você já entregou. Aguardando o resto da equipe ou a validação.</p>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {minhaFilaRevisao.map(m => (
-                <div key={m.id} className={`${bgSecundario} border ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-200'} rounded-[20px] md:rounded-[24px] p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm`}>
+                <div key={m.id} className={`${bgSecundario} border ${theme === 'dark' ? 'border-purple-900/50' : 'border-purple-200'} rounded-2xl md:rounded-2xl p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm`}>
                   <div className="min-w-0">
-                    <h3 className={`font-black text-base md:text-lg ${textPrincipal} tracking-tight uppercase truncate`}>{m.titulo}</h3>
+                    <h3 className={`font-semibold text-base md:text-lg ${textPrincipal}   truncate`}>{m.titulo}</h3>
                     <p className={`${textSecundario} font-bold text-xs mt-1 truncate`}>{m.cliente?.nome}</p>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                     {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive || null)} className={`p-3 ${bgPrincipal} ${textSecundario} ${hoverSecundario} rounded-xl transition-colors shrink-0`} title="Ver Vídeo"><FileVideo size={16} /></button>}
                     {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa || null)} className={`p-3 ${bgPrincipal} ${textSecundario} ${hoverSecundario} rounded-xl transition-colors shrink-0`} title="Ver Capa"><ImageIcon size={16} /></button>}
-                    <div className={`w-full sm:w-auto text-center ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} font-black text-[10px] uppercase px-4 py-3 sm:py-2 rounded-xl border`}>Entregue</div>
+                    <div className={`w-full sm:w-auto text-center ${theme === 'dark' ? 'bg-purple-900/30 text-purple-400 border-purple-900/50' : 'bg-purple-100 text-purple-700 border-purple-200'} font-semibold text-[11px]  px-4 py-3 sm:py-2 rounded-xl border`}>Entregue</div>
                   </div>
                 </div>
               ))}
               {minhaFilaRevisao.length === 0 && !loading && (
-                <div className={`${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border-2 border-dashed rounded-[24px] p-10 text-center col-span-1 md:col-span-2`}>
+                <div className={`${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border-2 border-dashed rounded-2xl p-10 text-center col-span-1 md:col-span-2`}>
                   <p className={`${textSecundario} font-bold text-sm`}>Nenhuma entrega no momento.</p>
                 </div>
               )}
@@ -812,30 +812,30 @@ export default function EditorDashboard() {
       {/* MODAL DE ENTREGA DO MATERIAL */}
       {isVersionModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-lg max-h-[90vh] overflow-y-auto rounded-[32px] p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl p-5 md:p-8 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center">
               <div className="min-w-0 pr-4">
-                <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} tracking-tighter`}>Entregar Material</h3>
-                <p className={`${textSecundario} font-medium text-[10px] uppercase tracking-widest mt-1 truncate`}>{selectedMaterial.titulo}</p>
+                <h3 className={`text-xl md:text-2xl font-semibold  ${textPrincipal} `}>Entregar Material</h3>
+                <p className={`${textSecundario} font-medium text-[11px]   mt-1 truncate`}>{selectedMaterial.titulo}</p>
               </div>
               <button onClick={() => setIsVersionModalOpen(false)} className={`p-2 ${textSecundario} ${hoverSecundario} rounded-full transition-all shrink-0`}><X size={18} /></button>
             </div>
 
             <div className={`${theme === 'dark' ? 'bg-orange-900/20 border-orange-900/50' : 'bg-orange-50 border-orange-200'} p-4 rounded-xl border`}>
-              <p className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'} text-[11px] md:text-xs font-medium flex gap-2`}>
+              <p className={`${theme === 'dark' ? 'text-orange-400' : 'text-orange-700'} text-[12px] md:text-xs font-medium flex gap-2`}>
                 <AlertCircle size={16} className="shrink-0" />
                 {selectedMaterial.editor_id && selectedMaterial.designer_id && selectedMaterial.editor_id !== selectedMaterial.designer_id
                   ? "Preencha a sua parte e envie. A tarefa só sairá da mesa da equipe quando ambos entregarem."
-                  : "Coloque o seu link abaixo para enviar a tarefa para aprovação."}
+                  : "Coloque seu link abaixo para enviar a tarefa para aprovação."}
               </p>
             </div>
 
             <div className="space-y-4">
               {(selectedMaterial.editor_id === userId && !selectedMaterial.video_entregue) && (
                 <div className="space-y-2">
-                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link do Vídeo Final (Drive)</label>
+                  <label className={`text-[11px] font-semibold ${textSecundario}   ml-2`}>Link do Vídeo Final (Drive)</label>
                   <div className="flex flex-col gap-3">
-                    <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do vídeo no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
+                    <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-brand transition-colors text-sm`} placeholder="Link do vídeo no Drive..." value={newDriveLink} onChange={e => setNewDriveLink(e.target.value)} />
                     <div className="flex justify-center">
                       <GoogleDrivePicker onSelect={(url) => setNewDriveLink(url)} type="file" label="Selecionar Vídeo no Drive" />
                     </div>
@@ -845,9 +845,9 @@ export default function EditorDashboard() {
 
               {(selectedMaterial.designer_id === userId && !selectedMaterial.design_entregue) && (
                 <div className="space-y-2">
-                  <label className={`text-[10px] font-black ${textSecundario} uppercase tracking-widest ml-2`}>Link da Capa (Google Drive)</label>
+                  <label className={`text-[11px] font-semibold ${textSecundario}   ml-2`}>Link da Capa (Google Drive)</label>
                   <div className="flex flex-col gap-3">
-                    <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-[#A25431] transition-colors text-sm`} placeholder="Link do design no Drive..." value={newCapaLink} onChange={e => setNewCapaLink(e.target.value)} />
+                    <input className={`w-full py-3 px-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} border rounded-2xl font-bold outline-none focus:border-brand transition-colors text-sm`} placeholder="Link do design no Drive..." value={newCapaLink} onChange={e => setNewCapaLink(e.target.value)} />
                     <div className="flex justify-center">
                       <GoogleDrivePicker onSelect={(url) => setNewCapaLink(url)} type="file" label="Selecionar Capa no Drive" />
                     </div>
@@ -856,7 +856,7 @@ export default function EditorDashboard() {
               )}
             </div>
 
-            <button onClick={handleSendNewVersion} disabled={isSubmitting || (!newDriveLink && !newCapaLink)} className={`w-full py-3.5 ${theme === 'dark' ? 'bg-white hover:bg-zinc-200 text-black' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2`}>
+            <button onClick={handleSendNewVersion} disabled={isSubmitting || (!newDriveLink && !newCapaLink)} className={`w-full py-3.5 ${theme === 'dark' ? 'bg-white hover:bg-zinc-200 text-black' : 'bg-[#1A1A1A] hover:bg-black text-white'} rounded-2xl font-semibold   text-[12px] shadow-lg active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2`}>
               {isSubmitting ? <Loader2 size={16} className="animate-spin inline-block" /> : null}
               {isSubmitting ? "A salvar..." : "Entregar Minha Parte"}
             </button>
@@ -867,9 +867,9 @@ export default function EditorDashboard() {
       {/* MODAL PARA RELATAR PROBLEMA */}
       {isIssueModalOpen && selectedMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-[32px] p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-md rounded-2xl p-5 md:p-10 shadow-2xl space-y-5 md:space-y-6 text-left`}>
             <div className="flex justify-between items-center">
-              <h3 className={`text-xl md:text-2xl font-black uppercase text-red-500 tracking-tighter flex items-center gap-2`}><AlertCircle size={24} /> Problema</h3>
+              <h3 className={`text-xl md:text-2xl font-semibold  text-red-500  flex items-center gap-2`}><AlertCircle size={24} /> Problema</h3>
               <button onClick={() => setIsIssueModalOpen(false)} className={`p-2 ${textSecundario} hover:${textPrincipal} transition-all`}><X size={20} /></button>
             </div>
 
@@ -889,9 +889,9 @@ export default function EditorDashboard() {
               />
             </div>
 
-            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-3.5 bg-red-600 text-white rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:bg-red-500 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+            <button onClick={handleReportIssue} disabled={!issueText || isSubmitting} className="w-full py-3.5 bg-red-600 text-white rounded-xl md:rounded-2xl font-semibold text-[12px] shadow-lg hover:bg-red-500 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
-              {isSubmitting ? "A enviar..." : "Devolver para o Admin"}
+              {isSubmitting ? "Enviando..." : "Devolver para o Admin"}
             </button>
           </div>
         </div>
@@ -900,11 +900,11 @@ export default function EditorDashboard() {
       {/* MODAL DE ROTEIRO BLINDADO */}
       {previewRoteiro && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-3xl max-h-[85vh] rounded-[32px] shadow-2xl flex flex-col overflow-hidden text-left min-w-0`}>
+          <div className={`${bgSecundario} border ${borderSecundario} w-[95%] max-w-3xl max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-left min-w-0`}>
             <div className={`p-5 md:p-8 border-b ${borderSecundario} flex justify-between items-center ${bgPrincipal} shrink-0`}>
               <div className="min-w-0 pr-4">
-                <h3 className={`text-xl md:text-2xl font-black uppercase ${textPrincipal} break-words`}>{previewRoteiro.titulo}</h3>
-                <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mt-1 flex items-center gap-1.5"><FileText size={12} /> Roteiro Base</p>
+                <h3 className={`text-xl md:text-2xl font-semibold  ${textPrincipal} break-words`}>{previewRoteiro.titulo}</h3>
+                <p className="text-[11px] font-bold text-purple-500 mt-1 flex items-center gap-1.5"><FileText size={12} /> Roteiro Base</p>
               </div>
               <button onClick={() => setPreviewRoteiro(null)} className={`p-2 ${bgSecundario} hover:${bgPrincipal} ${textSecundario} hover:${textPrincipal} rounded-full shrink-0 transition-colors`}><X size={20} /></button>
             </div>
@@ -919,10 +919,10 @@ export default function EditorDashboard() {
       {previewUrl && (
         <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-4 animate-in fade-in duration-300">
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-semibold text-[11px] ">
               <ExternalLink size={18} /> Abrir Original
             </a>
-            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-semibold text-[11px] ">
               <X size={20} /> Fechar
             </button>
           </div>

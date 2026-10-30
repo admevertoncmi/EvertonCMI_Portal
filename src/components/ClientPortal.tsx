@@ -1,11 +1,10 @@
 "use client"
-import { linkifyHtml, formatRichText, normalizePortalToken } from '@/lib/utils';
+import { linkifyHtml, formatRichText } from '@/lib/utils';
 
 
-import { createClient } from '@/lib/supabase-browser'
+import { carregarPortal, atualizarMateriaisPortal, registrarLogPortal, notificarEquipePortal } from '@/actions/portal'
 import { useState, useEffect, useMemo, useCallback, useRef, use } from 'react'
 import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
-import { notificarClickUpChat } from '@/actions/clickup'
 import { getDriveFolderFiles } from '@/actions/google'
 import {
   CheckCircle2, ExternalLink, Calendar,
@@ -80,7 +79,6 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const resolvedParams = use(params)
   const token = resolvedParams.token_magico
 
-  const supabase = createClient()
   const [cliente, setCliente] = useState<any>(null)
   const [todosMateriais, setTodosMateriais] = useState<any[]>([])
 
@@ -180,17 +178,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const loadPortal = useCallback(async () => {
     if (!token || token === 'undefined') return
     try {
-      const tokenUUID = normalizePortalToken(token);
-      let { data: c, error: clientError } = await supabase.from('clientes').select('*').eq('token_magico', tokenUUID).maybeSingle();
-      if (!c && tokenUUID !== token) {
-        const fallback = await supabase.from('clientes').select('*').eq('token_magico', token).maybeSingle();
-        c = fallback.data;
-        clientError = fallback.error;
-      }
-      if (clientError || !c) { setLoading(false); return; }
+      const { cliente: c, materiais: allM } = await carregarPortal(token);
+      if (!c) { setLoading(false); return; }
       setCliente(c)
 
-      const { data: allM } = await supabase.from('materiais').select('*').eq('cliente_id', c.id).neq('status', 'concluido').order('ordem', { ascending: true, nullsFirst: false }).order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
       setTodosMateriais(allM || [])
 
       setSelectedMaterial((prevSelected: any) => {
@@ -202,23 +193,15 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     } finally {
       setLoading(false)
     }
-  }, [token, supabase])
+  }, [token])
 
   useEffect(() => { loadPortal() }, [loadPortal])
 
   useEffect(() => {
     if (!cliente) return;
-    const channel = supabase.channel('portal_cliente_updates')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, (payload) => {
-        setTodosMateriais(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m));
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, () => loadPortal())
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'materiais', filter: `cliente_id=eq.${cliente.id}` }, (payload) => {
-        setTodosMateriais(prev => prev.filter(m => m.id !== payload.old.id));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [cliente, loadPortal, supabase]);
+    const intervalo = setInterval(() => { loadPortal() }, 30000);
+    return () => clearInterval(intervalo);
+  }, [cliente, loadPortal]);
 
   useEffect(() => {
     setSelectedMaterial(null)
@@ -281,8 +264,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   }, [selectedMaterial?.id, selectedMaterial?.link_capa]);
 
   const registrarLogAcesso = useCallback(async (materialId: string, eventoTexto: string) => {
-    await supabase.from('logs_acesso').insert([{ material_id: materialId, evento: eventoTexto }]);
-  }, [supabase]);
+    await registrarLogPortal(token, materialId, eventoTexto);
+  }, [token]);
 
   useEffect(() => {
     if (selectedMaterial && selectedMaterial.id) {
@@ -379,11 +362,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setTodosMateriais(prev => prev.map(m => m.id === finalId ? updated : m));
     setSelectedMaterial(updated);
 
-    await supabase.from('materiais').update({ status: 'post_aprovado', feedback: null }).eq('id', finalId)
+    await atualizarMateriaisPortal(token, [finalId], { status: 'post_aprovado', feedback: null })
     await registrarLogAcesso(finalId, `✅ POST Aprovado`);
 
     const msg = `✅ POST APROVADO\n\n**${cliente.nome}**\n${mat.titulo}`;
-    await notificarClickUpChat(msg);
+    await notificarEquipePortal(token, msg);
     toast.success("Post aprovado com sucesso!");
     setIsApprovalModalOpen(false);
     setActionLoading(false);
@@ -398,11 +381,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setTodosMateriais(prev => prev.map(m => m.id === finalId ? updated : m));
     setSelectedMaterial(updated);
 
-    await supabase.from('materiais').update({ status: 'roteiro_aprovado', feedback: null }).eq('id', finalId)
+    await atualizarMateriaisPortal(token, [finalId], { status: 'roteiro_aprovado', feedback: null })
     await registrarLogAcesso(finalId, `✅ Roteiro Aprovado`);
 
     const msg = `📝✅ ROTEIRO APROVADO\n\n**${cliente.nome}**\n${mat.titulo}`;
-    await notificarClickUpChat(msg);
+    await notificarEquipePortal(token, msg);
     toast.success("Roteiro aprovado! A equipe de produção foi notificada.");
     setIsApprovalModalOpen(false);
     setActionLoading(false);
@@ -433,12 +416,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       }));
 
       // 2. Atualizar no Supabase
-      const { error } = await supabase
-        .from('materiais')
-        .update({ status: 'roteiro_aprovado', feedback: null })
-        .in('id', ids);
-
-      if (error) throw error;
+      await atualizarMateriaisPortal(token, ids, { status: 'roteiro_aprovado', feedback: null });
 
       // 3. Registrar Logs
       await Promise.all(ids.map(id => registrarLogAcesso(id, `✅ Roteiro Aprovado (Lote)`)));
@@ -446,7 +424,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       // 4. Notificar no ClickUp (mensagem única para o lote)
       const listaTitulos = roteirosPendentes.map(m => `• ${m.titulo}`).join('\n');
       const msg = `📝✅ LOTE DE ROTEIROS APROVADOS (${cicloLabel.toUpperCase()})\n\nCLIENTE: ${cliente.nome.toUpperCase()}\n\nMATERIAIS:\n${listaTitulos}\n\n🚀 A equipe de produção pode iniciar os trabalhos.`;
-      await notificarClickUpChat(msg);
+      await notificarEquipePortal(token, msg);
 
       toast.success(`${roteirosPendentes.length} roteiros aprovados com sucesso!`);
     } catch (error) {
@@ -493,17 +471,17 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setSelectedMaterial(updatedMaterial)
     setIsRequestingAjuste(false)
 
-    await supabase.from('materiais').update({
+    await atualizarMateriaisPortal(token, [id], {
       status: 'ajustes',
       feedback: textoFinal,
       video_entregue: flagVideo,
       design_entregue: flagDesign
-    }).eq('id', id)
+    })
 
     await registrarLogAcesso(id, `⚠️ Pedido de Ajuste`);
 
     const msg = `🔔 SOLICITAÇÃO DE AJUSTE\n\n**${cliente.nome}**\n${selectedMaterial.titulo}\n🔔 INSTRUÇÃO: ${textoBase.toUpperCase()}`;
-    await notificarClickUpChat(msg);
+    await notificarEquipePortal(token, msg);
 
     setFeedbackText('');
     toast.success("Solicitação de ajuste enviada para a equipe!");
@@ -524,7 +502,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setTodosMateriais(prev => prev.map(m => m.id === id ? updatedMaterial : m))
     setSelectedMaterial(updatedMaterial)
 
-    await supabase.from('materiais').update({ status: estadoAnterior, feedback: historicoRestaurado }).eq('id', id)
+    await atualizarMateriaisPortal(token, [id], { status: estadoAnterior, feedback: historicoRestaurado })
     await registrarLogAcesso(id, `❌ Cliente cancelou o pedido de ajuste`);
     toast.info("Solicitação de ajuste cancelada.");
     setActionLoading(false);
@@ -533,14 +511,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   if (loading) return (
     <div suppressHydrationWarning={true} className="h-screen flex flex-col items-center justify-center bg-white text-blue-600">
       <Loader2 className="animate-spin mb-4" size={40} />
-      <span className="font-black uppercase tracking-widest text-xs">A carregar o seu portal...</span>
+      <span className="font-semibold text-xs">Carregando seu portal...</span>
     </div>
   )
 
   if (!cliente) return (
     <div suppressHydrationWarning={true} className="h-screen flex items-center justify-center text-center p-4 md:p-6 bg-zinc-50">
-      <div className="max-w-sm w-full bg-white p-8 md:p-10 rounded-[24px] shadow-xl border border-zinc-100">
-        <h1 className="text-xl md:text-2xl font-black uppercase text-zinc-900">Link Inválido</h1>
+      <div className="max-w-sm w-full bg-white p-8 md:p-10 rounded-2xl shadow-xl border border-zinc-100">
+        <h1 className="text-xl md:text-2xl font-semibold text-zinc-900">Link Inválido</h1>
         <p className="text-zinc-500 mt-2 font-medium text-sm md:text-base">O acesso que tentou utilizar não existe ou expirou.</p>
       </div>
     </div>
@@ -563,22 +541,22 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
       {/* HEADER MOBILE COM WHITE-LABEL */}
       <div
-        className="md:hidden text-white rounded-b-[24px] p-4 pt-6 shadow-md mb-4 relative overflow-hidden"
+        className="md:hidden text-white rounded-b-2xl p-4 pt-6 shadow-md mb-4 relative overflow-hidden"
         style={{ backgroundColor: cliente?.cor_marca || '#1e3a5f' }}
       >
         <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-8 -mt-8 blur-lg"></div>
         <div className="flex justify-between items-center relative z-10">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/80 mb-2">Portal do Cliente</p>
+            <p className="text-[11px] font-semibold text-white/80 mb-2">Portal do Cliente</p>
             {cliente?.logo_url ? (
               <img src={cliente.logo_url} alt={`Logo ${cliente.nome}`} className="h-10 w-auto object-contain bg-white/10 p-1 rounded-md" />
             ) : (
-              <h1 className="text-xl font-black uppercase truncate">Olá, {cliente?.nome?.split(' ')[0]}!</h1>
+              <h1 className="text-xl font-semibold truncate">Olá, {cliente?.nome?.split(' ')[0]}!</h1>
             )}
           </div>
           <div className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20 flex items-center gap-1.5 shrink-0 ml-2">
             <Clock size={12} className="text-white" />
-            <span className="text-[10px] font-black text-white">{totalPendencias} Pend.</span>
+            <span className="text-[11px] font-semibold text-white">{totalPendencias} Pend.</span>
           </div>
         </div>
       </div>
@@ -587,7 +565,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
         {/* HEADER DESKTOP COM WHITE-LABEL */}
         <header
-          className="hidden md:flex mb-6 justify-between items-center gap-4 bg-white p-6 rounded-[24px] shadow-sm"
+          className="hidden md:flex mb-6 justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm"
           style={{ borderBottom: `4px solid ${cliente?.cor_marca || '#1e3a5f'}` }}
         >
           <div className="flex items-center gap-4">
@@ -596,31 +574,31 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             ) : null}
             <div>
               <p
-                className="font-black text-[10px] uppercase tracking-[0.2em] mb-1"
+                className="font-semibold text-[11px] mb-1"
                 style={{ color: cliente?.cor_marca || '#1e3a5f' }}
               >
                 Área do Cliente
               </p>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tighter uppercase break-words">Olá, {cliente?.nome}</h1>
+              <h1 className="text-2xl md:text-3xl font-semibold break-words">Olá, {cliente?.nome}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
             <Clock size={14} className="text-orange-500" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{totalPendencias} Pendentes</span>
+            <span className="text-[11px] font-semibold text-zinc-600">{totalPendencias} Pendentes</span>
           </div>
         </header>
 
         <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 bg-white rounded-[20px] p-4 md:p-5 shadow-sm border border-zinc-100 flex flex-row items-center gap-4">
+          <div className="flex-1 bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-zinc-100 flex flex-row items-center gap-4">
             <div className="w-12 h-12 md:w-14 md:h-14 shrink-0 bg-blue-50 rounded-full flex items-center justify-center border-2 border-blue-100">
-              <span className="text-sm md:text-base font-black text-blue-600">{metricasCiclo.percentual}%</span>
+              <span className="text-sm md:text-base font-semibold text-blue-600">{metricasCiclo.percentual}%</span>
             </div>
             <div className="flex-1 w-full">
               <div className="flex justify-between items-end mb-2">
-                <h3 className="font-black uppercase text-zinc-800 text-xs md:text-sm">
+                <h3 className="font-semibold text-zinc-800 text-xs md:text-sm">
                   {activeTab === 'roteiros' ? 'Progresso dos Roteiros' : 'Progresso dos Posts'}
                 </h3>
-                <span className="text-[9px] md:text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{metricasCiclo.aprovados}/{metricasCiclo.total} Aprovados</span>
+                <span className="text-[11px] md:text-[11px] font-bold text-zinc-500 ">{metricasCiclo.aprovados}/{metricasCiclo.total} Aprovados</span>
               </div>
               <div className="w-full bg-zinc-100 rounded-full h-2 md:h-2.5 overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${metricasCiclo.percentual}%` }}></div>
@@ -628,22 +606,22 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             </div>
           </div>
 
-          <div className="hidden md:flex bg-white p-1.5 rounded-[20px] shadow-sm border border-zinc-200 w-full md:w-64 h-fit self-center flex-row-reverse">
-            <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all relative ${activeTab === 'videos' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+          <div className="hidden md:flex bg-white p-1.5 rounded-2xl shadow-sm border border-zinc-200 w-full md:w-64 h-fit self-center flex-row-reverse">
+            <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-semibold text-[11px]   transition-all relative ${activeTab === 'videos' ? 'bg-blue-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
               <PlayCircle size={14} /> Posts
-              {postsPendentesCount > 0 && activeTab !== 'videos' && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>}
+              {postsPendentesCount > 0 && activeTab !== 'videos' && <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full "></span>}
             </button>
-            <button onClick={() => { setActiveTab('roteiros'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-[14px] font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'roteiros' ? 'bg-purple-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
+            <button onClick={() => { setActiveTab('roteiros'); setSelectedMaterial(null) }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-semibold text-[11px]   transition-all ${activeTab === 'roteiros' ? 'bg-purple-600 text-white shadow-md' : 'text-zinc-500 hover:bg-zinc-50'}`}>
               <FileText size={14} /> Roteiros
             </button>
           </div>
         </div>
 
         {currentList.length === 0 ? (
-          <div className="bg-white p-8 rounded-[24px] border border-dashed border-zinc-200 text-center w-full mt-10">
+          <div className="bg-white p-8 rounded-2xl border border-dashed border-zinc-200 text-center w-full mt-10">
             <CheckCircle2 size={32} className="text-zinc-300 mx-auto mb-3" />
-            <h3 className="text-lg font-black uppercase text-zinc-400">Lista Vazia</h3>
-            <p className="text-zinc-400 font-medium text-sm mt-1">A sua agência está a trabalhar nos próximos conteúdos.</p>
+            <h3 className="text-lg font-semibold text-zinc-400">Lista Vazia</h3>
+            <p className="text-zinc-400 font-medium text-sm mt-1">Sua agência está preparando os próximos conteúdos.</p>
           </div>
         ) : (
           <div className="flex flex-col-reverse lg:grid lg:grid-cols-12 gap-4 lg:gap-6 items-start">
@@ -655,14 +633,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                   <div className="flex items-center justify-between px-1 cursor-pointer select-none" onClick={() => toggleCycle(cicloLabel)}>
                     <div className="flex items-center gap-2">
                       <Calendar size={12} className="text-zinc-400" />
-                      <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">{cicloLabel}</span>
+                      <span className="text-[11px] font-semibold text-zinc-400 ">{cicloLabel}</span>
                       <ChevronDown size={14} className={`text-zinc-400 transition-transform ${collapsedCycles.includes(`${activeTab}-${cicloLabel}`) ? '-rotate-90' : ''}`} />
                     </div>
                     {isRoteiro && itens.some(m => !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(m.status?.toLowerCase()) || (m.status?.toLowerCase() === 'ajustes' && !!(m.link_drive || m.link_capa)))) && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); setBulkApprovalData({ itens, label: cicloLabel }); setIsBulkApprovalModalOpen(true); }}
                         disabled={actionLoading}
-                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-600 rounded-xl text-[9px] font-black uppercase transition-all flex items-center gap-1.5 border border-purple-100 shadow-sm disabled:opacity-50 group"
+                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-600 rounded-xl text-[11px] font-semibold transition-all flex items-center gap-1.5 border border-purple-100 shadow-sm disabled:opacity-50 group"
                       >
                         {actionLoading ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle2 size={10} className="group-hover:text-white" />}
                         Aprovar Tudo
@@ -722,12 +700,12 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                             setIsRequestingAjuste(false)
                             if (window.innerWidth < 1024) { window.scrollTo({ top: 0, behavior: 'smooth' }) }
                           }}
-                          className={`w-full text-left p-4 rounded-[20px] transition-all border outline-none ${buttonClass}`}
+                          className={`w-full text-left p-4 rounded-2xl transition-all border outline-none ${buttonClass}`}
                         >
                           <div className="flex flex-col gap-2">
                             <p className="font-bold text-xs md:text-sm leading-snug break-words">{m.titulo}</p>
                             <div className="flex items-center justify-between">
-                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-widest ${badgeClass}`}>
+                              <span className={`text-[10px] font-semibold  px-2 py-0.5 rounded  ${badgeClass}`}>
                                 {isItemAprovado ? <><CheckCircle2 size={10} className="inline mr-1" />{badgeText}</> : badgeText}
                               </span>
                               {!isItemAprovado && isSelected && (isRoteiro ? <FileText size={14} className="text-white opacity-80" /> : <PlayCircle size={14} className="text-white opacity-80" />)}
@@ -745,23 +723,23 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             {/* VISUALIZADOR DE MÍDIA / ROTEIRO */}
             <div className="lg:col-span-8 lg:sticky lg:top-6 w-full min-w-0 mb-2 lg:mb-0">
               {!selectedMaterial ? (
-                <div className="hidden lg:flex flex-col items-center justify-center h-full min-h-[400px] bg-white rounded-[24px] border border-zinc-100 shadow-sm">
+                <div className="hidden lg:flex flex-col items-center justify-center h-full min-h-[400px] bg-white rounded-2xl border border-zinc-100 shadow-sm">
                   {isRoteiro ? <FileText size={40} className="text-zinc-200 mb-3" /> : <PlayCircle size={40} className="text-zinc-200 mb-3" />}
                   <p className="text-zinc-400 font-medium text-sm">Selecione uma tarefa na lista para visualizar o conteúdo.</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-[24px] p-5 md:p-6 shadow-md border border-zinc-100 animate-in fade-in duration-300 w-full overflow-hidden">
+                <div className="bg-white rounded-2xl p-5 md:p-6 shadow-md border border-zinc-100 animate-in fade-in duration-300 w-full overflow-hidden">
 
                   <div className="mb-4 border-b border-zinc-100 pb-4">
-                    <span className={`${isRoteiro ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-2.5 py-1 rounded font-black text-[8px] md:text-[9px] uppercase tracking-widest flex items-center gap-1.5 w-max mb-2`}>
+                    <span className={`${isRoteiro ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-2.5 py-1 rounded font-semibold text-[10px] md:text-[11px]   flex items-center gap-1.5 w-max mb-2`}>
                       {isRoteiro ? <FileText size={12} /> : <PlayCircle size={12} />}
                       {isRoteiro ? 'Aprovação de Roteiro' : 'Aprovação de Post'}
                     </span>
-                    <h2 className="text-lg md:text-xl font-black tracking-tight text-zinc-900 uppercase leading-tight truncate">{selectedMaterial.titulo}</h2>
+                    <h2 className="text-lg md:text-xl font-semibold text-zinc-900  leading-tight truncate">{selectedMaterial.titulo}</h2>
                   </div>
 
                   {isRoteiro ? (
-                    <div className="bg-zinc-50 border border-zinc-200 rounded-[16px] p-5 min-h-[200px] mb-5 overflow-hidden">
+                    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-5 min-h-[200px] mb-5 overflow-hidden">
                       <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className="ql-editor !p-0 max-w-none text-zinc-700 font-medium whitespace-pre-wrap leading-relaxed text-xs md:text-sm [&_a]:text-blue-500 [&_a]:underline [&_a]:cursor-pointer [&_a]:hover:underline break-words" dangerouslySetInnerHTML={{ __html: formatRichText(selectedMaterial.roteiro, "Nenhum Roteiro registado nesta tarefa.") }}>
                       </div>
                     </div>
@@ -769,11 +747,11 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     <>
                       {/* 🔥 TOGGLE VÍDEO / CAPA INTELIGENTE (Só mostra se houver os dois) */}
                       {(selectedMaterial.link_drive && selectedMaterial.link_capa) && (
-                        <div className="flex bg-zinc-100 p-1.5 rounded-[16px] mb-4 w-full md:w-max">
-                          <button onClick={() => { setMediaTab('video'); setAlvoAjuste('video'); }} className={`flex-1 md:px-8 py-3 md:py-2.5 rounded-[12px] font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${mediaTab === 'video' ? 'bg-white text-blue-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-200/50'}`}>
+                        <div className="flex bg-zinc-100 p-1.5 rounded-xl mb-4 w-full md:w-max">
+                          <button onClick={() => { setMediaTab('video'); setAlvoAjuste('video'); }} className={`flex-1 md:px-8 py-3 md:py-2.5 rounded-xl font-semibold text-[11px] md:text-xs   transition-all flex items-center justify-center gap-2 ${mediaTab === 'video' ? 'bg-white text-blue-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-200/50'}`}>
                             <PlayCircle size={16} /> Vídeo/Post
                           </button>
-                          <button onClick={() => { setMediaTab('capa'); setAlvoAjuste('capa'); }} className={`flex-1 md:px-8 py-3 md:py-2.5 rounded-[12px] font-black text-[10px] md:text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${mediaTab === 'capa' ? 'bg-white text-pink-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-200/50'}`}>
+                          <button onClick={() => { setMediaTab('capa'); setAlvoAjuste('capa'); }} className={`flex-1 md:px-8 py-3 md:py-2.5 rounded-xl font-semibold text-[11px] md:text-xs   transition-all flex items-center justify-center gap-2 ${mediaTab === 'capa' ? 'bg-white text-pink-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-200/50'}`}>
                             <ImageIcon size={16} /> Capa/Card
                           </button>
                         </div>
@@ -781,7 +759,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                       {/* AVISO DE CARROSSEL / PASTA DO DRIVE */}
                       {mediaTab === 'capa' && (
-                        <div className="bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-xl mb-4 flex items-center gap-2 text-[10px] md:text-xs font-bold shadow-sm">
+                        <div className="bg-orange-50 border border-orange-200 text-orange-700 p-3 rounded-xl mb-4 flex items-center gap-2 text-[11px] md:text-xs font-bold shadow-sm">
                           <AlertCircle size={16} className="shrink-0" />
                           Carrossel ou Pasta: Clique nas imagens abaixo para visualizar em tela cheia e passe para o lado.
                         </div>
@@ -789,7 +767,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                       {/* TELA DE VISUALIZAÇÃO INTERNA */}
                       <div 
-                        className={`w-full mx-auto bg-black rounded-[24px] flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200 transition-all duration-300 ${
+                        className={`w-full mx-auto bg-black rounded-2xl flex flex-col items-center justify-center relative overflow-hidden shadow-2xl mb-5 border border-zinc-200 transition-all duration-300 ${
                           aspectRatio === '9/16' ? 'aspect-[9/16] max-w-[360px]' : 
                           aspectRatio === 'video' ? 'aspect-video max-w-full' : 
                           'aspect-square max-w-[420px]'
@@ -800,7 +778,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                         {mediaTab === 'video' ? (
                           selectedMaterial.link_drive ? (
-                            <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-[24px]">
+                            <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black rounded-2xl">
                               {isGoogleDriveVideo(selectedMaterial.link_drive) ? (
                                 <ScaledGoogleDrivePlayer 
                                   url={selectedMaterial.link_drive} 
@@ -833,7 +811,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                               return (
                                 <div className="flex flex-col items-center justify-center gap-3">
                                   <Loader2 className="animate-spin text-white opacity-40" size={32} />
-                                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Carregando pasta...</p>
+                                  <p className="text-[11px] font-semibold text-white/40">Carregando pasta...</p>
                                 </div>
                               );
                             }
@@ -860,13 +838,13 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                               (Math.abs(idx - currentSlide) <= 2 || (idx === 0 && currentSlide >= links.length - 2) || (idx === links.length - 1 && currentSlide <= 1)) ? (
                         <img src={link} loading="lazy" className="w-full h-full object-contain select-none" alt={`Slide ${idx + 1}`} />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Aguardando...</span></div>
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[11px] font-semibold ">Aguardando...</span></div>
                       )
                                             ) : (
                                               (Math.abs(idx - currentSlide) <= 1 || (idx === 0 && currentSlide === links.length - 1) || (idx === links.length - 1 && currentSlide === 0)) ? (
                                                 <iframe title={`Slide ${idx + 1}`} src={emb || link} className="w-full h-full border-0 pointer-events-none" allowFullScreen></iframe>
                                               ) : (
-                                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[10px] font-black tracking-widest uppercase">Carregando...</span></div>
+                                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-3"><div className="w-8 h-8 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin"></div><span className="text-[11px] font-semibold ">Carregando...</span></div>
                                               )
                                             )}
                                           </div>
@@ -906,7 +884,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                   <ImageIcon className="text-white" size={20} />
                                 </div>
                                 <p className="text-zinc-400 font-medium text-xs mb-3 px-4">Este link precisa ser aberto no navegador.</p>
-                                <a href={currentLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all">Abrir Imagens <ExternalLink size={12} /></a>
+                                <a href={currentLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-2.5 bg-white text-black rounded-xl font-semibold text-[11px]  hover:bg-zinc-200 transition-all">Abrir Imagens <ExternalLink size={12} /></a>
                               </div>
                             );
                           })()
@@ -918,14 +896,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                   {/* AÇÕES DE APROVAÇÃO / AJUSTE / SUCESSO */}
                   {isItemSelectedAprovado ? (
-                    <div className="bg-green-50 border border-green-200 p-5 rounded-[16px] flex flex-col md:flex-row items-center justify-center gap-3 text-green-700 animate-in slide-in-from-bottom-4">
+                    <div className="bg-green-50 border border-green-200 p-5 rounded-xl flex flex-col md:flex-row items-center justify-center gap-3 text-green-700 animate-in slide-in-from-bottom-4">
                       <CheckCircle2 size={24} className="shrink-0" />
-                      <span className="font-black uppercase text-xs md:text-sm tracking-widest text-center">Este material já foi aprovado!</span>
+                      <span className="font-semibold text-xs md:text-sm  text-center">Este material já foi aprovado!</span>
                     </div>
                   ) : statusAtual === 'ajustes' ? (
                     <div className="space-y-3 animate-in slide-in-from-bottom-4">
-                      <div className="bg-orange-50 border border-orange-200 p-5 rounded-[20px] shadow-sm">
-                        <div className="flex items-center gap-2 text-orange-700 font-black uppercase text-[10px] tracking-widest mb-3 border-b border-orange-100 pb-3">
+                      <div className="bg-orange-50 border border-orange-200 p-5 rounded-2xl shadow-sm">
+                        <div className="flex items-center gap-2 text-orange-700 font-semibold text-[11px]  mb-3 border-b border-orange-100 pb-3">
                           <MessageSquare size={16} /> Ajustes Solicitados
                         </div>
 
@@ -936,8 +914,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                           return (
                             <div>
-                              <div className="bg-white border border-orange-200 p-4 rounded-[16px] shadow-sm">
-                                <span className="text-[9px] font-black tracking-widest text-orange-400 uppercase block mb-1">
+                              <div className="bg-white border border-orange-200 p-4 rounded-xl shadow-sm">
+                                <span className="text-[11px] font-semibold text-orange-400  block mb-1">
                                   Ajuste Pendente
                                   {(() => {
                                     let match = currentFeedback?.match(/\[DATE:(.*?)\]/);
@@ -949,7 +927,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                               {historicalFeedbacks.length > 0 && (
                                 <div className="mt-3">
-                                  <button onClick={() => setIsHistoryExpanded(!isHistoryExpanded)} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-orange-600 hover:text-orange-800 transition-colors">
+                                  <button onClick={() => setIsHistoryExpanded(!isHistoryExpanded)} className="flex items-center gap-1.5 text-[11px] font-semibold text-orange-600 hover:text-orange-800 transition-colors">
                                     <ChevronDown size={14} className={`transition-transform duration-300 ${isHistoryExpanded ? 'rotate-180' : ''}`} />
                                     {isHistoryExpanded ? 'Ocultar Histórico Anterior' : `Ver Histórico Anterior (${historicalFeedbacks.length})`}
                                   </button>
@@ -961,8 +939,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                                         let timestamp = match ? match[1] : null;
                                         let text = fbd.replace(/\[DATE:(.*?)\]/, '').trim();
                                         return (
-                                          <div key={idx} className="bg-orange-50/50 border border-orange-100 p-3 rounded-[12px]">
-                                            {timestamp && <span className="text-[9px] font-black tracking-widest text-orange-400/80 uppercase block mb-1">{timestamp}</span>}
+                                          <div key={idx} className="bg-orange-50/50 border border-orange-100 p-3 rounded-xl">
+                                            {timestamp && <span className="text-[11px] font-semibold text-orange-400/80  block mb-1">{timestamp}</span>}
                                             <p className="text-orange-900 font-medium text-xs leading-relaxed whitespace-normal opacity-80">{renderTextWithLinks(text)}</p>
                                           </div>
                                         );
@@ -976,7 +954,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         })()}
                       </div>
 
-                      <button onClick={() => handleCancelarAjuste(selectedMaterial.id)} disabled={actionLoading} className="w-full py-4 bg-white border-2 border-zinc-200 text-zinc-600 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
+                      <button onClick={() => handleCancelarAjuste(selectedMaterial.id)} disabled={actionLoading} className="w-full py-4 bg-white border-2 border-zinc-200 text-zinc-600 rounded-xl font-semibold text-[11px]  hover:bg-zinc-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
                         {actionLoading ? <Loader2 size={16} className="animate-spin" /> : null}
                         Cancelar Pedido de Ajuste
                       </button>
@@ -984,38 +962,38 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                   ) : (
                     !isRequestingAjuste ? (
                       <div className="flex flex-col sm:flex-row gap-3">
-                        <button onClick={() => { setSelectedMaterial(null); if (window.innerWidth < 1024) { window.scrollTo({ top: 0, behavior: 'smooth' }) } }} className="w-full sm:flex-1 py-4 bg-zinc-800 text-zinc-300 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-700 transition-all active:scale-95 flex justify-center items-center gap-2 shadow-sm">
+                        <button onClick={() => { setSelectedMaterial(null); if (window.innerWidth < 1024) { window.scrollTo({ top: 0, behavior: 'smooth' }) } }} className="w-full sm:flex-1 py-4 bg-zinc-800 text-zinc-300 rounded-xl font-semibold text-[11px]  hover:bg-zinc-700 transition-all active:scale-95 flex justify-center items-center gap-2 shadow-sm">
                           <ChevronUp size={16} /> Fechar
                         </button>
-                        <button onClick={() => setIsRequestingAjuste(true)} className="w-full sm:flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-[16px] font-black uppercase text-[10px] tracking-widest hover:bg-zinc-200 transition-all active:scale-95 flex justify-center items-center gap-2">
+                        <button onClick={() => setIsRequestingAjuste(true)} className="w-full sm:flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-xl font-semibold text-[11px]  hover:bg-zinc-200 transition-all active:scale-95 flex justify-center items-center gap-2">
                           <AlertCircle size={16} /> Solicitar {isRoteiro ? 'Alteração' : 'Ajuste'}
                         </button>
 
-                        <button onClick={() => openApproveModal(selectedMaterial)} disabled={actionLoading} className={`w-full sm:flex-1 py-4 text-white rounded-[16px] font-black uppercase text-[10px] tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}>
+                        <button onClick={() => openApproveModal(selectedMaterial)} disabled={actionLoading} className={`w-full sm:flex-1 py-4 text-white rounded-xl font-semibold  text-[11px]  shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}>
                           {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                           {isRoteiro ? "Aprovar Roteiro" : "Aprovar Post"}
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-4 bg-zinc-50 p-5 rounded-[20px] border border-zinc-200 animate-in slide-in-from-bottom-4 shadow-sm">
+                      <div className="space-y-4 bg-zinc-50 p-5 rounded-2xl border border-zinc-200 animate-in slide-in-from-bottom-4 shadow-sm">
 
                         {/* 🔥 OPÇÕES DE ALVO DO AJUSTE INTELIGENTE (Só mostra se houver Capa E Vídeo) */}
                         {!isRoteiro && (selectedMaterial.link_drive && selectedMaterial.link_capa) && (
                           <div className="space-y-2">
-                            <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
+                            <label className="flex items-center gap-1.5 font-semibold text-[11px] text-zinc-600 ">
                               Onde está o problema?
                             </label>
                             <div className="flex gap-2">
-                              <button onClick={() => setAlvoAjuste('video')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${alvoAjuste === 'video' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>No Vídeo/Post</button>
-                              <button onClick={() => setAlvoAjuste('capa')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${alvoAjuste === 'capa' ? 'bg-pink-100 text-pink-700 border border-pink-200' : 'bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>Na Capa/Card</button>
-                              <button onClick={() => setAlvoAjuste('ambos')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${alvoAjuste === 'ambos' ? 'bg-zinc-900 text-white border border-zinc-900' : 'bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>Em Ambos</button>
+                              <button onClick={() => setAlvoAjuste('video')} className={`flex-1 py-3 rounded-xl text-[11px] font-semibold   transition-all ${alvoAjuste === 'video' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>No Vídeo/Post</button>
+                              <button onClick={() => setAlvoAjuste('capa')} className={`flex-1 py-3 rounded-xl text-[11px] font-semibold   transition-all ${alvoAjuste === 'capa' ? 'bg-pink-100 text-pink-700 border border-pink-200' : 'bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>Na Capa/Card</button>
+                              <button onClick={() => setAlvoAjuste('ambos')} className={`flex-1 py-3 rounded-xl text-[11px] font-semibold   transition-all ${alvoAjuste === 'ambos' ? 'bg-zinc-900 text-white border border-zinc-900' : 'bg-white border border-zinc-200 text-zinc-400 hover:bg-zinc-100'}`}>Em Ambos</button>
                             </div>
                           </div>
                         )}
 
                         {/* ÁREA DE TEXTO DO FEEDBACK */}
                         <div className="space-y-2">
-                          <label className="flex items-center gap-1.5 font-black text-[9px] uppercase text-zinc-600 tracking-widest">
+                          <label className="flex items-center gap-1.5 font-semibold text-[11px] text-zinc-600 ">
                             <AlertCircle size={14} className="text-orange-500" /> Detalhe o que precisa ser ajustado
                           </label>
                           <textarea
@@ -1027,10 +1005,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                         </div>
 
                         <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-                          <button onClick={() => { setIsRequestingAjuste(false); setFeedbackText(''); setAlvoAjuste('video'); }} disabled={actionLoading} className="w-full sm:w-auto px-6 py-4 font-bold text-zinc-400 hover:text-zinc-600 uppercase text-[10px] tracking-widest transition-colors disabled:opacity-50">
+                          <button onClick={() => { setIsRequestingAjuste(false); setFeedbackText(''); setAlvoAjuste('video'); }} disabled={actionLoading} className="w-full sm:w-auto px-6 py-4 font-bold text-zinc-400 hover:text-zinc-600 text-[11px]  transition-colors disabled:opacity-50">
                             Cancelar
                           </button>
-                          <button onClick={() => handleSolicitarAjuste(selectedMaterial.id)} disabled={actionLoading} className="w-full sm:w-auto px-8 py-4 bg-zinc-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
+                          <button onClick={() => handleSolicitarAjuste(selectedMaterial.id)} disabled={actionLoading} className="w-full sm:w-auto px-8 py-4 bg-zinc-900 text-white rounded-xl font-semibold text-[11px]  shadow-lg hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
                             {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                             Enviar para Ajuste
                           </button>
@@ -1059,19 +1037,19 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
       {/* BARRA DE NAVEGAÇÃO INFERIOR MOBILE */}
       <div 
-        className="md:hidden fixed bottom-0 left-0 w-full bg-white rounded-t-[20px] shadow-[0_-5px_40px_rgba(0,0,0,0.1)] z-40 border-t border-zinc-100 flex justify-around items-center px-2 pt-2"
+        className="md:hidden fixed bottom-0 left-0 w-full bg-white rounded-t-2xl shadow-[0_-5px_40px_rgba(0,0,0,0.1)] z-40 border-t border-zinc-100 flex justify-around items-center px-2 pt-2"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
       >
         <button onClick={() => { setActiveTab('roteiros'); setSelectedMaterial(null); }} className={`flex flex-col items-center gap-1 p-2 w-20 transition-all ${activeTab === 'roteiros' ? 'text-purple-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
           <FileText size={20} className={activeTab === 'roteiros' ? 'fill-purple-50' : ''} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Roteiros</span>
+          <span className="text-[11px] font-semibold ">Roteiros</span>
           {activeTab === 'roteiros' && <div className="w-1 h-1 bg-purple-600 rounded-full mt-0.5"></div>}
         </button>
 
         <button onClick={() => { setActiveTab('videos'); setSelectedMaterial(null); }} className={`flex flex-col items-center gap-1 p-2 w-20 transition-all relative ${activeTab === 'videos' ? 'text-blue-600' : 'text-zinc-400 hover:text-zinc-600'}`}>
           <PlayCircle size={20} className={activeTab === 'videos' ? 'fill-blue-50' : ''} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Posts</span>
-          {postsPendentesCount > 0 && activeTab !== 'videos' && <span className="absolute top-1 right-5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>}
+          <span className="text-[11px] font-semibold ">Posts</span>
+          {postsPendentesCount > 0 && activeTab !== 'videos' && <span className="absolute top-1 right-5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full "></span>}
           {activeTab === 'videos' && <div className="w-1 h-1 bg-blue-600 rounded-full mt-0.5"></div>}
         </button>
       </div>
@@ -1080,16 +1058,16 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       {previewUrl && (
         <div className="fixed inset-0 z-[9999] flex flex-col md:flex-row items-center justify-center bg-black p-4 animate-in fade-in duration-300">
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 z-[10000] w-full px-4 justify-center">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-black uppercase text-[10px] tracking-widest">
+            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-md text-white rounded-2xl hover:bg-white/30 transition-all border border-white/10 shadow-xl font-semibold text-[11px] ">
               <ExternalLink size={18} /> Abrir Original
             </a>
-            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-black uppercase text-[10px] tracking-widest">
+            <button onClick={() => setPreviewUrl(null)} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-xl font-semibold text-[11px] ">
               <X size={20} /> Fechar
             </button>
           </div>
           <div className="w-full h-[80vh] md:h-full max-w-7xl mx-auto flex items-center justify-center p-2 md:p-10 mb-20 md:mb-0">
             <div 
-              className={`w-full bg-black rounded-[24px] overflow-hidden relative shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
+              className={`w-full bg-black rounded-2xl overflow-hidden relative shadow-2xl border border-white/10 flex items-center justify-center transition-all duration-300 ${
                 modalAspectRatio === '9/16' ? 'aspect-[9/16] max-w-[420px]' : 
                 modalAspectRatio === 'video' ? 'aspect-video max-w-6xl' : 
                 'aspect-square max-w-2xl'
@@ -1120,12 +1098,12 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       {/* MODAL DE APROVAÇÃO PERSONALIZADO */}
       {isApprovalModalOpen && materialToApprove && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 text-center">
               <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${isRoteiro ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
                 {isRoteiro ? <FileText size={40} /> : <CheckCircle2 size={40} />}
               </div>
-              <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 mb-2">Tudo Certo?</h3>
+              <h3 className="text-2xl font-semibold text-zinc-900 mb-2">Tudo Certo?</h3>
               <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-8">
                 {isRoteiro 
                   ? "Ao aprovar o roteiro, a nossa equipe de produção será notificada para iniciar a gravação e edição."
@@ -1136,14 +1114,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                 <button 
                   onClick={() => isRoteiro ? handleAprovarRoteiro(materialToApprove.id) : handleAprovarVideo(materialToApprove.id)} 
                   disabled={actionLoading}
-                  className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}
+                  className={`w-full py-4 rounded-2xl font-semibold  text-[11px]  text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${isRoteiro ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'}`}
                 >
                   {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
                   Confirmar Aprovação
                 </button>
                 <button 
                   onClick={() => { setIsApprovalModalOpen(false); setMaterialToApprove(null); }}
-                  className="w-full py-4 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-zinc-600 transition-colors"
+                  className="w-full py-4 text-zinc-400 font-semibold text-[11px]  hover:text-zinc-600 transition-colors"
                 >
                   Voltar e Revisar
                 </button>
@@ -1156,24 +1134,24 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       {/* MODAL DE APROVAÇÃO EM LOTE */}
       {isBulkApprovalModalOpen && bulkApprovalData && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[32px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-8 text-center">
               <div className="w-20 h-20 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 size={40} />
               </div>
-              <h3 className="text-2xl font-black uppercase tracking-tight text-zinc-900 mb-2">Aprovar Ciclo?</h3>
+              <h3 className="text-2xl font-semibold text-zinc-900 mb-2">Aprovar Ciclo?</h3>
               <p className="text-zinc-500 font-medium text-sm leading-relaxed mb-6">
                 Você está prestes a aprovar todos os roteiros do <strong>{bulkApprovalData.label}</strong> de uma vez.
               </p>
               
               <div className="bg-zinc-50 rounded-2xl p-4 mb-8 text-left max-h-[140px] overflow-y-auto border border-zinc-100 custom-scrollbar">
-                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block mb-2">Materiais incluídos:</span>
+                <span className="text-[11px] font-semibold text-zinc-400 block mb-2">Materiais incluídos:</span>
                 <ul className="space-y-2">
                   {bulkApprovalData.itens.filter(m => {
                     const s = m.status?.toLowerCase();
                     return !(['roteiro_aprovado', 'aprovado', 'post_aprovado', 'concluido', 'pendente', 'planejamento', 'em_organizacao', 'organizado', 'em_edicao', 'revisao'].includes(s) || (s === 'ajustes' && !!(m.link_drive || m.link_capa)));
                   }).map((m: any) => (
-                    <li key={m.id} className="text-[10px] font-bold text-zinc-600 flex items-start gap-2">
+                    <li key={m.id} className="text-[11px] font-bold text-zinc-600 flex items-start gap-2">
                       <div className="w-1.5 h-1.5 bg-purple-400 rounded-full mt-1 shrink-0"></div>
                       <span className="leading-tight">{m.titulo}</span>
                     </li>
@@ -1189,14 +1167,14 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     setBulkApprovalData(null);
                   }} 
                   disabled={actionLoading}
-                  className="w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+                  className="w-full py-4 rounded-2xl font-semibold text-[11px]  text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
                 >
                   {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />}
                   Confirmar Aprovação
                 </button>
                 <button 
                   onClick={() => { setIsBulkApprovalModalOpen(false); setBulkApprovalData(null); }}
-                  className="w-full py-4 text-zinc-400 font-black uppercase text-[10px] tracking-widest hover:text-zinc-600 transition-colors"
+                  className="w-full py-4 text-zinc-400 font-semibold text-[11px]  hover:text-zinc-600 transition-colors"
                 >
                   Voltar e Revisar
                 </button>

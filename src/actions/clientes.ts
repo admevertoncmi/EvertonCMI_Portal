@@ -1,5 +1,7 @@
 'use server'
 
+import { requireEquipe } from '@/lib/auth-guard'
+
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseAdmin = createClient(
@@ -8,6 +10,7 @@ const supabaseAdmin = createClient(
 )
 
 export async function cadastrarClienteComLogo(formData: FormData) {
+  await requireEquipe()
   const nome = formData.get('nome') as string
   const telefone = formData.get('telefone') as string
   const wpp_suporte = formData.get('wpp_suporte') as string 
@@ -49,11 +52,13 @@ export async function cadastrarClienteComLogo(formData: FormData) {
 
 // 👇 Atualiza para aceitar a cor e id do whatsapp
 export async function editarCliente(id: string, dados: { nome: string, telefone: string, wpp_suporte?: string, cor_marca?: string, whatsapp_group_id?: string }) {
+  await requireEquipe()
   const { error } = await supabaseAdmin.from('clientes').update(dados).eq('id', id)
   if (error) throw error
 }
 
 export async function cadastrarClienteCompleto(formData: FormData) {
+  await requireEquipe()
   const nome = formData.get('nome') as string
   const telefone = formData.get('telefone') as string
   const wpp_suporte = formData.get('wpp_suporte') as string
@@ -85,6 +90,7 @@ export async function cadastrarClienteCompleto(formData: FormData) {
 }
 
 export async function registrarLog(materialId: string, acao: string, detalhes: string, email?: string) {
+  await requireEquipe()
   await supabaseAdmin.from('logs_material').insert([
     { material_id: materialId, acao, detalhes, usuario_email: email || 'Sistema' }
   ])

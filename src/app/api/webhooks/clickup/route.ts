@@ -1,10 +1,24 @@
-import { createServerClient } from '@/lib/supabase-server'
+import { getAdminSupabase } from '@/lib/supabase'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 
+// O ClickUp assina cada chamada com HMAC-SHA256 do corpo usando o secret do webhook (header X-Signature).
+function assinaturaValida(corpo: string, assinatura: string | null) {
+  const secret = process.env.CLICKUP_WEBHOOK_SECRET
+  if (!secret || !assinatura) return false
+  const esperada = Buffer.from(createHmac('sha256', secret).update(corpo).digest('hex'))
+  const recebida = Buffer.from(assinatura)
+  return esperada.length === recebida.length && timingSafeEqual(esperada, recebida)
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const corpo = await request.text()
+    if (!assinaturaValida(corpo, request.headers.get('x-signature'))) {
+      return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
+    }
+    const body = JSON.parse(corpo)
     console.log('🔔 Webhook ClickUp Recebido:', body.event)
 
     // 1. Validar se o evento é a mudança de status para 'Aprovação'
@@ -52,7 +66,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 5. Integração com o Supabase
-      const supabase = await createServerClient()
+      const supabase = getAdminSupabase()
 
       // Verificar se o cliente existe no banco
       const { data: client } = await supabase

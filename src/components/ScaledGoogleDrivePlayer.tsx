@@ -74,7 +74,7 @@ export const ScaledGoogleDrivePlayer: React.FC<ScaledGoogleDrivePlayerProps> = (
   return (
     <div 
       ref={containerRef} 
-      className="absolute inset-0 w-full h-full overflow-hidden bg-black flex items-center justify-center rounded-[24px]"
+      className="absolute inset-0 w-full h-full overflow-hidden bg-black flex items-center justify-center rounded-2xl"
     >
       {containerWidth > 0 && (
         <div 

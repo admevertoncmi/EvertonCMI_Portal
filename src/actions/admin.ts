@@ -1,5 +1,7 @@
 'use server'
 
+import { requireEquipe } from '@/lib/auth-guard'
+
 import { createClient } from '@supabase/supabase-js'
 import { notificarTelegram } from './notificacoes'
 import { revalidatePath } from 'next/cache'
@@ -11,6 +13,7 @@ const supabaseAdmin = createClient(
 )
 
 export async function updateMaterialStatus(materialId: string, newStatus: Material['status']) {
+  await requireEquipe()
   const { error } = await supabaseAdmin
     .from('materiais')
     .update({ status: newStatus })
@@ -31,6 +34,7 @@ export async function updateMaterialStatus(materialId: string, newStatus: Materi
 }
 
 export async function bulkUpdateStatus(materialIds: string[], newStatus: Material['status']) {
+  await requireEquipe()
   if (materialIds.length === 0) return
 
   const { error } = await supabaseAdmin
@@ -48,6 +52,7 @@ export async function bulkUpdateStatus(materialIds: string[], newStatus: Materia
 }
 
 export async function deleteMaterial(materialId: string) {
+  await requireEquipe()
   const { error } = await supabaseAdmin
     .from('materiais')
     .delete()
@@ -59,6 +64,7 @@ export async function deleteMaterial(materialId: string) {
 }
 
 export async function updateMaterialLink(materialId: string, newLink: string) {
+  await requireEquipe()
   const { error } = await supabaseAdmin
     .from('materiais')
     .update({ 
@@ -74,6 +80,7 @@ export async function updateMaterialLink(materialId: string, newLink: string) {
 }
 
 export async function getEquipeMembers() {
+  await requireEquipe()
   const { data, error } = await supabaseAdmin
     .from('auth.users')
     .select('id, email, user_metadata')
