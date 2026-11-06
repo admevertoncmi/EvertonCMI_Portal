@@ -32,7 +32,7 @@ import {
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
   ListTodo, FileText, LayoutList, Archive, Edit3, Tag, AlertCircle, Menu, Loader2, Activity, Settings,
   FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical, List
-, Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images } from 'lucide-react'
+, Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images, MoreHorizontal, Home } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
@@ -387,7 +387,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
   const [clienteBusca, setClienteBusca] = useState('');
   const [editingMembro, setEditingMembro] = useState<MembroComNome | null>(null);
-  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios' | 'cores-tema'>('planejamento')
+  const [isMembroModalOpen, setIsMembroModalOpen] = useState(false);
+  const [membroBusca, setMembroBusca] = useState('');
+  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios' | 'cores-tema'>('geral')
   // Subpáginas de Planejamento e Relatórios (cada etapa/bloco abre na sua própria página)
   const [planSub, setPlanSubState] = useState<PlanSub>('analise')
   const [relSub, setRelSubState] = useState<RelSub>('resumo')
@@ -423,8 +425,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isCreatingUser, setIsCreatingUser] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedClients, setExpandedClients] = useState<string[]>([])
-  // Grupos de cliente do redesign começam abertos; aqui ficam os que o usuário recolheu
-  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([])
+  // Grupos de cliente começam fechados; aqui ficam os que o usuário abriu
+  const [openGroups, setOpenGroups] = useState<string[]>([])
+  // Busca geral do topo (tarefas e clientes de todas as etapas) e menus suspensos
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false)
+  const [moreMenuOpen, setMoreMenuOpen] = useState<string | null>(null)
+  const [topMenuOpen, setTopMenuOpen] = useState<'planejamento' | 'config' | null>(null)
   const [expandedCiclos, setExpandedCiclos] = useState<string[]>([])
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<string[]>([]);
   const toggleFeedback = (id: string) => setExpandedFeedbacks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -722,28 +729,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     return <span className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1"><Calendar size={8} /> {days}d restantes</span>;
   };
 
-  const applyFilters = useCallback((list: Material[]) => {
+  // Filtros por prazo do Início (Todos, Para hoje, Atrasadas, Futuras). "Concluídas" usa showArchived.
+  const applyFilters = useCallback((list: Material[], usarFiltroPrazo = false) => {
+    const hoje = new Date().toLocaleDateString('sv-SE'); // AAAA-MM-DD no fuso local
     return list.filter(m => {
       const matchSearch = !searchTerm ||
         m.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.cliente?.nome?.toLowerCase().includes(searchTerm.toLowerCase());
 
       let matchFilter = true;
-      if (activeFilter === 'urgentes') {
-        matchFilter = !!m.data_limite && isDateLate(m.data_limite);
-      } else if (activeFilter === 'ajustes') {
-        matchFilter = m.status === 'ajustes';
-      } else if (activeFilter === 'pendentes') {
-        matchFilter = m.status === 'pendente' || m.status === 'roteiro_pendente' || m.status === 'revisao';
+      if (usarFiltroPrazo) {
+        const prazo = m.data_limite ? m.data_limite.slice(0, 10) : null;
+        if (activeFilter === 'hoje') matchFilter = prazo === hoje;
+        else if (activeFilter === 'atrasadas') matchFilter = !!m.data_limite && isDateLate(m.data_limite);
+        else if (activeFilter === 'futuras') matchFilter = !!prazo && prazo > hoje;
       }
 
       return matchSearch && matchFilter;
     });
   }, [searchTerm, activeFilter]);
 
-  const groupItems = useCallback((list: Material[]) => {
+  const groupItems = useCallback((list: Material[], usarFiltroPrazo = false) => {
     const groups: Record<string, any> = {}
-    applyFilters(list).forEach(m => {
+    applyFilters(list, usarFiltroPrazo).forEach(m => {
       if (!m.cliente_id) return;
       if (!groups[m.cliente_id]) groups[m.cliente_id] = { cliente: m.cliente || { nome: 'S/N' }, ciclos: {} }
       const cicloLabel = `CICLO ${m.ciclo || 1}`
@@ -772,7 +780,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
   const groupedVisaoGeral = useMemo(() => {
     const filtered = materiais.filter(m => showArchived ? m.status === 'concluido' : m.status !== 'concluido')
-    return groupItems(filtered)
+    return groupItems(filtered, !showArchived)
   }, [materiais, showArchived, groupItems])
 
   const groupedAnaliseRoteiro = useMemo(() => groupItems(filaAnaliseRoteiro), [filaAnaliseRoteiro, groupItems]);
@@ -1859,12 +1867,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const clientInitial = (nome?: string) => (
     <span className="w-7 h-7 rounded-full bg-brand-soft text-brand text-xs font-semibold inline-flex items-center justify-center shrink-0">{(nome || '?').trim()[0]?.toUpperCase()}</span>
   );
-  // Card de um cliente com as tarefas dele (aberto por padrão; clique no cabeçalho recolhe)
+  // Card de um cliente com as tarefas dele (fechado por padrão; clique no cabeçalho abre)
   const clientGroup = (key: string, nome: string, count: string, body: React.ReactNode, accent?: string) => {
-    const collapsed = collapsedGroups.includes(key);
+    const collapsed = !openGroups.includes(key);
     return (
       <div key={key} className={`${tc.bgCard} rounded-2xl border ${tc.borderStrong} overflow-visible`}>
-        <button type="button" onClick={() => setCollapsedGroups(prev => collapsed ? prev.filter(k => k !== key) : [...prev, key])} className={`w-full flex items-center gap-3 px-5 py-4 text-left ${collapsed ? '' : `border-b ${tc.borderStrong}`}`}>
+        <button type="button" onClick={() => setOpenGroups(prev => collapsed ? [...prev, key] : prev.filter(k => k !== key))} className={`w-full flex items-center gap-3 px-5 py-4 text-left ${collapsed ? '' : `border-b ${tc.borderStrong}`}`}>
           {accent && <span className={`w-[3px] h-5 rounded-full ${accent}`} />}
           {clientInitial(nome)}
           <h3 className="font-semibold text-[15px] truncate">{nome}</h3>
@@ -1885,12 +1893,67 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     </div>
   );
 
-  const TASK_GRID = 'md:grid md:grid-cols-[minmax(0,1fr)_110px_170px_120px_auto] md:items-center md:gap-3';
+  // Colunas com largura fixa (inclusive a de ações) para ficarem alinhadas em todas as linhas e no cabeçalho
+  const TASK_GRID = 'md:grid md:grid-cols-[minmax(0,1fr)_96px_180px_104px_124px] md:items-center md:gap-4';
   const taskHead = () => (
     <div className={`hidden ${TASK_GRID} px-3.5 py-2 text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
       <span>Tarefa</span><span>Responsáveis</span><span>Status</span><span>Entrega</span><span />
     </div>
   );
+
+  // Menu de 3 pontinhos com as ações secundárias de uma tarefa
+  type MoreItem = { icon: any; label: string; onClick: () => void; danger?: boolean; disabled?: boolean } | false | null | undefined;
+  const moreMenu = (id: string, items: MoreItem[]) => {
+    const list = items.filter(Boolean) as Exclude<MoreItem, false | null | undefined>[];
+    if (list.length === 0) return null;
+    const open = moreMenuOpen === id;
+    return (
+      <span className={`relative inline-flex shrink-0 ${open ? 'z-50' : ''}`} onClick={(e) => e.stopPropagation()}>
+        <button type="button" aria-label="Mais ações" title="Mais ações" onClick={() => setMoreMenuOpen(open ? null : id)} className={`w-9 h-9 rounded-[10px] inline-flex items-center justify-center transition-colors border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50'} ${open ? 'text-brand' : ''}`}>
+          <MoreHorizontal size={17} />
+        </button>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(null)} />
+            <div className={`absolute right-0 top-full mt-1.5 min-w-[220px] ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-1.5 text-left`}>
+              {list.map((it, i) => (
+                <button key={i} type="button" disabled={it.disabled} onClick={() => { setMoreMenuOpen(null); it.onClick(); }}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] whitespace-nowrap disabled:opacity-50 transition-colors ${it.danger ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20' : `${tc.textMain} ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}`}>
+                  <it.icon size={15} className={it.danger ? '' : 'text-zinc-400'} /> {it.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </span>
+    );
+  };
+
+  // Miniatura vertical (formato 9:16 dos conteúdos) de vídeo ou capa; clique abre a prévia
+  // ready: true = entregue (✓ verde no canto), false = pendente (relógio), undefined = sem selo
+  const mediaThumb = (url: string | undefined | null, label: string, Icon: any, gradient: string, ready?: boolean) => (
+    <span className="relative shrink-0">
+      <button type="button" disabled={!url} onClick={(e) => { e.stopPropagation(); if (url) setPreviewUrl(url); }} title={`${url ? `Abrir ${label.toLowerCase()}` : `${label} ainda não enviado`}${ready === undefined ? '' : ready ? ' · pronto' : ' · pendente'}`} className={`relative overflow-hidden w-11 h-[76px] rounded-lg text-white flex flex-col items-center justify-center gap-0.5 transition ${url ? `${gradient} hover:brightness-95` : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'}`}>
+        <Icon size={15} /><span className="text-[9px] font-semibold">{label}</span>
+        {url && <ThumbImage key={url} url={url} label={label} small />}
+      </button>
+      {ready !== undefined && (
+        <span className={`absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full inline-flex items-center justify-center ring-2 ${theme === 'dark' ? 'ring-zinc-900' : 'ring-white'} ${ready ? 'bg-green-500 text-white' : 'bg-zinc-300 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'}`}>
+          {ready ? <CheckCircle2 size={11} strokeWidth={3} /> : <Clock size={10} strokeWidth={3} />}
+        </span>
+      )}
+    </span>
+  );
+  const mediaThumbs = (m: Material, showReady = false) => {
+    const temVideo = !!m.editor_id || !!m.link_drive;
+    const temDesign = !!m.designer_id || !!m.link_capa;
+    return (
+      <div className="flex items-center gap-2 shrink-0">
+        {(temVideo || !temDesign) && mediaThumb(m.link_drive, 'Vídeo', PlayCircle, 'bg-gradient-to-br from-[#F0C9AE] to-brand', showReady && temVideo ? !!m.video_entregue : undefined)}
+        {temDesign && mediaThumb(m.link_capa, 'Capa', ImageIcon, 'bg-gradient-to-br from-pink-200 to-pink-500', showReady ? !!m.design_entregue : undefined)}
+      </div>
+    );
+  };
   // Tags universais: o ícone aparece ao passar o mouse e as tags aplicadas ficam ao lado do título
   // Tags são criadas e aplicadas no próprio lugar: o seletor tem "Criar tag" no topo e a lista abaixo
   const criarTagNoLocal = async (m: Material) => {
@@ -1964,12 +2027,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
     </span>
   );
-  const tagChips = (m: Material) => (m.tags || []).map(t => (
-    <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 border rounded-md text-xs font-medium whitespace-nowrap" style={getTagStyle(t)}><Tag size={11} />{t}</span>
+  // Tags pequenas, numa linha própria embaixo do título
+  const tagChips = (m: Material) => (m.tags || []).filter(t => !t.startsWith('_')).map(t => (
+    <span key={t} className="inline-flex items-center px-1.5 py-px border rounded text-[11px] font-medium leading-4 whitespace-nowrap" style={getTagStyle(t)}>{t}</span>
   ));
+  const tagLine = (m: Material) => (m.tags || []).some(t => !t.startsWith('_'))
+    ? <div className="flex flex-wrap gap-1 mt-1">{tagChips(m)}</div>
+    : null;
 
   // Linha de tarefa em colunas (Tarefa | Responsáveis | Status | Entrega | ações). Clique abre a tarefa.
-  const taskRow = ({ m, status, actions, below, drag, ignoreLate }: { m: Material; status?: React.ReactNode; actions?: React.ReactNode; below?: React.ReactNode; drag?: { provided: any; snapshot: any }; ignoreLate?: boolean }) => (
+  const taskRow = ({ m, status, actions, below, drag, ignoreLate, lead }: { m: Material; status?: React.ReactNode; actions?: React.ReactNode; below?: React.ReactNode; drag?: { provided: any; snapshot: any }; ignoreLate?: boolean; lead?: React.ReactNode }) => (
     <div
       key={m.id}
       ref={drag?.provided.innerRef}
@@ -1979,11 +2046,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
     >
       <div className={`flex flex-col gap-2.5 ${TASK_GRID}`}>
-        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-          <span className="font-medium text-sm truncate">{m.titulo}</span>
-          {tagChips(m)}
-          <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
-          {tagControl(m)}
+        <div className="flex items-center gap-3 min-w-0">
+          {lead}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-medium text-sm truncate">{m.titulo}</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`shrink-0 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
+              {tagControl(m)}
+            </div>
+            {tagLine(m)}
+          </div>
         </div>
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Responsáveis</span>{avatars([m.planner_id, m.editor_id, m.designer_id])}</div>
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Status</span>{status ?? statusChip(statusOf(m).label, statusOf(m).cls)}</div>
@@ -2059,25 +2131,157 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   };
   const totalPlanejamento = Object.values(planCounts).reduce((a, b) => a + b, 0);
 
+  const irParaInicio = () => { setShowArchived(false); setActiveTab('geral'); setIsMobileMenuOpen(false); setTopMenuOpen(null); };
+
+  // ===== Busca geral: tarefas (todas as etapas) e clientes =====
+  const buscaNorm = globalSearch.trim().toLowerCase();
+  const buscaTarefas = buscaNorm.length < 2 ? [] : materiais
+    .filter(m => m.titulo?.toLowerCase().includes(buscaNorm) || m.cliente?.nome?.toLowerCase().includes(buscaNorm) || (m.tags || []).some(t => t.toLowerCase().includes(buscaNorm)))
+    .sort((a, b) => Number(a.status === 'concluido') - Number(b.status === 'concluido'))
+    .slice(0, 8);
+  const buscaClientes = buscaNorm.length < 2 ? [] : clientes.filter(c => c.nome.toLowerCase().includes(buscaNorm)).slice(0, 4);
+  const abrirClienteNoInicio = (c: Cliente) => {
+    irParaInicio();
+    setExpandedClients(prev => prev.includes(`geral-${c.id}`) ? prev : [...prev, `geral-${c.id}`]);
+  };
+  const globalSearchBox = (extraCls = '') => (
+    <div className={`relative ${extraCls}`}>
+      <div className={`flex items-center gap-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-[10px] px-3 py-2`}>
+        <Search size={15} className="text-zinc-400 shrink-0" />
+        <input
+          type="text"
+          placeholder="Buscar tarefa, cliente ou tag..."
+          value={globalSearch}
+          onFocus={() => setIsGlobalSearchOpen(true)}
+          onChange={e => { setGlobalSearch(e.target.value); setIsGlobalSearchOpen(true); }}
+          onKeyDown={e => { if (e.key === 'Escape') { setIsGlobalSearchOpen(false); (e.target as HTMLInputElement).blur(); } }}
+          className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400"
+        />
+        {globalSearch && <button type="button" aria-label="Limpar busca" onClick={() => { setGlobalSearch(''); setIsGlobalSearchOpen(false); }} className="text-zinc-400 hover:text-zinc-600"><X size={14} /></button>}
+      </div>
+      {isGlobalSearchOpen && buscaNorm.length >= 2 && (
+        <>
+          <div className="fixed inset-0 z-[150]" onClick={() => setIsGlobalSearchOpen(false)} />
+          <div className={`fixed left-4 right-4 top-20 md:absolute md:left-auto md:right-0 md:top-full md:w-[420px] mt-2 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-[160] p-1.5 max-h-[70vh] overflow-y-auto text-left`}>
+            {buscaTarefas.length === 0 && buscaClientes.length === 0 && <p className="text-[13px] text-zinc-500 px-3 py-3">Nada encontrado para “{globalSearch.trim()}”.</p>}
+            {buscaClientes.length > 0 && <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-semibold tracking-wider uppercase text-zinc-400">Clientes</p>}
+            {buscaClientes.map(c => (
+              <button key={c.id} type="button" onClick={() => { abrirClienteNoInicio(c); setIsGlobalSearchOpen(false); }} className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}>
+                {clientInitial(c.nome)}<span className="text-[13px] font-medium truncate">{c.nome}</span>
+              </button>
+            ))}
+            {buscaTarefas.length > 0 && <p className="px-2.5 pt-2 pb-1 text-[11px] font-semibold tracking-wider uppercase text-zinc-400">Tarefas</p>}
+            {buscaTarefas.map(m => (
+              <button key={m.id} type="button" onClick={() => { openRoteiro(m); setIsGlobalSearchOpen(false); }} className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}>
+                <FileText size={15} className="text-zinc-400 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium truncate">{m.titulo}</span>
+                  <span className="block text-xs text-zinc-500 truncate">{m.cliente?.nome || 'Sem cliente'} · Ciclo {m.ciclo || 1}</span>
+                </span>
+                {statusChip(statusOf(m).label, statusOf(m).cls)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // ===== Menu do topo (desktop) =====
+  const topLink = (id: any, label: string, Icon: any, count?: number) => {
+    const on = activeTab === id;
+    return (
+      <button type="button" onClick={() => { setActiveTab(id); setTopMenuOpen(null); }} title={label}
+        className={`relative inline-flex items-center gap-2 px-3 py-2 rounded-[10px] text-[13.5px] font-medium whitespace-nowrap transition-colors ${on ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+        <Icon size={17} className={on ? '' : 'text-zinc-400'} />
+        <span className="hidden lg:inline">{label}</span>
+        {count ? <span className={`text-[11px] px-1.5 py-px rounded-md font-semibold ${on ? 'bg-white text-brand' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{count}</span> : null}
+      </button>
+    );
+  };
+  const dropdownItem = (label: string, onClick: () => void, opts: { icon?: any; dot?: string; count?: number; on?: boolean; danger?: boolean } = {}) => (
+    <button key={label} type="button" onClick={() => { onClick(); setTopMenuOpen(null); }}
+      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] whitespace-nowrap transition-colors ${opts.on ? 'bg-brand-soft text-brand font-medium dark:bg-brand/20 dark:text-brand-soft' : opts.danger ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20' : `${tc.textMain} ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}`}>
+      {opts.icon ? <opts.icon size={15} className={opts.on || opts.danger ? '' : 'text-zinc-400'} /> : opts.dot ? <span className={`w-[7px] h-[7px] rounded-full shrink-0 ${opts.dot}`} /> : null}
+      {label}
+      {opts.count ? <span className="ml-auto pl-3 text-[11px] px-1.5 py-px rounded-md font-semibold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{opts.count}</span> : null}
+    </button>
+  );
+  const topDropdown = (key: 'planejamento' | 'config', trigger: React.ReactNode, body: React.ReactNode, align: 'left' | 'right' = 'left') => (
+    <div className="relative">
+      <span onClick={() => setTopMenuOpen(topMenuOpen === key ? null : key)}>{trigger}</span>
+      {topMenuOpen === key && (
+        <>
+          <div className="fixed inset-0 z-[150]" onClick={() => setTopMenuOpen(null)} />
+          <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-2 min-w-[240px] ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-[160] p-1.5`}>{body}</div>
+        </>
+      )}
+    </div>
+  );
+  // Abas das subpáginas (Planejamento e Relatórios), mostradas no topo da página
+  const subTabs = (items: { id: string; label: string; dot?: string; icon?: any; count?: number }[], current: string, go: (id: string) => void) => (
+    <div className="flex gap-1 overflow-x-auto no-scrollbar mb-5 -mt-1">
+      {items.map(it => {
+        const on = it.id === current;
+        return (
+          <button key={it.id} type="button" onClick={() => go(it.id)} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] whitespace-nowrap shrink-0 transition-colors ${on ? 'bg-brand-soft text-brand font-medium dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+            {it.icon ? <it.icon size={14} /> : it.dot ? <span className={`w-[7px] h-[7px] rounded-full ${it.dot}`} /> : null}
+            {it.label}
+            {it.count ? <span className={`text-[11px] px-1.5 rounded-md font-semibold ${on ? 'bg-white text-brand' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{it.count}</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+  const configAtivo = ['cadastro-clientes', 'equipe', 'relatorios', 'cores-tema'].includes(activeTab);
+
+  // ===== Configurações: uma página com abas (Clientes, Equipe, Relatórios, Cores do tema) =====
+  const CONFIG_TABS: { id: typeof activeTab; label: string; icon: any }[] = [
+    { id: 'cadastro-clientes', label: 'Clientes', icon: Building2 },
+    { id: 'equipe', label: 'Equipe', icon: Users },
+    { id: 'relatorios', label: 'Relatórios', icon: Activity },
+    { id: 'cores-tema', label: 'Cores do tema', icon: Palette },
+  ];
+  // Mesmo formato de chamada do pageHeader: o título vira a aba ativa e meta/ações ficam na linha das abas
+  const configHeader = ({ meta, actions }: { title?: string; icon?: any; iconCls?: string; meta?: string; crumb?: string; actions?: React.ReactNode }) => (
+    <div className="mb-6">
+      <div className="flex items-center gap-3.5 mb-5">
+        <span className="w-12 h-12 rounded-xl inline-flex items-center justify-center shrink-0 bg-brand-soft text-brand"><Settings size={22} /></span>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-medium tracking-tight">Configurações</h1>
+          <p className="text-[13px] text-zinc-500 mt-0.5">Clientes, equipe, relatórios e aparência do sistema</p>
+        </div>
+      </div>
+      <div className={`flex gap-1 overflow-x-auto no-scrollbar border-b ${tc.borderStrong}`}>
+        {CONFIG_TABS.map(t => {
+          const on = activeTab === t.id;
+          return (
+            <button key={t.id} type="button" onClick={() => setActiveTab(t.id, t.id === 'relatorios' ? relSub : undefined)}
+              className={`inline-flex items-center gap-2 px-3.5 py-2.5 -mb-px border-b-2 text-[13.5px] whitespace-nowrap shrink-0 transition-colors ${on ? 'border-brand text-brand font-medium' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+              <t.icon size={16} /> {t.label}
+            </button>
+          );
+        })}
+      </div>
+      {(meta || actions) && (
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mt-5">
+          {meta && <p className="text-[13px] text-zinc-500">{meta}</p>}
+          {actions && <div className="md:ml-auto flex flex-wrap items-center gap-2.5">{actions}</div>}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className={`flex h-[100dvh] ${tc.bgApp} font-sans ${tc.textMain} overflow-hidden ${theme}`} suppressHydrationWarning>
       <Toaster position="top-right" richColors theme={theme} />
 
       {/* CABEÇALHO MOBILE */}
       <div className={`md:hidden fixed top-0 left-0 w-full z-[100] px-4 py-3 safe-pt-header-admin flex items-center justify-between gap-3 border-b ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-        <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-9 w-auto object-contain" />
-        <div className="flex-1 max-w-[160px]">
-          <div className={`flex items-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-[10px] px-3 py-2`}>
-            <Search size={14} className="text-zinc-400 shrink-0" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="bg-transparent border-none outline-none text-[13px] w-full ml-2 placeholder:text-zinc-400"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
+        <button type="button" onClick={irParaInicio} aria-label="Ir para o início" className="shrink-0">
+          <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-9 w-auto object-contain" />
+        </button>
+        {globalSearchBox('flex-1 min-w-0 max-w-[200px]')}
         <div className="flex items-center gap-2">
           <button onClick={toggleTheme} aria-label="Alternar tema" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'}`}>
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
@@ -2095,7 +2299,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
 
       {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 ${isSidebarCollapsed ? 'w-72 md:w-[76px]' : 'w-72 md:w-[272px]'} ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} border-r flex flex-col z-[9999] transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} md:relative md:translate-x-0 md:shadow-none`}>
+      {/* No computador o menu fica no topo; esta gaveta lateral é usada só no celular */}
+      <aside className={`md:hidden fixed inset-y-0 left-0 w-72 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} border-r flex flex-col z-[9999] transform transition-all duration-300 ease-out ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
         <button
           onClick={toggleSidebar}
           aria-label={isSidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
@@ -2105,33 +2310,27 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </button>
 
         <div className={`pt-6 safe-pt-aside pb-4 ${isSidebarCollapsed ? 'px-3 flex justify-center' : 'px-5'} relative`}>
-          <img
-            src={isSidebarCollapsed ? "/icon-192x192.png" : (theme === 'dark' ? "/logo-light.png" : "/logo-dark.png")}
-            alt="Everton"
-            className={`${isSidebarCollapsed ? 'h-9 rounded-lg' : 'h-12'} w-auto object-contain object-left`}
-          />
+          <button type="button" onClick={irParaInicio} aria-label="Ir para o início">
+            <img
+              src={isSidebarCollapsed ? "/icon-192x192.png" : (theme === 'dark' ? "/logo-light.png" : "/logo-dark.png")}
+              alt="Everton"
+              className={`${isSidebarCollapsed ? 'h-9 rounded-lg' : 'h-12'} w-auto object-contain object-left`}
+            />
+          </button>
           <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Fechar menu" className="md:hidden absolute right-4 top-6 w-8 h-8 inline-flex items-center justify-center text-zinc-500 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
             <X size={16} />
           </button>
         </div>
 
-        {!isSidebarCollapsed && (
-          <div className="px-4 mb-3">
-            <div className={`flex items-center gap-2 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'} rounded-[10px] px-3 py-2`}>
-              <Search size={15} className="text-zinc-400 shrink-0" />
-              <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400" />
-            </div>
-          </div>
-        )}
-
         <nav className={`flex-1 ${isSidebarCollapsed ? 'px-2' : 'px-4'} space-y-0.5 overflow-y-auto pb-4 custom-scrollbar`}>
           {!isSidebarCollapsed && <p className="px-2.5 text-[11px] font-semibold text-zinc-400 tracking-wider uppercase mb-2 mt-1">Fluxo de trabalho</p>}
-          {navGroup('planejamento', 'Planejamento', ListTodo, [{ id: 'geral', label: 'Visão geral', dot: 'bg-brand', tab: 'geral' }, ...PLAN_SUBS.map(s => ({ ...s, count: planCounts[s.id], danger: s.id === 'problemas' }))], planSub, totalPlanejamento)}
-          {navItem('materiais-aprovacao', 'Materiais para aprovação', ClipboardCheck, filaMateriaisAprovacao.length, 'bg-brand-soft text-brand')}
+          {navItem('geral', 'Início', Home)}
+          {navGroup('planejamento', 'Planejamento', ListTodo, PLAN_SUBS.map(s => ({ ...s, count: planCounts[s.id], danger: s.id === 'problemas' })), planSub, totalPlanejamento)}
+          {navItem('materiais-aprovacao', 'Aprovação interna', ClipboardCheck, filaMateriaisAprovacao.length, 'bg-brand-soft text-brand')}
           {navItem('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length, 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400')}
-          {navItem('materiais-aprovados', 'Materiais aprovados', CheckCircle2, filaMateriaisAprovados.length, 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400')}
+          {navItem('materiais-aprovados', 'Prontos para postar', CheckCircle2, filaMateriaisAprovados.length, 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400')}
 
-          {!isSidebarCollapsed ? <p className="px-2.5 text-[11px] font-semibold text-zinc-400 tracking-wider uppercase mb-2 pt-5">Gestão</p> : <div className="my-3 border-t border-zinc-200 dark:border-zinc-800 mx-2" />}
+          {!isSidebarCollapsed ? <p className="px-2.5 text-[11px] font-semibold text-zinc-400 tracking-wider uppercase mb-2 pt-5">Configurações</p> : <div className="my-3 border-t border-zinc-200 dark:border-zinc-800 mx-2" />}
           {navItem('cadastro-clientes', 'Cadastro do cliente', Users)}
           {navItem('equipe', 'Equipe', ShieldCheck)}
           {navGroup('relatorios', 'Relatórios', Activity, REL_SUBS.map(s => ({ ...s, count: s.id === 'atrasos' ? relatorioData.totalAtrasos : 0, danger: true })), relSub)}
@@ -2153,9 +2352,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       <div className={`md:hidden fixed bottom-0 left-0 w-full ${tc.bgCard} z-[100] border-t ${tc.borderStrong} pb-[env(safe-area-inset-bottom)]`}>
         <div className="flex justify-around items-center px-2 pt-2 pb-3">
           {([
+            ['geral', 'Início', Home, 0],
             ['planejamento', 'Plano', ListTodo, 0],
             ['materiais-aprovacao', 'Aprovar', ClipboardCheck, filaMateriaisAprovacao.length],
-            ['geral', 'Visão', LayoutDashboard, 0],
             ['materiais-aprovados', 'Prontos', CheckCircle2, filaMateriaisAprovados.length],
           ] as const).map(([id, label, Icon, count]) => {
             const on = activeTab === id && !isMobileMenuOpen;
@@ -2176,8 +2375,44 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </div>
       </div>
 
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh]">
+      {/* MENU DO TOPO (computador): logo leva ao início, fluxo de trabalho, busca geral e configurações */}
+      <header className={`hidden md:flex items-center gap-2 lg:gap-3 px-5 lg:px-8 h-16 shrink-0 border-b ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} relative z-[120]`}>
+        <button type="button" onClick={irParaInicio} aria-label="Ir para o início" title="Início" className="shrink-0 mr-2 lg:mr-4">
+          <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-9 w-auto object-contain" />
+        </button>
+        <nav className="flex items-center gap-0.5 min-w-0">
+          {topLink('geral', 'Início', Home)}
+          {topDropdown('planejamento',
+            <button type="button" title="Planejamento" className={`inline-flex items-center gap-2 px-3 py-2 rounded-[10px] text-[13.5px] font-medium whitespace-nowrap transition-colors ${activeTab === 'planejamento' ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+              <ListTodo size={17} className={activeTab === 'planejamento' ? '' : 'text-zinc-400'} />
+              <span className="hidden lg:inline">Planejamento</span>
+              {totalPlanejamento ? <span className={`text-[11px] px-1.5 py-px rounded-md font-semibold ${activeTab === 'planejamento' ? 'bg-white text-brand' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{totalPlanejamento}</span> : null}
+              <ChevronDown size={14} className={`transition-transform ${topMenuOpen === 'planejamento' ? 'rotate-180' : ''}`} />
+            </button>,
+            PLAN_SUBS.map(s => dropdownItem(s.label, () => setActiveTab('planejamento', s.id), { dot: s.dot, count: planCounts[s.id], on: activeTab === 'planejamento' && planSub === s.id }))
+          )}
+          {topLink('materiais-aprovacao', 'Aprovação interna', ClipboardCheck, filaMateriaisAprovacao.length)}
+          {topLink('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length)}
+          {topLink('materiais-aprovados', 'Prontos para postar', CheckCircle2, filaMateriaisAprovados.length)}
+        </nav>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {globalSearchBox('w-56 xl:w-72')}
+          {/* Configurações abre a página com abas (Clientes, Equipe, Relatórios, Cores do tema) */}
+          <button type="button" onClick={() => { setActiveTab('cadastro-clientes'); setTopMenuOpen(null); }} aria-label="Configurações" title="Configurações" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${configAtivo ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : `${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'} hover:text-brand`}`}>
+            <Settings size={17} />
+          </button>
+          <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Modo claro' : 'Modo escuro'} title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'} className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'} hover:text-brand`}>
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
+          <button type="button" onClick={async () => { await supabase.auth.signOut(); router.push('/'); router.refresh(); }} aria-label="Sair" title="Sair" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'} hover:text-red-600`}>
+            <LogOut size={17} />
+          </button>
+        </div>
+      </header>
+
       <DragDropContext onDragEnd={handleDashboardDragEnd}>
-        <main className={`flex-1 pt-24 safe-pt-main-admin pb-24 px-4 md:pt-10 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
+        <main className={`flex-1 pt-24 safe-pt-main-admin pb-24 px-4 md:pt-8 md:pb-10 md:px-10 overflow-y-auto ${tc.bgApp}`}>
           {/* ABA: PLANEJAMENTO (cada etapa é uma subpágina escolhida na sidebar) */}
           {activeTab === 'planejamento' && (() => {
             const sub = PLAN_SUBS.find(s => s.id === planSub)!;
@@ -2190,10 +2425,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               manual: { icon: LayoutList, cls: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300', meta: `${loteItens.length} ${loteItens.length === 1 ? 'item' : 'itens'}` },
             };
             const head = planIcons[planSub];
-            const timelineBtns = (m: Material) => (<>
-              <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
-              <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
-            </>);
+            const timelineItems = (m: Material): MoreItem[] => [
+              { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+              { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
+            ];
             const pastaBtn = (m: Material) => m.link_organizado
               ? <IconAction icon={ExternalLink} label="Abrir pasta decupada" onClick={() => openUrl(m.link_organizado!)} />
               : m.link_bruto
@@ -2204,8 +2439,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
                 {pageHeader({
                   title: sub.label, icon: head.icon, iconCls: head.cls, meta: head.meta, crumb: 'Planejamento',
-                  actions: <button onClick={() => setIsImportModalOpen(true)} className={btnInk}><Download size={16} /> Importar do ClickUp</button>,
+                  actions: <>
+                    <IconAction icon={RefreshCw} label="Sincronizar com o ClickUp" loading={syncing} onClick={syncWithClickUp} />
+                    <button onClick={() => setIsImportModalOpen(true)} className={btnInk}><Download size={16} /> Importar do ClickUp</button>
+                  </>,
                 })}
+                {subTabs(PLAN_SUBS.map(s => ({ ...s, count: planCounts[s.id] })), planSub, (id) => setActiveTab('planejamento', id))}
 
                 {/* ROTEIROS EM ANÁLISE */}
                 {planSub === 'analise' && (Object.keys(groupedAnaliseRoteiro).length === 0 ? emptyState('Nenhum roteiro aguardando análise.') : (
@@ -2284,11 +2523,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             m,
                             status: !m.link_bruto ? statusChip('Falta link bruto', STATUS_INFO.faltando_material.cls) : statusChip(m.planner_id ? `Com ${membros.find(mb => mb.id === m.planner_id)?.nome?.split(' ')[0] || 'o decupador'}` : 'Com o decupador', STATUS_INFO.em_organizacao.cls),
                             actions: <>
-                              {timelineBtns(m)}
-                              {pastaBtn(m)}
-                              <IconAction icon={Link} variant={m.link_bruto ? 'line' : 'ink'} label={m.link_bruto ? 'Editar link bruto' : 'Adicionar link bruto'} onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} />
-                              <IconAction icon={RotateCcw} label="Retirar do decupador e devolver para aprovados" onClick={() => openResolveModal(m, 'planner')} />
-                              {m.planner_id && <IconAction icon={X} label="Cancelar delegação" onClick={() => handleCancelarDelegacaoDecupagem(m)} />}
+                              {m.link_bruto
+                                ? pastaBtn(m)
+                                : <IconAction icon={Link} variant="ink" label="Adicionar link bruto" onClick={() => { setSelectedMaterial(m); setNewLinkBruto(''); setIsLinkBrutoModalOpen(true); }} />}
+                              {moreMenu(`dec-${m.id}`, [
+                                ...timelineItems(m),
+                                !!m.link_bruto && { icon: Link, label: 'Editar link bruto', onClick: () => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); } },
+                                { icon: RotateCcw, label: 'Devolver para aprovados', onClick: () => openResolveModal(m, 'planner') },
+                                !!m.planner_id && { icon: X, label: 'Cancelar delegação', onClick: () => handleCancelarDelegacaoDecupagem(m), danger: true },
+                              ])}
                             </>,
                           }))}
                         </div>
@@ -2312,7 +2555,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               m,
                               actions: <>
                                 <IconAction icon={CheckCircle2} variant="ink" label="Resolver problema" onClick={() => openResolveModal(m)} />
-                                <IconAction icon={Archive} label="Arquivar tarefa" loading={actionLoading === m.id} onClick={() => openConfirm('Arquivar tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} />
+                                {moreMenu(`prob-${m.id}`, [
+                                  ...timelineItems(m),
+                                  { icon: Archive, label: 'Arquivar tarefa', disabled: actionLoading === m.id, onClick: () => openConfirm('Arquivar tarefa', 'Deseja arquivar esta tarefa?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning') },
+                                ])}
                               </>,
                               below: (
                                 <div className={`p-3 rounded-lg text-[13px] ${theme === 'dark' ? 'bg-red-900/20 text-red-300' : 'bg-red-50 text-red-700'}`}>
@@ -2342,10 +2588,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             m,
                             status: statusChip('Drive pronto', STATUS_INFO.organizado.cls),
                             actions: <>
-                              {timelineBtns(m)}
                               {pastaBtn(m)}
-                              <IconAction icon={Link} label="Editar link da pasta" onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} />
-                              <IconAction icon={RotateCcw} label="Devolver ao decupador" onClick={() => openResolveModal(m, 'planner')} />
+                              {moreMenu(`prod-${m.id}`, [
+                                ...timelineItems(m),
+                                { icon: Link, label: 'Editar link da pasta', onClick: () => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); } },
+                                { icon: RotateCcw, label: 'Devolver ao decupador', onClick: () => openResolveModal(m, 'planner') },
+                              ])}
                             </>,
                           }))}
                         </div>
@@ -2393,70 +2641,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => (
                       <div key={`rev-ciclo-${cicloLabel}`}>
                         {cicloBar(cicloLabel, <IconAction icon={CheckCheck} variant="soft" label="Aprovar lote para o cliente" loading={loading} onClick={() => { setBatchApprovalData({ itens: data.itens, cicloLabel }); setBatchScheduleDate(''); }} />)}
-                        <div className="space-y-2 mt-2">
-                          {data.itens.map((m: Material) => {
-                            const isPartial = m.status === 'em_edicao' || m.status === 'ajustes';
-                            const temVideo = !!m.editor_id || !!m.link_drive;
-                            const temDesign = !!m.designer_id || !!m.link_capa;
-                            const editor = membros.find(mb => mb.id === m.editor_id);
-                            const designer = membros.find(mb => mb.id === m.designer_id);
-                            const late = m.data_limite && isDateLate(m.data_limite);
-                            const thumb = (url: string | undefined, label: string, Icon: any, gradient: string) => (
-                              <button type="button" disabled={!url} onClick={(e) => { e.stopPropagation(); if (url) setPreviewUrl(url); }} title={url ? `Abrir ${label.toLowerCase()}` : `${label} ainda não enviado`} className={`relative overflow-hidden w-14 h-14 rounded-[10px] text-white flex flex-col items-center justify-center gap-0.5 shrink-0 transition ${url ? `${gradient} hover:brightness-95` : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'}`}>
-                                <Icon size={16} /><span className="text-[10px] font-semibold">{label}</span>
-                                {url && <ThumbImage key={url} url={url} label={label} small />}
-                              </button>
-                            );
-                            const ready = (Icon: any, label: string, ok: boolean) => (
-                              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md ${ok ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                                <Icon size={12} /> {label} {ok ? '✓' : '· pendente'}
-                              </span>
-                            );
-                            const role = (label: string, p?: MembroComNome) => p && (
-                              <div className="flex items-center gap-2 text-xs"><span className="text-zinc-500 w-14">{label}</span><span title={p.nome || p.email} style={{ background: avatarColor(p.id) }} className="w-6 h-6 rounded-full text-[10px] font-semibold text-white inline-flex items-center justify-center">{initials(p.nome || p.email)}</span></div>
-                            );
-                            return (
-                              <div key={m.id} onClick={() => openRoteiro(m)} className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} p-3 flex flex-col lg:flex-row lg:items-center gap-3 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  {(temVideo || !temDesign) && thumb(m.link_drive, 'Vídeo', PlayCircle, 'bg-gradient-to-br from-[#F0C9AE] to-brand')}
-                                  {temDesign && thumb(m.link_capa, 'Capa', ImageIcon, 'bg-gradient-to-br from-pink-200 to-pink-500')}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-medium text-sm">{m.titulo}</span>
-                                    {tagChips(m)}
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
-                                    {tagControl(m)}
-                                  </div>
-                                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                                    {statusChip(isPartial ? 'Entrega parcial' : 'Edição pronta', isPartial ? STATUS_INFO.roteiro_aprovado.cls : STATUS_INFO.revisao.cls)}
-                                    {late && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"><Flag size={12} /> Atrasada · {fmtDate(m.data_limite!)}</span>}
-                                    {m.agendado_para && !m.wpp_enviado && <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"><Clock size={12} /> Agendado: {new Date(m.agendado_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>}
-                                  </div>
-                                  <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                                    {temVideo && ready(Clapperboard, 'Vídeo', !!m.video_entregue)}
-                                    {temDesign && ready(Images, 'Capa', !!m.design_entregue)}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4 lg:shrink-0" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex flex-col gap-1.5 min-w-[110px]">{role('Editor', editor)}{role('Designer', designer)}</div>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
-                                    <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
-                                    {m.agendado_para && !m.wpp_enviado ? (
-                                      <IconAction icon={X} label="Cancelar agendamento" loading={actionLoading === m.id} onClick={() => handleCancelarAgendamento(m.id)} />
-                                    ) : (
-                                      <button type="button" onClick={() => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); }} className={btnLine}><MessageSquare size={15} /> Pedir ajuste</button>
-                                    )}
-                                    <button type="button" onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className={btnInk}>
-                                      {actionLoading === m.id ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {m.agendado_para && !m.wpp_enviado ? 'Enviar agora' : 'Aprovar'}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                        {taskHead()}
+                        {data.itens.map((m: Material) => {
+                          const isPartial = m.status === 'em_edicao' || m.status === 'ajustes';
+                          const agendado = !!m.agendado_para && !m.wpp_enviado;
+                          const pedirAjuste = () => { setDelegationType('editor'); setSelectedCicloDelegation({ clienteId: m.cliente_id, ciclo: m.ciclo?.toString() || '1', itens: [m], clienteNome: m.cliente?.nome || '' }); setSelectedItemsToDelegate([m.id]); setSelectedEditorId(m.editor_id || ''); setSelectedDesignerId(m.designer_id || ''); setDelegationDeadline(m.data_limite || ''); setDelegationDeadlineEditor(m.data_limite_editor || m.data_limite || ''); setDelegationDeadlineDesigner(m.data_limite_designer || m.data_limite || ''); setIsDelegateModalOpen(true); };
+                          return taskRow({
+                            m,
+                            lead: mediaThumbs(m, true),
+                            status: agendado
+                              ? <span title={`Agendado para ${new Date(m.agendado_para!).toLocaleString('pt-BR')}`}>{statusChip(`Agendado ${new Date(m.agendado_para!).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`, 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400')}</span>
+                              : statusChip(isPartial ? 'Entrega parcial' : 'Edição pronta', isPartial ? STATUS_INFO.roteiro_aprovado.cls : STATUS_INFO.revisao.cls),
+                            actions: <>
+                              {!agendado && <IconAction icon={RotateCcw} label="Pedir ajuste" onClick={pedirAjuste} />}
+                              <IconAction icon={agendado ? Send : CheckCircle2} variant="ink" label={agendado ? 'Enviar agora' : 'Aprovar'} loading={actionLoading === m.id} onClick={() => handleCheckAndAprovar(m)} />
+                              {moreMenu(`rev-${m.id}`, [
+                                { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                                { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
+                                agendado && { icon: RotateCcw, label: 'Pedir ajuste', onClick: pedirAjuste },
+                                agendado && { icon: X, label: 'Cancelar agendamento', disabled: actionLoading === m.id, onClick: () => handleCancelarAgendamento(m.id), danger: true },
+                              ])}
+                            </>,
+                          });
+                        })}
                       </div>
                     ))
                   ), 'bg-purple-500'))}
@@ -2485,10 +2692,12 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             m,
                             status: statusChip(planejamentoAjuste ? 'Ajuste de planejamento' : 'Ajuste de produção', planejamentoAjuste ? STATUS_INFO.roteiro_aprovado.cls : STATUS_INFO.ajustes.cls),
                             actions: <>
-                              <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
-                              <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
-                              {m.link_drive && <IconAction icon={FileVideo} label="Ver vídeo enviado" onClick={() => setPreviewUrl(m.link_drive || null)} />}
-                              {m.link_capa && <IconAction icon={ImageIcon} label="Ver capa enviada" onClick={() => setPreviewUrl(m.link_capa || null)} />}
+                              {moreMenu(`aj-${m.id}`, [
+                                { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                                { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
+                                !!m.link_drive && { icon: FileVideo, label: 'Ver vídeo enviado', onClick: () => setPreviewUrl(m.link_drive || null) },
+                                !!m.link_capa && { icon: ImageIcon, label: 'Ver capa enviada', onClick: () => setPreviewUrl(m.link_capa || null) },
+                              ])}
                               {planejamentoAjuste ? (
                                 <IconAction icon={Send} variant="ink" label="Reenviar roteiro para o cliente" loading={actionLoading === m.id} onClick={() => handleReenviarRoteiroAjustado(m)} />
                               ) : delegado ? (
@@ -2532,13 +2741,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         {taskHead()}
                         {data.itens.map((m: Material) => taskRow({
                           m, ignoreLate: true,
+                          lead: mediaThumbs(m),
                           status: statusChip('Pronto para postar', STATUS_INFO.aprovado.cls),
                           actions: <>
-                            <IconAction icon={MessageSquare} label="Ajustes e comentários" onClick={() => setTimelineMaterial(m)} />
-                            <IconAction icon={List} label="Histórico da tarefa" onClick={() => abrirHistoricoDelegacao(m.id, m.titulo)} />
-                            {m.link_drive && <IconAction icon={FileVideo} label="Ver vídeo" onClick={() => setPreviewUrl(m.link_drive || null)} />}
-                            {m.link_capa && <IconAction icon={ImageIcon} label="Ver capa" onClick={() => setPreviewUrl(m.link_capa || null)} />}
                             <IconAction icon={Archive} variant="ink" label="Marcar como postado e arquivar" loading={actionLoading === m.id} onClick={() => openConfirm('Arquivar e finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} />
+                            {moreMenu(`ok-${m.id}`, [
+                              { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                              { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
+                            ])}
                           </>,
                         }))}
                       </div>
@@ -2553,12 +2763,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           {activeTab === 'geral' && (
             <div className="max-w-7xl mx-auto space-y-5 text-left animate-in fade-in duration-300">
               {pageHeader({
-                title: showArchived ? 'Arquivo' : 'Visão geral', icon: showArchived ? Archive : LayoutDashboard, crumb: 'Planejamento',
+                title: showArchived ? 'Arquivo' : 'Início', icon: showArchived ? Archive : Home,
                 meta: `${qtd(Object.keys(groupedVisaoGeral).length, 'cliente', 'clientes')} ${showArchived ? 'com materiais arquivados' : 'ativos'}`,
-                actions: <>
-                  <button onClick={syncWithClickUp} disabled={syncing} className={btnLine}><RefreshCw size={15} className={syncing ? 'animate-spin' : ''} /> Sync ClickUp</button>
-                  <button onClick={() => setShowArchived(!showArchived)} className={btnLine}><Archive size={15} /> {showArchived ? 'Ver ativos' : 'Ver arquivados'}</button>
-                </>,
               })}
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -2568,36 +2774,28 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   { label: 'Aprovados', val: metrics.aprovados, icon: CheckCircle, cls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' },
                   { label: 'Eficiência', val: `${metrics.eficiencia}%`, icon: TrendingUp, cls: 'bg-brand-soft text-brand' },
                 ].map((m, i) => (
-                  <div key={i} className={`${tc.bgCard} p-4 md:p-5 rounded-2xl border ${tc.borderStrong} flex items-center gap-3.5`}>
-                    <span className={`w-10 h-10 rounded-xl inline-flex items-center justify-center shrink-0 ${m.cls}`}><m.icon size={19} /></span>
-                    <div><div className="text-2xl font-semibold leading-tight">{m.val}</div><div className="text-[13px] text-zinc-500">{m.label}</div></div>
+                  <div key={i} className={`${tc.bgCard} px-3.5 py-2.5 rounded-xl border ${tc.borderStrong} flex items-center gap-2.5`}>
+                    <span className={`w-7 h-7 rounded-lg inline-flex items-center justify-center shrink-0 ${m.cls}`}><m.icon size={15} /></span>
+                    <span className="text-[13px] text-zinc-500">{m.label}</span>
+                    <span className="ml-auto text-lg font-semibold leading-none">{m.val}</span>
                   </div>
                 ))}
               </div>
 
               {/* FLUXO OPERACIONAL: etapas em sequência; clique leva para a página da etapa */}
-              <div className={`${tc.bgCard} p-4 md:p-5 rounded-2xl border ${tc.borderStrong}`}>
-                <div className="flex flex-wrap items-center gap-3 mb-3.5">
-                  <span className="text-[11px] font-semibold tracking-wider uppercase text-zinc-500">Fluxo operacional</span>
-                  {gargalo.count > 0 && <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"><AlertCircle size={13} /> Gargalo atual: {gargalo.name} ({gargalo.count})</span>}
-                </div>
-                <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
-                  {pipeline.map((node, i) => {
-                    const isGargalo = gargalo.name === node.label && node.count > 0;
-                    const target: Record<string, [string, string?]> = { roteiro: ['planejamento', 'analise'], decupagem: ['planejamento', 'decupagem'], revisao: ['materiais-aprovacao'], ajustes: ['solicitacao-ajustes'], aprovado: ['materiais-aprovados'] };
-                    const go = target[node.id];
-                    return (
-                      <button key={node.id} type="button" disabled={!go} onClick={() => go && setActiveTab(go[0], go[1])} className={`flex-1 min-w-[132px] flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors ${isGargalo ? 'border-red-200 bg-red-50/60 dark:border-red-900/50 dark:bg-red-900/10' : `${tc.borderStrong} ${go ? (theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50') : 'cursor-default'}`}`}>
-                        <span className={`w-[3px] h-8 rounded-full ${isGargalo ? 'bg-red-500' : node.bg}`} />
-                        <span className="min-w-0">
-                          <span className="block text-[10px] font-semibold tracking-wider uppercase text-zinc-400">Etapa {i + 1}</span>
-                          <span className="block text-[13px] font-medium whitespace-nowrap">{node.label}</span>
-                        </span>
-                        <span className={`ml-auto text-xs font-semibold ${isGargalo ? 'text-red-500' : node.color}`}>{node.count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Etapas em uma faixa fina, sem caixa de gargalo */}
+              <div className={`${tc.bgCard} px-2 py-1.5 rounded-xl border ${tc.borderStrong} flex gap-1 overflow-x-auto no-scrollbar`}>
+                {pipeline.map((node) => {
+                  const target: Record<string, [string, string?]> = { roteiro: ['planejamento', 'analise'], decupagem: ['planejamento', 'decupagem'], revisao: ['materiais-aprovacao'], ajustes: ['solicitacao-ajustes'], aprovado: ['materiais-aprovados'] };
+                  const go = target[node.id];
+                  return (
+                    <button key={node.id} type="button" disabled={!go} onClick={() => go && setActiveTab(go[0], go[1])} title={go ? `Abrir ${node.label.toLowerCase()}` : undefined} className={`flex-1 min-w-[120px] flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors ${go ? (theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50') : 'cursor-default'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${node.bg}`} />
+                      <span className="text-[13px] whitespace-nowrap">{node.label}</span>
+                      <span className={`ml-auto text-[13px] font-semibold ${node.color}`}>{node.count}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="space-y-4">
@@ -2605,22 +2803,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                 {/* FILTROS RÁPIDOS + BUSCA */}
                 <div className="flex flex-col md:flex-row md:items-center gap-3">
-                  <h2 className="text-lg font-semibold">{showArchived ? 'Materiais arquivados' : 'Fluxo de aprovação'}</h2>
-                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar md:ml-auto">
+                  <h2 className="text-lg font-semibold">{showArchived ? 'Concluídas' : 'Fluxo de aprovação'}</h2>
+                  {/* Filtros por prazo, como no Pautta. "Concluídas" mostra os materiais arquivados/finalizados. */}
+                  <div className={`flex gap-0.5 p-1 rounded-xl overflow-x-auto no-scrollbar md:ml-auto ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
                     {[
-                      { id: 'todos', label: 'Todos', icon: null },
-                      { id: 'urgentes', label: 'Atrasados', icon: Flame },
-                      { id: 'ajustes', label: 'Ajustes', icon: MessageSquare },
-                      { id: 'pendentes', label: 'Pendentes', icon: Clock },
-                    ].map(f => (
-                      <button key={f.id} onClick={() => setActiveFilter(f.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium shrink-0 transition-colors ${activeFilter === f.id ? 'bg-brand-soft text-brand' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'}`}>
-                        {f.icon && <f.icon size={14} />}{f.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className={`flex items-center gap-2 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] px-3 py-2 md:w-64`}>
-                    <Search size={15} className="text-zinc-400 shrink-0" />
-                    <input type="text" placeholder="Procurar por cliente..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400" />
+                      { id: 'todos', label: 'Todos', icon: List },
+                      { id: 'hoje', label: 'Para hoje', icon: Calendar },
+                      { id: 'atrasadas', label: 'Atrasadas', icon: Flame },
+                      { id: 'futuras', label: 'Futuras', icon: Clock },
+                      { id: 'concluidas', label: 'Concluídas', icon: CheckCircle2 },
+                    ].map(f => {
+                      const on = f.id === 'concluidas' ? showArchived : (!showArchived && activeFilter === f.id);
+                      return (
+                        <button key={f.id} type="button" aria-pressed={on}
+                          title={f.id === 'concluidas' ? 'Materiais arquivados / finalizados' : undefined}
+                          onClick={() => { if (f.id === 'concluidas') { setShowArchived(true); setActiveFilter('todos'); } else { setShowArchived(false); setActiveFilter(f.id); } }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium shrink-0 transition-colors ${on ? `${tc.bgCard} text-brand shadow-sm` : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+                          <f.icon size={14} />{f.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -2682,175 +2884,74 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         </div>
                                       </div>
 
-                                      <div className="flex w-full sm:w-auto gap-2">
-                                        {!showArchived && (
-                                          <button
-                                            onClick={(e) => { e.stopPropagation(); setCycleToArchive({ itens: data.itens, cicloLabel }); setIsArchiveCycleModalOpen(true); }}
-                                            className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white'} rounded-lg text-[11px] font-semibold  flex items-center justify-center gap-2 transition-all shadow-sm`}
-                                            title="Arquivar todo o Ciclo"
-                                          >
-                                            <Archive size={14} className="sm:w-3 sm:h-3" /> Arquivar
-                                          </button>
-                                        )}
-                                        {!showArchived && (
-                                          <button onClick={(e) => { e.stopPropagation(); handleAvisarCicloWhatsApp(group.cliente, cicloLabel); }} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 ${theme === 'dark' ? 'bg-green-900/30 text-green-400 hover:bg-green-600 hover:text-white' : 'bg-green-50 text-green-600 hover:bg-green-600 hover:text-white'} rounded-lg text-[11px] font-semibold  flex items-center justify-center gap-2 transition-all shadow-sm`}>
-                                            <Send size={14} className="sm:w-3 sm:h-3" /> Avisar Cliente
-                                          </button>
-                                        )}
-                                      </div>
+                                      {!showArchived && (
+                                        <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                          {/* Envia uma mensagem no WhatsApp do cliente avisando que há novidades no portal; pede confirmação antes */}
+                                          <IconAction icon={Send} label="Avisar o cliente no WhatsApp que há novidades no portal" onClick={() => openConfirm('Avisar cliente no WhatsApp', `Vamos enviar uma mensagem para ${group.cliente?.nome || 'o cliente'} avisando que há atualizações no ${fmtCiclo(cicloLabel)}, com o link do portal. Enviar agora?`, () => handleAvisarCicloWhatsApp(group.cliente, cicloLabel), 'warning')} />
+                                          <IconAction icon={Archive} label="Arquivar o ciclo inteiro" onClick={() => { setCycleToArchive({ itens: data.itens, cicloLabel }); setIsArchiveCycleModalOpen(true); }} />
+                                        </div>
+                                      )}
                                     </div>
 
                                     {expandedCiclos.includes(`${clienteId}-${cicloLabel}`) && (
                                       <Droppable droppableId={`visaogeral___${clienteId}___${cicloLabel}`}>
                                         {(provided) => (
-                                          <div ref={provided.innerRef} {...provided.droppableProps} className="pl-4 md:pl-12 pr-2 md:pr-6 py-2 space-y-3">
+                                          <div ref={provided.innerRef} {...provided.droppableProps} className="pl-2 md:pl-10 pr-1 md:pr-2 py-2">
+                                            {taskHead()}
                                             {data.itens.map((m: Material, idx: number) => (
                                               <Draggable key={m.id} draggableId={m.id} index={idx}>
-                                                {(provided) => (
-                                                  <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    {...provided.dragHandleProps}
-                                                    className={`flex flex-col ${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'} p-4 md:p-5 rounded-2xl shadow-sm group/item gap-4 transition-colors mb-2`}
-                                                  >
-                                                    <div className="flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between w-full gap-4">
-                                            <div className="flex-1 w-full">
-                                              <div className="flex items-center gap-2 flex-wrap">
-                                                <div className="flex items-center gap-1 group/title">
-                                                  <span className="font-bold text-sm break-normal">{m.titulo}</span>
-                                                  <button onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} className="opacity-0 group-hover/title:opacity-100 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Editar Título"><Edit3 size={12} /></button>
-<div className={`relative inline-block ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'opacity-0 group-hover/title:opacity-100'}`}>
-  <button onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200" title="Adicionar Tag">
-    <Tag size={12} />
-  </button>
-  {tagDropdownOpen === m.id && (
-  <>
-    <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-    <div className={`absolute top-full left-0 mt-2 w-40 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-2`}>
-      <div className="text-[11px] font-semibold text-zinc-500 mb-2 px-2">Tags</div>
-      {AVAILABLE_TAGS.map(tag => (
-        <label key={tag} className={`flex items-center gap-2 p-1.5 ${tc.bgHover} rounded-md cursor-pointer text-[12px]`}>
-          <input type="checkbox" checked={(m.tags || []).includes(tag)} onChange={() => toggleMaterialTag(m, tag)} className="accent-brand" />
-          <span className={tc.textMain}>{tag}</span>
-        </label>
-      ))}
-    
-      
-    </div>
-  </>
-  )}
-</div>
-</div>
-{/* 🏷️ TAGS */}
-{m.tags && m.tags.length > 0 && (
-  <div className="flex flex-wrap gap-1 mt-2 mb-2 w-full">
-    {m.tags.map(t => (
-      <span key={t} className="px-2 py-0.5 border rounded-md text-[11px] font-semibold " style={getTagStyle(t)}>
-        {t}
-      </span>
-    ))}
-  </div>
-)}
-                                                {(m.status === 'aprovado' || m.status === 'concluido') && (<span className={`text-[10px] font-semibold  text-white ${theme === 'dark' ? 'bg-green-600' : 'bg-green-500'} px-1.5 py-0.5 rounded shadow-sm`}>Arquivado / Finalizado</span>)}
-                                                {m.status === 'post_aprovado' && (<span className={`text-[10px] font-semibold  text-white ${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} px-1.5 py-0.5 rounded shadow-sm`}>Post Aprovado (Cliente)</span>)}
-                                                {m.status === 'roteiro_aprovado' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-emerald-400 bg-emerald-900/30 border-emerald-900/50' : 'text-emerald-700 bg-emerald-100 border-emerald-200'} px-1.5 py-0.5 rounded border`}>Roteiro Aprovado (Cliente)</span>)}
-                                                {m.status === 'ajustes' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-red-400 bg-red-900/30 border-red-900/50' : 'text-red-700 bg-red-100 border-red-200'} px-1.5 py-0.5 rounded border`}>Ajustes Solicitados</span>)}
-                                                {m.status === 'em_edicao' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-blue-400 bg-blue-900/30 border-blue-900/50' : 'text-blue-700 bg-blue-100 border-blue-200'} px-1.5 py-0.5 rounded border`}>Em Edição / Design</span>)}
-                                                {m.status === 'analise_roteiro' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-pink-400 bg-pink-900/30 border-pink-900/50' : 'text-pink-700 bg-pink-100 border-pink-200'} px-1.5 py-0.5 rounded border`}>Roteiro em Análise</span>)}
-                                                {m.status === 'revisao' && (<span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 border-purple-900/50' : 'text-purple-700 bg-purple-100 border-purple-200'} px-1.5 py-0.5 rounded border`}>Revisão Agência</span>)}
-                                                {m.link_bruto ? (
-                                                  <span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 border-indigo-900/50' : 'text-indigo-700 bg-indigo-100 border-indigo-200'} px-1.5 py-0.5 rounded border flex items-center gap-1`} title={m.link_bruto}><Link size={8} /> Pasta inserida</span>
-                                                ) : (
-                                                  <span className={`text-[10px] font-semibold  ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 border-amber-900/50' : 'text-amber-700 bg-amber-100 border-amber-200'} px-1.5 py-0.5 rounded border flex items-center gap-1 `}><Link size={8} /> Sem Pasta</span>
-                                                )}
-                                                {renderDeadline(m.data_limite)}
-                                              </div>
-
-                                              <div className="relative inline-block w-full md:w-auto mt-3">
-                                                <select value={m.status} onChange={e => handleUpdateStatus(m.id, e.target.value)} disabled={actionLoading === m.id} className={`appearance-none px-3 py-1.5 pr-7 rounded-md text-[11px] font-semibold  outline-none border transition-all cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 ${getStatusColor(m.status)} ${theme === 'dark' ? 'bg-opacity-20 border-opacity-30' : ''}`}>
-                                                  <option value="analise_roteiro">Roteiro em Análise</option>
-                                                  <option value="roteiro_pendente">Aguardando Cliente (Roteiro)</option>
-                                                  <option value="roteiro_aprovado">Roteiro Aprovado (Pelo Cliente)</option>
-                                                  <option value="planejamento">Aguardando Decupagem</option>
-                                                  <option value="em_organizacao">Decupagem em Andamento</option>
-                                                  <option value="faltando_material">Falta Material Bruto</option>
-                                                  <option value="verificar_material">Verificar Material</option>
-                                                  <option value="organizado">Pasta pronta (para o editor)</option>
-                                                  <option value="em_edicao">Em Edição / Design</option>
-                                                  <option value="pendente">Aguardando Aprovação Cliente</option>
-                                                  <option value="ajustes">Ajustes Solicitados</option>
-                                                  <option value="revisao">Revisão Agência</option>
-                                                  <option value="post_aprovado">Post Aprovado (Pelo Cliente)</option>
-                                                  <option value="concluido">Arquivado / Finalizado</option>
-                                                </select>
-                                                {actionLoading === m.id ? <Loader2 size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 animate-spin ${textSecundario}`} /> : <ChevronDown size={12} className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-50 ${getStatusColor(m.status).split(' ')[1]}`} />}
-                                              </div>
-
-                                            </div>
-
-                                            <div className={`flex items-center gap-2 flex-wrap 2xl:opacity-0 2xl:group-hover/item:opacity-100 transition-all pt-2 2xl:pt-0 border-t 2xl:border-t-0 ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} mt-2 2xl:mt-0 w-full 2xl:w-auto shrink-0`}>
-                                              <div className="flex flex-wrap gap-2 w-full 2xl:w-auto">
-                                              {m.status === 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'pendente')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Restaurar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}</button>)}
-                                              {m.status === 'revisao' && (<button onClick={() => handleCheckAndAprovar(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-green-400 bg-green-900/30 hover:bg-green-600 hover:text-white' : 'text-green-600 bg-green-50 hover:bg-green-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Aprovar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}</button>)}
-                                              {m.status === 'ajustes' && (<button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:bg-red-600 hover:text-white' : 'text-red-600 bg-red-50 hover:bg-red-600 hover:text-white'} rounded-lg transition-colors`} title="Resolver Problema / Devolver"><AlertCircle size={16} /></button>)}
-                                              {(m.status === 'organizado' || m.status === 'em_edicao') && (
-                                                <button onClick={() => openResolveModal(m, 'planner')} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Devolver ao Decupador"><RotateCcw size={16} /></button>
-                                              )}
-                                              {m.status === 'analise_roteiro' && (<button onClick={() => handleEnviarRoteiroCliente(m)} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-purple-400 bg-purple-900/30 hover:bg-purple-600 hover:text-white' : 'text-purple-600 bg-purple-50 hover:bg-purple-600 hover:text-white'} rounded-lg disabled:opacity-50 transition-colors`} title="Enviar Roteiro para o Cliente">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button>)}
-                                              <button onClick={() => setTimelineMaterial(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[11px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-amber-400 bg-amber-900/30 hover:bg-amber-600 hover:text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico de Comentários / Ajustes"><MessageSquare size={14} /> Ajustes</button>
-                                              {/* NEW DELEGATION HISTORY BUTTON */}
-                                              <button onClick={(e) => { e.stopPropagation(); abrirHistoricoDelegacao(m.id, m.titulo); }} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[11px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Histórico Completo da Tarefa"><List size={14} /> Histórico</button>
-              <button onClick={() => setPreviewRoteiro(m)} className={`flex-1 sm:flex-none px-4 py-2 font-bold text-[11px] flex items-center justify-center gap-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-purple-900/30 hover:text-purple-400' : 'text-zinc-500 bg-zinc-50 hover:bg-purple-50 hover:text-purple-600'} rounded-lg transition-colors`} title="Ver Roteiro"><FileText size={14} /> Roteiro</button>
-                                              <button onClick={() => {
-                                                setRoteiroToEdit(m);
-                                                let txt = m.roteiro || '';
-                                                txt = txt.replace(/<br\s*\/?>/gi, '\n');
-                                                setNovoTituloText(m.titulo);
-                                                setNewRoteiroText(txt);
-                                                setIsEditRoteiroModalOpen(true);
-                                              }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-orange-900/30 hover:text-orange-400' : 'text-zinc-500 bg-zinc-50 hover:bg-orange-50 hover:text-orange-600'} rounded-lg transition-colors`} title="Editar Roteiro"><Edit3 size={16} /></button>
-
-                                              {m.link_drive && <button onClick={() => setPreviewUrl(m.link_drive)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-blue-900/30 hover:text-blue-400' : 'text-zinc-500 bg-zinc-50 hover:bg-blue-50 hover:text-blue-600'} rounded-lg transition-colors`} title="Ver Vídeo/Carrossel"><FileVideo size={16} /></button>}
-                                              {m.link_capa && <button onClick={() => setPreviewUrl(m.link_capa)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-400 bg-zinc-800 hover:bg-pink-900/30 hover:text-pink-400' : 'text-zinc-500 bg-zinc-50 hover:bg-pink-50 hover:text-pink-600'} rounded-lg transition-colors`} title="Ver Capa/Card"><ImageIcon size={16} /></button>}
-
-                                              <button onClick={() => abrirLogsDoMaterial(m.id, m.titulo)} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-teal-400 bg-teal-900/30 hover:bg-teal-500 hover:text-white' : 'text-teal-500 bg-teal-50 hover:bg-teal-500 hover:text-white'} rounded-lg transition-colors`} title="Ver Histórico de Visualizações"><Activity size={16} /></button>
-
-                                              <button onClick={() => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); }} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-600 hover:text-white' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white'} rounded-lg transition-colors`} title="Editar Link da Pasta (Decupagem)"><Link size={16} /></button>
-                                              {m.status !== 'concluido' && (<button onClick={() => handleUpdateStatus(m.id, 'concluido')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-zinc-500 bg-zinc-800 hover:text-amber-400 hover:bg-amber-900/30' : 'text-zinc-400 bg-zinc-50 hover:text-amber-600 hover:bg-amber-50'} rounded-lg disabled:opacity-50 transition-colors`} title="Arquivar">{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}</button>)}
-                                              <button onClick={() => openConfirm('Excluir Tarefa', 'Esta ação é permanente. Deseja excluir?', () => { setActionLoading(m.id); supabase.from('materiais').delete().eq('id', m.id).then(() => { loadData(); setActionLoading(null); }) }, 'danger')} disabled={actionLoading === m.id} className={`p-2.5 md:p-2 ${theme === 'dark' ? 'text-red-400 bg-red-900/30 hover:text-red-300' : 'text-red-400 bg-red-50 hover:text-red-600'} rounded-lg ml-auto md:ml-0 disabled:opacity-50 transition-colors`}>{actionLoading === m.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button>
-                                              </div>
-                                            </div>
-                                            </div>
-
-                                            {/* Instruções na linha de baixo (ocupando 100%) */}
-                                            {m.feedback_admin && (
-                                              <div className="w-full">
-                                                <CollapsibleInstruction
-                                                  theme={theme}
-                                                  textSecundario={textSecundario}
-                                                  isLong={m.feedback_admin.length > 200 || (m.feedback_admin.match(/\n/g) || []).length > 3}
-                                                  author={getAuthorInfo(m.feedback_admin)?.nome}
-                                                  onEdit={(e: any) => {
-                                                     e.stopPropagation();
-                                                     setMaterialToEditInstruction(m);
-                                                     const text = m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '';
-                                                     const matchesEditor = Array.from(text.matchAll(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/g));
-                                                     const editorText = matchesEditor.map(m => m[1].trim()).join("\n\n---\n\n");
-                                                     const matchesDesigner = Array.from(text.matchAll(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/g));
-                                                     const designerText = matchesDesigner.map(m => m[1].trim()).join("\n\n---\n\n");
-                                                     let legacyText = text.replace(/\[EDITOR\][\s\S]*?\[\/EDITOR\]/g, '').replace(/\[DESIGNER\][\s\S]*?\[\/DESIGNER\]/g, '').trim();
-                                                     legacyText = legacyText.replace(/^(---|\s)+|(-+)\s*$/g, '').trim();
-                                                     setInstructionEditorText(legacyText ? (editorText ? legacyText + "\n\n---\n\n" + editorText : legacyText) : editorText);
-                                                     setInstructionDesignerText(designerText);
-                                                     setIsEditInstructionModalOpen(true);
-                                                  }}
-                                                >
-                                                  {renderTextWithLinks(m.feedback_admin)}
-                                                </CollapsibleInstruction>
-                                              </div>
-                                            )}
-                                                  </div>
-                                                )}
+                                                {(dp, snapshot) => {
+                                                  const editarInstrucao = () => {
+                                                    setMaterialToEditInstruction(m);
+                                                    const text = m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '';
+                                                    const editorText = Array.from(text.matchAll(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/g)).map(x => x[1].trim()).join("\n\n---\n\n");
+                                                    const designerText = Array.from(text.matchAll(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/g)).map(x => x[1].trim()).join("\n\n---\n\n");
+                                                    let legacyText = text.replace(/\[EDITOR\][\s\S]*?\[\/EDITOR\]/g, '').replace(/\[DESIGNER\][\s\S]*?\[\/DESIGNER\]/g, '').trim();
+                                                    legacyText = legacyText.replace(/^(---|\s)+|(-+)\s*$/g, '').trim();
+                                                    setInstructionEditorText(legacyText ? (editorText ? legacyText + "\n\n---\n\n" + editorText : legacyText) : editorText);
+                                                    setInstructionDesignerText(designerText);
+                                                    setIsEditInstructionModalOpen(true);
+                                                  };
+                                                  // Ação principal visível conforme a etapa; o resto fica no menu de 3 pontinhos
+                                                  const primary = m.status === 'concluido'
+                                                    ? <IconAction icon={RotateCcw} variant="soft" label="Restaurar" loading={actionLoading === m.id} onClick={() => handleUpdateStatus(m.id, 'pendente')} />
+                                                    : m.status === 'revisao'
+                                                      ? <IconAction icon={CheckCircle2} variant="ink" label="Aprovar" loading={actionLoading === m.id} onClick={() => handleCheckAndAprovar(m)} />
+                                                      : m.status === 'ajustes'
+                                                        ? <IconAction icon={AlertCircle} variant="ink" label="Resolver ajuste / devolver" onClick={() => openResolveModal(m, 'planner')} />
+                                                        : m.status === 'analise_roteiro'
+                                                          ? <IconAction icon={Send} variant="ink" label="Enviar roteiro para o cliente" loading={actionLoading === m.id} onClick={() => handleEnviarRoteiroCliente(m)} />
+                                                          : null;
+                                                  return taskRow({
+                                                    m, drag: { provided: dp, snapshot },
+                                                    actions: <>
+                                                      {primary}
+                                                      {moreMenu(`geral-${m.id}`, [
+                                                        { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                                                        { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
+                                                        !!m.link_drive && { icon: FileVideo, label: 'Ver vídeo', onClick: () => setPreviewUrl(m.link_drive || null) },
+                                                        !!m.link_capa && { icon: ImageIcon, label: 'Ver capa', onClick: () => setPreviewUrl(m.link_capa || null) },
+                                                        { icon: Activity, label: 'Visualizações do cliente', onClick: () => abrirLogsDoMaterial(m.id, m.titulo) },
+                                                        { icon: Link, label: m.link_bruto ? 'Editar link da pasta' : 'Adicionar link da pasta', onClick: () => { setSelectedMaterial(m); setNewLinkBruto(m.link_bruto || ''); setIsLinkBrutoModalOpen(true); } },
+                                                        !m.feedback_admin && { icon: Edit3, label: 'Adicionar instrução', onClick: editarInstrucao },
+                                                        (m.status === 'organizado' || m.status === 'em_edicao') && { icon: RotateCcw, label: 'Devolver ao decupador', onClick: () => openResolveModal(m, 'planner') },
+                                                        m.status !== 'concluido' && { icon: Archive, label: 'Arquivar', disabled: actionLoading === m.id, onClick: () => handleUpdateStatus(m.id, 'concluido') },
+                                                        { icon: Trash2, label: 'Excluir tarefa', danger: true, disabled: actionLoading === m.id, onClick: () => openConfirm('Excluir tarefa', 'Esta ação é permanente. Deseja excluir?', () => { setActionLoading(m.id); supabase.from('materiais').delete().eq('id', m.id).then(() => { loadData(); setActionLoading(null); }) }, 'danger') },
+                                                      ])}
+                                                    </>,
+                                                    below: m.feedback_admin ? (
+                                                      <CollapsibleInstruction
+                                                        theme={theme}
+                                                        textSecundario={textSecundario}
+                                                        isLong={m.feedback_admin.length > 200 || (m.feedback_admin.match(/\n/g) || []).length > 3}
+                                                        author={getAuthorInfo(m.feedback_admin)?.nome}
+                                                        onEdit={(e: any) => { e.stopPropagation(); editarInstrucao(); }}
+                                                      >
+                                                        {renderTextWithLinks(m.feedback_admin)}
+                                                      </CollapsibleInstruction>
+                                                    ) : undefined,
+                                                  });
+                                                }}
                                               </Draggable>
                                             ))}
                                             {provided.placeholder}
@@ -2880,7 +2981,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             const fechar = () => { setIsClienteModalOpen(false); setEditingCliente(null); };
             return (
               <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
-                {pageHeader({
+                {configHeader({
                   title: 'Cadastro do cliente', icon: Users, meta: `${qtd(clientes.length, 'cliente', 'clientes')}`,
                   actions: <>
                     <div className={`flex items-center gap-2 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] px-3 py-2 w-full md:w-60`}>
@@ -2892,27 +2993,38 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 })}
 
                 {lista.length === 0 ? emptyState(clientes.length === 0 ? 'Nenhum cliente cadastrado.' : 'Nenhum cliente encontrado.') : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
-                    {lista.map((c, idx) => (
-                      <div key={`card-cliente-${c.id}-${idx}`} className={`p-4 ${tc.bgCard} border ${tc.borderStrong} rounded-2xl flex flex-col gap-4`}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-11 h-11 rounded-xl overflow-hidden flex shrink-0 items-center justify-center text-white font-semibold`} style={{ background: c.logo_url ? undefined : (c.cor_marca || '#A25431') }}>
-                            {c.logo_url
-                              ? <img src={c.logo_url} className={`w-full h-full object-contain p-1 border ${tc.borderStrong} rounded-xl`} onError={(e) => { e.currentTarget.src = 'https://placehold.co/150x150/f4f4f5/a1a1aa?text=Sem+Logo'; }} alt={`Logo ${c.nome}`} />
-                              : (c.nome.trim()[0] || '?').toUpperCase()}
+                  <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl overflow-visible`}>
+                    <div className={`hidden md:grid md:grid-cols-[minmax(0,1fr)_180px_130px_88px] md:gap-4 px-4 py-2.5 border-b ${tc.borderStrong} text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
+                      <span>Cliente</span><span>WhatsApp</span><span>Ciclos</span><span />
+                    </div>
+                    {lista.map((c, idx) => {
+                      const abrir = () => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); setIsClienteModalOpen(true); };
+                      return (
+                        <div key={`lista-cliente-${c.id}-${idx}`} onClick={abrir} className={`cursor-pointer flex items-center gap-3 md:grid md:grid-cols-[minmax(0,1fr)_180px_130px_88px] md:gap-4 px-4 py-3 border-b last:border-0 ${tc.border} ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-9 h-9 rounded-lg overflow-hidden flex shrink-0 items-center justify-center text-white text-sm font-semibold" style={{ background: c.logo_url ? undefined : (c.cor_marca || '#A25431') }}>
+                              {c.logo_url
+                                ? <img src={c.logo_url} className={`w-full h-full object-contain p-0.5 border ${tc.borderStrong} rounded-lg`} onError={(e) => { e.currentTarget.src = 'https://placehold.co/150x150/f4f4f5/a1a1aa?text=Sem+Logo'; }} alt={`Logo ${c.nome}`} />
+                                : (c.nome.trim()[0] || '?').toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{c.nome}</p>
+                              <p className="md:hidden text-xs text-zinc-500 truncate">{c.telefone}</p>
+                            </div>
                           </div>
-                          <div className="min-w-0"><h3 className="font-semibold text-[14.5px] truncate">{c.nome}</h3><p className="text-[13px] text-zinc-500 truncate flex items-center gap-1"><Phone size={12} /> {c.telefone}</p></div>
+                          <span className="hidden md:block text-[13px] text-zinc-500 truncate">{c.telefone}</span>
+                          <span className="hidden md:block text-[13px] text-zinc-500">{c.ciclos_contratados || 12} contratados</span>
+                          <div className="flex items-center gap-1.5 justify-end shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <IconAction icon={Link} label="Copiar link do portal" onClick={() => copyToClipboard(getSafePortalUrl(window.location.origin, c.token_magico))} />
+                            {moreMenu(`cli-${c.id}`, [
+                              { icon: Edit3, label: 'Editar dados', onClick: abrir },
+                              { icon: Send, label: 'Enviar link do portal no WhatsApp', onClick: () => openConfirm('Enviar link do portal', `Vamos enviar o link do portal no WhatsApp de ${c.nome}. Enviar agora?`, () => handleAvisarPortalWhatsApp(c), 'warning') },
+                              { icon: Trash2, label: 'Excluir cliente', danger: true, onClick: () => { setClientToDelete(c); setIsDeleteClientModalOpen(true); } },
+                            ])}
+                          </div>
                         </div>
-                        <p className="text-xs text-zinc-500">{c.ciclos_contratados || 12} ciclos contratados</p>
-                        <div className={`flex items-center gap-1.5 pt-3 border-t ${tc.borderStrong}`}>
-                          <button onClick={() => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); setIsClienteModalOpen(true); }} className={`${btnLine} !px-3 !py-2`}><Edit3 size={14} /> Editar</button>
-                          <span className="ml-auto" />
-                          <IconAction icon={Link} label="Copiar link do portal" onClick={() => copyToClipboard(getSafePortalUrl(window.location.origin, c.token_magico))} />
-                          <IconAction icon={Send} label="Avisar no WhatsApp" onClick={() => handleAvisarPortalWhatsApp(c)} />
-                          <IconAction icon={Trash2} label="Excluir cliente" onClick={(e) => { e.preventDefault(); setClientToDelete(c); setIsDeleteClientModalOpen(true); }} />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -3000,110 +3112,124 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           })()}
 
           {/* ABA: EQUIPE */}
-          {activeTab === 'equipe' && (
-            <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
-              {pageHeader({ title: 'Equipe', icon: ShieldCheck, meta: qtd(membros.length, 'membro', 'membros') })}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="lg:col-span-1 space-y-6 text-left">
-                  <div className={`${tc.bgCard} p-6 md:p-8 rounded-2xl md:rounded-2xl border ${tc.borderStrong} shadow-sm`}>
-
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-lg md:text-xl font-semibold ">
-                        {editingMembro ? 'Editar Membro' : 'Novo Membro'}
-                      </h3>
-                      {editingMembro && (
-                        <button type="button" onClick={() => { setEditingMembro(null); setFormE({ nome: '', email: '', password: '', role: 'editor', telegram_thread_id: '' }); }} className={`${tc.textMuted} ${tc.bgHover} p-2 rounded-full transition-colors`}><X size={16} /></button>
-                      )}
+          {activeTab === 'equipe' && (() => {
+            const ROLE_LABEL: Record<string, string> = { editor: 'Editor', designer: 'Designer', planner: 'Decupador', admin: 'Gestor' };
+            const inputCls = `w-full px-3 py-2.5 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand transition-colors disabled:opacity-60`;
+            const labelCls = 'block text-[13px] font-medium text-zinc-600 dark:text-zinc-300 mb-1.5';
+            const vazio = { nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '' };
+            const lista = membros.filter(m => `${m.nome || ''} ${m.email}`.toLowerCase().includes(membroBusca.toLowerCase()));
+            const abrirNovo = () => { setEditingMembro(null); setFormE(vazio); setIsMembroModalOpen(true); };
+            const abrirEdicao = (m: MembroComNome) => { setEditingMembro(m); setFormE({ nome: m.nome || '', email: m.email || '', password: '', role: m.role || 'editor', telegram_thread_id: m.telegram_thread_id || '' }); setIsMembroModalOpen(true); };
+            const fechar = () => { setIsMembroModalOpen(false); setEditingMembro(null); setFormE(vazio); };
+            const secao = (titulo: string, desc: string, body: React.ReactNode) => (
+              <div className={`px-6 py-5 border-b ${tc.borderStrong} last:border-0`}>
+                <h3 className="text-[15px] font-semibold">{titulo}</h3>
+                <p className="text-xs text-zinc-500 mt-0.5 mb-4">{desc}</p>
+                {body}
+              </div>
+            );
+            return (
+              <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+                {configHeader({
+                  meta: qtd(membros.length, 'membro', 'membros'),
+                  actions: <>
+                    <div className={`flex items-center gap-2 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] px-3 py-2 w-full md:w-60`}>
+                      <Search size={15} className="text-zinc-400 shrink-0" />
+                      <input type="text" placeholder="Buscar membro..." value={membroBusca} onChange={e => setMembroBusca(e.target.value)} className="bg-transparent outline-none text-[13px] w-full placeholder:text-zinc-400" />
                     </div>
+                    <button onClick={abrirNovo} className={btnInk}><UserPlus size={16} /> Adicionar membro</button>
+                  </>,
+                })}
 
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const f = new FormData(e.currentTarget);
-                      setIsCreatingUser(true);
-                      try {
-                        if (editingMembro) {
-                          await atualizarMembroEquipe(editingMembro.id, f);
-                          toast.success("Membro atualizado com sucesso!");
-                          setEditingMembro(null);
-                        } else {
-                          await criarMembroEquipe(f);
-                          toast.success("Membro adicionado!");
+                {lista.length === 0 ? emptyState(membros.length === 0 ? 'Nenhum membro cadastrado.' : 'Nenhum membro encontrado.') : (
+                  <div className="space-y-2">
+                    {lista.map(m => (
+                      <div key={m.id} onClick={() => abrirEdicao(m)} className={`group cursor-pointer flex items-center gap-3 px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} rounded-xl ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
+                        <span style={{ background: avatarColor(m.id) }} className="w-9 h-9 rounded-full text-xs font-semibold text-white inline-flex items-center justify-center shrink-0">{initials(m.nome || m.email)}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{m.nome || 'Sem nome'}</p>
+                          <p className="text-xs text-zinc-500 truncate">{ROLE_LABEL[m.role] || m.role} · {m.email}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <IconAction icon={Edit3} label="Editar membro" onClick={() => abrirEdicao(m)} />
+                          <IconAction icon={Trash2} label="Remover membro" onClick={() => openConfirm('Remover membro', `Deseja remover ${m.nome || m.email} da equipe?`, async () => { await excluirMembro(m.id); loadData(); }, 'danger')} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {isMembroModalOpen && (
+                  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-zinc-950/40 p-4 animate-in fade-in duration-200" onClick={fechar}>
+                    <form
+                      onClick={(e) => e.stopPropagation()}
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        setIsCreatingUser(true);
+                        try {
+                          if (editingMembro) {
+                            await atualizarMembroEquipe(editingMembro.id, f);
+                            toast.success("Membro atualizado!");
+                          } else {
+                            await criarMembroEquipe(f);
+                            toast.success("Membro adicionado!");
+                          }
+                          fechar();
+                          loadData();
+                        } catch (error: any) {
+                          toast.error(error.message)
+                        } finally {
+                          setIsCreatingUser(false)
                         }
-                        setFormE({ nome: '', email: '', password: '', role: 'editor', telegram_thread_id: '' });
-                        loadData();
-                      } catch (error: any) {
-                        toast.error(error.message)
-                      } finally {
-                        setIsCreatingUser(false)
-                      }
-                    }} className="space-y-4">
+                      }}
+                      className={`${tc.bgCard} w-full max-w-[600px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl text-left`}
+                    >
+                      <div className={`flex items-center gap-3 px-6 py-4 border-b ${tc.borderStrong}`}>
+                        <span className="w-9 h-9 rounded-xl bg-brand-soft text-brand inline-flex items-center justify-center"><UserPlus size={18} /></span>
+                        <div className="min-w-0">
+                          <h2 className="text-[17px] font-semibold">{editingMembro ? 'Editar membro' : 'Novo membro'}</h2>
+                          <p className="text-xs text-zinc-500">Dados, acesso e integração do membro da equipe</p>
+                        </div>
+                        <span className="ml-auto"><IconAction icon={X} label="Fechar" onClick={fechar} /></span>
+                      </div>
 
-                      <input name="nome" placeholder="Nome Completo" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.nome} onChange={e => setFormE({ ...formE, nome: e.target.value })} required />
-                      <input name="email" placeholder="E-mail" disabled={!!editingMembro} className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors disabled:opacity-50`} value={formE.email} onChange={e => setFormE({ ...formE, email: e.target.value })} required={!editingMembro} />
-                      <input name="password" type="password" placeholder={editingMembro ? "Nova senha (opcional)" : "Senha"} className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.password} onChange={e => setFormE({ ...formE, password: e.target.value })} required={!editingMembro} />
+                      {secao('Dados pessoais', 'Nome e e-mail de acesso', (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div><label className={labelCls}>Nome *</label><input name="nome" placeholder="Nome completo" className={inputCls} value={formE.nome} onChange={e => setFormE({ ...formE, nome: e.target.value })} required /></div>
+                          <div><label className={labelCls}>E-mail *</label><input name="email" type="email" placeholder="nome@exemplo.com" disabled={!!editingMembro} className={inputCls} value={formE.email} onChange={e => setFormE({ ...formE, email: e.target.value })} required={!editingMembro} /></div>
+                        </div>
+                      ))}
 
-                      <select name="role" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.role} onChange={e => setFormE({ ...formE, role: e.target.value as any })}>
-                        <option value="editor">Editor</option>
-                        <option value="designer">Designer</option>
-                        <option value="planner">Decupador</option>
-                        <option value="admin">Administrador (Gestor)</option>
-                      </select>
+                      {secao('Acesso', 'Função no fluxo e senha de entrada', (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className={labelCls}>Função</label>
+                            <select name="role" className={inputCls} value={formE.role} onChange={e => setFormE({ ...formE, role: e.target.value as any })}>
+                              <option value="editor">Editor</option>
+                              <option value="designer">Designer</option>
+                              <option value="planner">Decupador</option>
+                              <option value="admin">Gestor (administrador)</option>
+                            </select>
+                          </div>
+                          <div><label className={labelCls}>{editingMembro ? 'Nova senha (opcional)' : 'Senha *'}</label><input name="password" type="password" placeholder={editingMembro ? 'Deixe em branco para manter' : 'Senha de acesso'} className={inputCls} value={formE.password} onChange={e => setFormE({ ...formE, password: e.target.value })} required={!editingMembro} /></div>
+                        </div>
+                      ))}
 
-                      <input name="telegram_thread_id" placeholder="ID do Chat do ClickUp (View ID)" className={`w-full p-4 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'} rounded-2xl font-bold outline-none text-sm focus:border-brand transition-colors`} value={formE.telegram_thread_id} onChange={e => setFormE({ ...formE, telegram_thread_id: e.target.value })} />
+                      {secao('Integração', 'Onde o membro recebe os avisos de tarefa', (
+                        <div><label className={labelCls}>ID do chat do ClickUp (View ID)</label><input name="telegram_thread_id" placeholder="Ex.: 8cjxyz-1234" className={inputCls} value={formE.telegram_thread_id} onChange={e => setFormE({ ...formE, telegram_thread_id: e.target.value })} /></div>
+                      ))}
 
-                      <button disabled={isCreatingUser} className={`w-full py-4 ${theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#212013] text-white hover:bg-black'} rounded-2xl font-semibold  text-[11px]  transition-colors flex items-center justify-center gap-2 disabled:opacity-50`}>
-                        {isCreatingUser ? <Loader2 size={16} className="animate-spin" /> : null}
-                        {isCreatingUser ? "Processando..." : (editingMembro ? "Salvar Alterações" : "Registrar")}
-                      </button>
+                      <div className={`flex justify-end gap-2.5 px-6 py-4 border-t ${tc.borderStrong}`}>
+                        <button type="button" onClick={fechar} className={btnLine}>Cancelar</button>
+                        <button type="submit" disabled={isCreatingUser} className={btnInk}>{isCreatingUser ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {editingMembro ? 'Salvar alterações' : 'Adicionar membro'}</button>
+                      </div>
                     </form>
                   </div>
-                </div>
-                <div className="lg:col-span-2 space-y-6 text-left">
-                  <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl md:rounded-2xl overflow-hidden shadow-sm overflow-x-hidden`}>
-                    <table className="w-full text-left border-collapse min-w-[500px] select-none">
-                      <thead><tr className={`${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100'} border-b text-[11px] font-semibold  ${tc.textMuted}`}><th className="p-4 md:p-6">Usuário</th><th className="p-4 md:p-6">Função</th><th className="p-4 md:p-6 text-right">Ações</th></tr></thead>
-                      <tbody className={`divide-y ${theme === 'dark' ? 'divide-zinc-800' : 'divide-zinc-50'}`}>
-                        {membros.length === 0 ? <tr><td colSpan={3} className={`p-6 text-center ${tc.textMuted} font-bold text-sm`}>Nenhum membro listado.</td></tr> : membros.map((m) => (
-                          <tr key={m.id} className={`${tc.bgHover} transition-colors group`}>
-                            <td className="p-4 md:p-6">
-                              <div className="flex items-center gap-3">
-                                <div className={`hidden sm:flex w-10 h-10 rounded-full ${theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-600'} items-center justify-center font-semibold text-sm `}>
-                                  {m.nome ? m.nome.substring(0, 2) : m.email.substring(0, 2)}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-bold text-sm truncate">{m.nome || 'Sem Nome Registado'}</p>
-                                  <p className={`text-[11px] ${tc.textMuted} font-medium truncate`}>{m.email}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-4 md:p-6">
-                              <div className="relative inline-block w-full md:w-auto">
-                                <select defaultValue={m.role} onChange={async (e) => { await supabase.from('perfis_equipe').update({ role: e.target.value }).eq('id', m.id); toast.success("Função alterada!"); }} className={`appearance-none ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} text-[11px] md:text-[11px] font-semibold  px-4 py-2 pr-8 rounded-full outline-none border-none cursor-pointer transition-colors w-full`}>
-                                  <option value="editor">Editor</option><option value="designer">Designer</option><option value="planner">Decupador</option><option value="admin">Gestor</option>
-                                </select>
-                                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
-                              </div>
-                            </td>
-                            <td className="p-4 md:p-6 text-right flex justify-end gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditingMembro(m);
-                                  setFormE({ nome: m.nome || '', email: m.email || '', password: '', role: m.role || 'editor', telegram_thread_id: m.telegram_thread_id || '' });
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className={`${tc.textMuted} hover:text-blue-500 p-2 opacity-50 group-hover:opacity-100 transition-opacity`} title="Editar Perfil"
-                              ><Edit3 size={18} /></button>
-                              <button onClick={() => openConfirm('Remover Membro', 'Deseja realmente remover este membro da equipe?', async () => { await excluirMembro(m.id); loadData(); }, 'danger')} className={`${tc.textMuted} hover:text-red-500 p-2 opacity-50 group-hover:opacity-100 transition-opacity`} title="Remover"><Trash2 size={18} /></button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
           {/* ABA: CORES DO TEMA (seletor universal de cores) */}
           {activeTab === 'cores-tema' && (() => {
             const same = (a: BrandColors, b: BrandColors) => a.soft.toLowerCase() === b.soft.toLowerCase() && a.brand.toLowerCase() === b.brand.toLowerCase() && a.ink.toLowerCase() === b.ink.toLowerCase();
@@ -3119,7 +3245,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             );
             return (
               <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
-                {pageHeader({
+                {configHeader({
                   title: 'Cores do tema', icon: Palette, meta: 'Por enquanto as cores ficam salvas neste navegador',
                   actions: <>
                     <button onClick={() => previewBrandColors(DEFAULT_BRAND)} className={btnLine}><RotateCcw size={15} /> Restaurar padrão</button>
@@ -3211,7 +3337,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                 </div>
                 <div className="print:hidden">
-                  {pageHeader({ title: REL_SUBS.find(s => s.id === relSub)!.label, icon: REL_SUBS.find(s => s.id === relSub)!.icon, crumb: 'Relatórios', meta: `Gerado em ${new Date().toLocaleDateString('pt-BR')} · Todos os materiais`, actions: <button onClick={() => window.print()} className={btnLine} title="Abre a impressão do navegador; escolha Salvar como PDF"><Download size={15} /> Baixar PDF</button> })}
+                  {configHeader({ title: REL_SUBS.find(s => s.id === relSub)!.label, icon: REL_SUBS.find(s => s.id === relSub)!.icon, crumb: 'Relatórios', meta: `Gerado em ${new Date().toLocaleDateString('pt-BR')} · Todos os materiais`, actions: <button onClick={() => window.print()} className={btnLine} title="Abre a impressão do navegador; escolha Salvar como PDF"><Download size={15} /> Baixar PDF</button> })}
+                  {subTabs(REL_SUBS.map(s => ({ ...s, count: s.id === 'atrasos' ? relatorioData.totalAtrasos : 0 })), relSub, (id) => setActiveTab('relatorios', id))}
 
                 </div>
               </header>
@@ -3460,6 +3587,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           )}
         </main>
       </DragDropContext>
+      </div>
 
       {/* MODAIS RESPONSIVOS */}
 

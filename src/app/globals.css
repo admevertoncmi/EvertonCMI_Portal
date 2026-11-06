@@ -73,6 +73,27 @@
   .shadow-elevation-2 { box-shadow: var(--shadow-lg); }
   .shadow-elevation-3 { box-shadow: var(--shadow-xl); }
 
+  /* Login: impede o fundo azul do preenchimento automático do Chrome */
+  .login-input:-webkit-autofill,
+  .login-input:-webkit-autofill:hover,
+  .login-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    -webkit-text-fill-color: #1F1E17;
+    caret-color: #1F1E17;
+    transition: background-color 9999s ease-out 0s;
+  }
+
+  /* Login: fileiras do wordmark entram deslizando uma única vez */
+  .login-row {
+    animation: loginRowIn 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @keyframes loginRowIn {
+    from { transform: translateX(var(--row-from, 0)); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .login-row { animation: none; }
+  }
+
   /* Esconde o ícone nativo do calendário para não duplicar com o Lucide */
   input::-webkit-calendar-picker-indicator {
     display: none !important;
