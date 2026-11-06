@@ -2188,13 +2188,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   );
 
   // ===== Menu do topo (desktop) =====
-  const topLink = (id: any, label: string, Icon: any, count?: number) => {
+  const topLink = (id: any, label: string, Icon: any, count?: number, short?: string) => {
     const on = activeTab === id;
     return (
       <button type="button" onClick={() => { setActiveTab(id); setTopMenuOpen(null); }} title={label}
         className={`relative inline-flex items-center gap-2 px-3 py-2 rounded-[10px] text-[13.5px] font-medium whitespace-nowrap transition-colors ${on ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
         <Icon size={17} className={on ? '' : 'text-zinc-400'} />
-        <span className="hidden lg:inline">{label}</span>
+        <span className="hidden xl:inline">{short || label}</span>
         {count ? <span className={`text-[11px] px-1.5 py-px rounded-md font-semibold ${on ? 'bg-white text-brand' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{count}</span> : null}
       </button>
     );
@@ -2377,7 +2377,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
       <div className="flex-1 flex flex-col min-w-0 h-[100dvh]">
       {/* MENU DO TOPO (computador): logo leva ao início, fluxo de trabalho, busca geral e configurações */}
-      <header className={`hidden md:flex items-center gap-2 lg:gap-3 px-5 lg:px-8 h-16 shrink-0 border-b ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} relative z-[120]`}>
+      <header className={`hidden md:flex items-center gap-2 lg:gap-3 px-4 lg:px-8 h-16 shrink-0 border-b ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'} relative z-[120]`}>
         <button type="button" onClick={irParaInicio} aria-label="Ir para o início" title="Início" className="shrink-0 mr-2 lg:mr-4">
           <img src={theme === 'dark' ? "/logo-light.png" : "/logo-dark.png"} alt="Everton" className="h-9 w-auto object-contain" />
         </button>
@@ -2386,18 +2386,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           {topDropdown('planejamento',
             <button type="button" title="Planejamento" className={`inline-flex items-center gap-2 px-3 py-2 rounded-[10px] text-[13.5px] font-medium whitespace-nowrap transition-colors ${activeTab === 'planejamento' ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
               <ListTodo size={17} className={activeTab === 'planejamento' ? '' : 'text-zinc-400'} />
-              <span className="hidden lg:inline">Planejamento</span>
+              <span className="hidden xl:inline">Planejamento</span>
               {totalPlanejamento ? <span className={`text-[11px] px-1.5 py-px rounded-md font-semibold ${activeTab === 'planejamento' ? 'bg-white text-brand' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'}`}>{totalPlanejamento}</span> : null}
               <ChevronDown size={14} className={`transition-transform ${topMenuOpen === 'planejamento' ? 'rotate-180' : ''}`} />
             </button>,
             PLAN_SUBS.map(s => dropdownItem(s.label, () => setActiveTab('planejamento', s.id), { dot: s.dot, count: planCounts[s.id], on: activeTab === 'planejamento' && planSub === s.id }))
           )}
-          {topLink('materiais-aprovacao', 'Aprovação interna', ClipboardCheck, filaMateriaisAprovacao.length)}
-          {topLink('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length)}
-          {topLink('materiais-aprovados', 'Prontos para postar', CheckCircle2, filaMateriaisAprovados.length)}
+          {topLink('materiais-aprovacao', 'Aprovação interna', ClipboardCheck, filaMateriaisAprovacao.length, 'Aprovação')}
+          {topLink('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length, 'Ajustes')}
+          {topLink('materiais-aprovados', 'Prontos para postar', CheckCircle2, filaMateriaisAprovados.length, 'Prontos')}
         </nav>
         <div className="ml-auto flex items-center gap-2 shrink-0">
-          {globalSearchBox('w-56 xl:w-72')}
+          {globalSearchBox('w-36 lg:w-56 xl:w-60 2xl:w-72')}
           {/* Configurações abre a página com abas (Clientes, Equipe, Relatórios, Cores do tema) */}
           <button type="button" onClick={() => { setActiveTab('cadastro-clientes'); setTopMenuOpen(null); }} aria-label="Configurações" title="Configurações" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${configAtivo ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : `${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'} hover:text-brand`}`}>
             <Settings size={17} />
