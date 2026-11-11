@@ -73,7 +73,7 @@ function AudioPill({ url, dur, dark }: { url: string; dur: number; dark?: boolea
 export default function ConversaMaterial({
   mensagens, carregando, perspectiva, onEnviar, modoAjuste = false, onCancelarAjuste,
   mostrarSobre = false, alvoInicial = 'video', dark = false, placeholder, vazio, className = '', enviando: enviandoExterno = false,
-  composerClassName = '', mensagensClassName = '', focarSinal = 0,
+  composerClassName = '', mensagensClassName = '', focarSinal = 0, somenteLeitura = false,
 }: {
   mensagens: MensagemConversa[]
   carregando?: boolean
@@ -91,6 +91,7 @@ export default function ConversaMaterial({
   composerClassName?: string       // ex.: deixar o campo fixo no rodapé no celular
   mensagensClassName?: string
   focarSinal?: number              // muda o número para focar o campo de mensagem
+  somenteLeitura?: boolean         // só mostra as mensagens (ex.: editor vendo o pedido do cliente)
 }) {
   const [texto, setTexto] = useState('')
   const [fotos, setFotos] = useState<{ file: File; url: string }[]>([])
@@ -219,7 +220,7 @@ export default function ConversaMaterial({
       </div>
 
       {/* CAMPO DE MENSAGEM */}
-      <div className={`border-t ${linha} px-3 pt-2.5 pb-3 shrink-0 ${dark ? 'bg-zinc-900' : 'bg-white'} ${composerClassName}`}>
+      {!somenteLeitura && <div className={`border-t ${linha} px-3 pt-2.5 pb-3 shrink-0 ${dark ? 'bg-zinc-900' : 'bg-white'} ${composerClassName}`}>
         {modoAjuste && (
           <div className="flex items-center gap-2 text-[12.5px] text-orange-800 bg-orange-50 border border-orange-200 rounded-lg pl-2.5 pr-1 py-1.5 mb-2 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-900/40">
             <MessageSquare size={14} className="shrink-0" />
@@ -279,7 +280,7 @@ export default function ConversaMaterial({
             </button>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

@@ -18,6 +18,30 @@ export const hexToRgbChannels = (hex: string) => {
   return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`
 }
 
+/** Paletas prontas (as mesmas de Configurações › Cores do tema). */
+export const PALETAS_TEMA: { nome: string; cores: BrandColors }[] = [
+  { nome: 'Everton', cores: DEFAULT_BRAND },
+  { nome: 'Areia', cores: { soft: '#EFE6DA', brand: '#7A6A55', ink: '#2B2620' } },
+  { nome: 'Sálvia', cores: { soft: '#DDE8DF', brand: '#4C7A5A', ink: '#1E2B22' } },
+  { nome: 'Céu', cores: { soft: '#DCE8F5', brand: '#3B6EA8', ink: '#1B2633' } },
+  { nome: 'Rosé', cores: { soft: '#F6DDE4', brand: '#A84865', ink: '#2E1B22' } },
+  { nome: 'Grafite', cores: { soft: '#E8E8E8', brand: '#3A3A3A', ink: '#1A1A1A' } },
+]
+
+/** Aplica as cores só nesta tela (por cima do tema do sistema). */
+export function aplicarCoresNaTela(c: BrandColors) {
+  const s = document.documentElement.style
+  s.setProperty('--brand-soft', hexToRgbChannels(c.soft))
+  s.setProperty('--brand', hexToRgbChannels(c.brand))
+  s.setProperty('--brand-ink', hexToRgbChannels(c.ink))
+}
+
+/** Volta para as cores do sistema (as que vêm do banco pelo layout). */
+export function limparCoresDaTela() {
+  const s = document.documentElement.style
+  s.removeProperty('--brand-soft'); s.removeProperty('--brand'); s.removeProperty('--brand-ink')
+}
+
 /** CSS que sobrescreve as variáveis da marca definidas em globals.css. */
 export const cssDoTema = (c: BrandColors) =>
   `html:root{--brand-soft:${hexToRgbChannels(c.soft)};--brand:${hexToRgbChannels(c.brand)};--brand-ink:${hexToRgbChannels(c.ink)};}`

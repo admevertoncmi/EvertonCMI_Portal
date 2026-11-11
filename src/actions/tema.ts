@@ -22,3 +22,33 @@ export async function salvarTema(cores: BrandColors) {
   if (error) throw new Error(error.message)
   return tema
 }
+
+// Paleta pessoal de cada membro da equipe (linha 'paleta:<id>' na mesma tabela).
+// Pode ler/mudar: o próprio membro, ou a admin quando "entra" no painel dele.
+async function podeMexerNaPaleta(membroId: string) {
+  const { perfil } = await requireEquipe()
+  if (perfil.id !== membroId && perfil.role !== 'admin') throw new Error('Não autorizado')
+}
+
+export async function lerPaletaMembro(membroId: string): Promise<BrandColors | null> {
+  await podeMexerNaPaleta(membroId)
+  const { data } = await getAdminSupabase().from('configuracoes').select('valor').eq('chave', `paleta:${membroId}`).maybeSingle()
+  return temaValido(data?.valor)
+}
+
+/** Salva a paleta do membro; null volta para o padrão do sistema. */
+export async function salvarPaletaMembro(membroId: string, cores: BrandColors | null) {
+  const { user } = await requireEquipe()
+  await podeMexerNaPaleta(membroId)
+  const db = getAdminSupabase().from('configuracoes')
+  if (!cores) {
+    const { error } = await db.delete().eq('chave', `paleta:${membroId}`)
+    if (error) throw new Error(error.message)
+    return null
+  }
+  const tema = temaValido(cores)
+  if (!tema) throw new Error('Cores inválidas')
+  const { error } = await db.upsert({ chave: `paleta:${membroId}`, valor: tema, atualizado_em: new Date().toISOString(), atualizado_por: user.id })
+  if (error) throw new Error(error.message)
+  return tema
+}
