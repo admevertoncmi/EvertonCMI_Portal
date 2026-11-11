@@ -16,6 +16,7 @@ import { createBatchFolders } from '@/actions/google-mutations'
 import { StorageWidget } from '@/components/StorageWidget'
 import ConversaMaterial, { enviarAnexos, type EnvioConversa, type MensagemConversa } from '@/components/ConversaMaterial'
 import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEquipe } from '@/actions/conversa'
+import { lerTemaEquipe, salvarTema } from '@/actions/tema'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -295,18 +296,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     localStorage.setItem('adminTheme', newTheme);
   };
 
-  // Cores do tema (fase 1: salvas neste navegador)
+  // Cores do tema: salvas no banco (tabela configuracoes) e aplicadas pelo layout raiz em todas as páginas, login incluído
   const [brandColors, setBrandColors] = useState<BrandColors>(DEFAULT_BRAND);
+  const [temaSalvo, setTemaSalvo] = useState<BrandColors>(DEFAULT_BRAND);
+  const [salvandoTema, setSalvandoTema] = useState(false);
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved) { const c = JSON.parse(saved) as BrandColors; setBrandColors(c); applyBrandColors(c); }
-    } catch { /* mantém o padrão */ }
+    lerTemaEquipe().then(c => { setBrandColors(c); setTemaSalvo(c); }).catch(() => null);
+    try { localStorage.removeItem(THEME_STORAGE_KEY); } catch { /* sobra da versão antiga, que salvava no navegador */ }
   }, []);
   const previewBrandColors = (c: BrandColors) => { setBrandColors(c); applyBrandColors(c); };
-  const saveBrandColors = () => {
-    try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(brandColors)); } catch { /* armazenamento indisponível */ }
-    toast.success('Cores do tema salvas neste navegador.');
+  const saveBrandColors = async () => {
+    setSalvandoTema(true);
+    try {
+      const c = await salvarTema(brandColors);
+      setTemaSalvo(c);
+      toast.success('Cores do tema salvas para todo o sistema.');
+    } catch (e: any) {
+      toast.error(e?.message === 'Não autorizado' ? 'Só administradores podem mudar as cores do tema.' : 'Não foi possível salvar as cores. Tente de novo.');
+    } finally {
+      setSalvandoTema(false);
+    }
   };
 
   const getCleanText = (text: string | null | undefined) => {
@@ -3512,10 +3521,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             return (
               <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
                 {configHeader({
-                  title: 'Cores do tema', icon: Palette, meta: 'Por enquanto as cores ficam salvas neste navegador',
+                  title: 'Cores do tema', icon: Palette, meta: 'Valem para todo o sistema: painel, portal dos clientes e tela de login',
                   actions: <>
                     <button onClick={() => previewBrandColors(DEFAULT_BRAND)} className={btnLine}><RotateCcw size={15} /> Restaurar padrão</button>
-                    <button onClick={saveBrandColors} className={btnInk}><Save size={15} /> Salvar</button>
+                    <button onClick={saveBrandColors} disabled={salvandoTema || same(brandColors, temaSalvo)} className={btnInk}>{salvandoTema ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} {same(brandColors, temaSalvo) ? 'Salvo' : 'Salvar'}</button>
                   </>,
                 })}
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-4 items-start">

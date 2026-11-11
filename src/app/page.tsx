@@ -1,7 +1,7 @@
 "use client"
 
 // Login da equipe. Layout pedido pela cliente (referência: tela de login "don."):
-// metade esquerda com imagem abstrata e a logo, metade direita escura com o formulário.
+// metade esquerda na cor de destaque do tema com a assinatura, metade direita escura com o formulário.
 // Cores da Everton: oliva (brand-ink), cobre (brand) e pêssego (brand-soft).
 
 import { useState } from 'react'
@@ -13,20 +13,19 @@ import { Loader2, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 
 const display = Bodoni_Moda({ subsets: ['latin'], display: 'swap' })
 
-// Logo nova (empilhada "ev / er / ton", PNG transparente) usada como máscara: a cor vem do fundo (pêssego da marca)
-const logoMask: React.CSSProperties = {
-  WebkitMaskImage: 'url(/PNG-PRETO-REDUZIDA.png)',
-  maskImage: 'url(/PNG-PRETO-REDUZIDA.png)',
+// Wordmark "everton" usado como máscara: a cor vem da classe de fundo (oliva do tema à esquerda, branco à direita)
+const wordmarkMask: React.CSSProperties = {
+  WebkitMaskImage: 'url(/everton-wordmark.png)',
+  maskImage: 'url(/everton-wordmark.png)',
   WebkitMaskRepeat: 'no-repeat',
   maskRepeat: 'no-repeat',
   WebkitMaskSize: 'contain',
   maskSize: 'contain',
-  WebkitMaskPosition: 'center',
-  maskPosition: 'center',
 }
+const WORDMARK_RATIO = 917 / 190
 
-function Logo({ size, className = '' }: { size: number; className?: string }) {
-  return <span role="img" aria-label="everton" className={`block shrink-0 bg-brand-soft ${className}`} style={{ ...logoMask, height: size, width: size }} />
+function Wordmark({ height, className }: { height: number; className: string }) {
+  return <span role="img" aria-label="everton" className={`block shrink-0 ${className}`} style={{ ...wordmarkMask, height, width: height * WORDMARK_RATIO }} />
 }
 
 export default function LoginPage() {
@@ -39,7 +38,6 @@ export default function LoginPage() {
 
   const router = useRouter()
   const supabase = createClient()
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -73,17 +71,20 @@ export default function LoginPage() {
   }
 
   const inputClass =
-    'w-full h-12 px-4 bg-white/[0.04] border border-white/10 rounded-[10px] outline-none text-[14.5px] text-[#F4EFE6] placeholder:text-white/30 hover:border-white/20 focus:border-brand focus:bg-white/[0.06] focus:ring-4 focus:ring-brand/20 transition-colors'
+    'w-full h-12 px-4 bg-white/[0.04] border border-white/10 rounded-[10px] outline-none text-[14.5px] text-[#F4EFE6] placeholder:text-white/30 hover:border-white/20 focus:border-brand focus:bg-white/[0.06] focus:ring-4 focus:ring-brand/20 transition-colors ' +
+    // Autopreenchimento do navegador: mantém o campo escuro (senão fica azul-claro)
+    '[&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_#1E1D16] [&:-webkit-autofill]:[-webkit-text-fill-color:#F4EFE6] [&:-webkit-autofill]:[caret-color:#F4EFE6]'
 
   return (
     <div className="min-h-[100dvh] w-full grid lg:grid-cols-2 bg-[#15140D] text-[#F4EFE6] font-sans selection:bg-brand selection:text-white">
 
-      {/* LADO DA MARCA (computador): imagem abstrata (esfera em cobre com granulado, public/login-fundo.jpg) + logo */}
-      <aside className="hidden lg:flex relative overflow-hidden bg-brand-ink items-center justify-center bg-cover bg-center" style={{ backgroundImage: 'url(/login-fundo.jpg)' }}>
-        <div className="relative flex items-center gap-6 px-10 -translate-x-[8%]">
-          <Logo size={230} />
-          <span aria-hidden="true" className="w-px h-[150px] bg-brand-soft/60" />
-          <span className="text-[18px] leading-[1.3] tracking-[0.14em] uppercase text-brand-soft font-light">
+      {/* LADO DA MARCA (computador): fundo na cor de destaque do tema (Configurações › Cores do tema, salvo no banco
+          e entregue pelo layout raiz) com a assinatura */}
+      <aside className="hidden lg:flex relative overflow-hidden bg-brand-soft items-center justify-center transition-colors">
+        <div className="relative flex items-center gap-7 px-10">
+          <Wordmark height={68} className="bg-brand-ink" />
+          <span aria-hidden="true" className="w-px h-[88px] bg-brand-ink/60" />
+          <span className="text-[19px] leading-[1.25] tracking-[0.14em] uppercase text-brand-ink font-light">
             Comunicação<br />&amp; Marketing
           </span>
         </div>
@@ -93,9 +94,10 @@ export default function LoginPage() {
       <main className="relative flex flex-col items-center justify-center px-6 py-12 min-h-[100dvh] lg:min-h-0">
         <div className="w-full max-w-[340px]">
           {/* Logo inteiro no topo do formulário (no celular, com "Comunicação & Marketing" embaixo) */}
-          <div className="flex flex-col items-center gap-3 mb-8">
-            <Logo size={104} />
-            <span className="lg:hidden text-[11px] tracking-[0.2em] uppercase text-brand-soft/70">Comunicação &amp; Marketing</span>
+          {/* Logo branco no lado escuro (no celular, com "Comunicação & Marketing" embaixo) */}
+          <div className="flex flex-col items-center gap-3 mb-10">
+            <Wordmark height={44} className="bg-white" />
+            <span className="lg:hidden text-[11px] tracking-[0.2em] uppercase text-white/60">Comunicação &amp; Marketing</span>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">

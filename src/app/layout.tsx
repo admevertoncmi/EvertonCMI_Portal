@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import '@/app/globals.css'
 import 'react-quill-new/dist/quill.snow.css';
+import { connection } from 'next/server'
+import { lerTemaServidor } from '@/lib/tema-servidor'
+import { cssDoTema } from '@/lib/tema'
 
 // 1. Configuração da Fonte
 const inter = Inter({
@@ -33,14 +36,20 @@ export const metadata: Metadata = {
 }
 
 // 4. Componente Principal
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Cores do tema vêm do banco (Configurações › Cores do tema) e valem para todas as páginas, login incluído.
+  // connection(): lê a cada acesso, para a troca de tema aparecer na hora (sem esperar novo deploy).
+  await connection()
+  const tema = await lerTemaServidor()
+
   return (
     <html lang="pt-BR" suppressHydrationWarning className="antialiased">
       <head>
+        <style id="tema-cores" dangerouslySetInnerHTML={{ __html: cssDoTema(tema) }} />
         {/* Script para bloquear injeções de atributos por extensões (como bis_skin_checked) e evitar erros de Hydration Mismatch */}
         <script
           suppressHydrationWarning={true}
