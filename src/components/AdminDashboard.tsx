@@ -14,7 +14,10 @@ import { useAdminData } from '@/hooks/useAdminData'
 import { getDriveFolderFiles } from '@/actions/google'
 import { createBatchFolders } from '@/actions/google-mutations'
 import { StorageWidget } from '@/components/StorageWidget'
+import ConversaMaterial, { enviarAnexos, type EnvioConversa, type MensagemConversa } from '@/components/ConversaMaterial'
+import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEquipe } from '@/actions/conversa'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
+import { createPortal } from 'react-dom'
 import useEmblaCarousel from 'embla-carousel-react'
 import dynamic from 'next/dynamic'
 const ReactQuill = dynamic(() => import('@/components/Editor'), { ssr: false })
@@ -30,9 +33,9 @@ import {
   TrendingUp, CheckCircle, Clock, RefreshCw, Download,
   ChevronRight, Calendar, Search, Folder, ShieldCheck,
   Upload, Bell, Eye, UploadCloud, CheckCircle2, ClipboardCheck,
-  ListTodo, FileText, LayoutList, Archive, Edit3, Tag, AlertCircle, Menu, Loader2, Activity, Settings,
+  ListTodo, FileText, LayoutList, Archive, Edit3, Tag, Check, AlertCircle, Menu, Loader2, Activity, Settings,
   FileVideo, Image as ImageIcon, ChevronDown, PlayCircle, PenTool, Sun, Moon, Flame, AlertTriangle, GripVertical, List
-, Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images, MoreHorizontal, Home } from 'lucide-react'
+, Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images, MoreHorizontal, Home, LogIn } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
 export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
@@ -451,6 +454,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [formM, setFormM] = useState({ cliente_id: '', titulo: '', link_drive: '', ciclo: '1' })
   const [searchTerm, setSearchTerm] = useState('')
   const [activeFilter, setActiveFilter] = useState('todos') // todos, urgentes, ajustes, pendentes
+  // Filtro por etapa no Início (vem do clique nos números do topo/fluxo quando a etapa não tem página própria)
+  const [filtroEtapa, setFiltroEtapa] = useState<{ label: string; test: (m: Material) => boolean; clienteId?: string } | null>(null)
   const [hasMounted, setHasMounted] = useState(false)
 
   useEffect(() => {
@@ -458,19 +463,39 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   }, [])
 
   const [tagDropdownOpen, setTagDropdownOpen] = useState<string | null>(null);
+  // Posição do botão que abriu o seletor: o menu é desenhado por cima da tela (portal), então não é cortado pela lista
+  const [tagAnchor, setTagAnchor] = useState<DOMRect | null>(null);
+  const tagMenuRef = useRef<HTMLDivElement>(null);
 
+  // Fecha o seletor ao rolar a página (fora do menu), redimensionar ou apertar Esc
+  useEffect(() => {
+    if (!tagDropdownOpen) return;
+    const fechar = (e: Event) => {
+      if (e.type === 'scroll' && tagMenuRef.current?.contains(e.target as Node)) return;
+      setTagDropdownOpen(null);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setTagDropdownOpen(null); };
+    window.addEventListener('scroll', fechar, true);
+    window.addEventListener('resize', fechar);
+    window.addEventListener('keydown', esc);
+    return () => {
+      window.removeEventListener('scroll', fechar, true);
+      window.removeEventListener('resize', fechar);
+      window.removeEventListener('keydown', esc);
+    };
+  }, [tagDropdownOpen]);
+
+  // Marca/desmarca na hora (sem recarregar tudo) e desfaz se o banco recusar
   const toggleMaterialTag = async (material: Material, tag: string) => {
-    const currentTags = material.tags || [];
-    const newTags = currentTags.includes(tag) 
-      ? currentTags.filter(t => t !== tag) 
+    const currentTags = materiais.find(x => x.id === material.id)?.tags ?? material.tags ?? [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
       : [...currentTags, tag];
-      
+    setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, tags: newTags } : x));
     const { error } = await supabase.from('materiais').update({ tags: newTags }).eq('id', material.id);
     if (error) {
       toast.error('Erro ao salvar tag');
-    } else {
-      toast.success('Tag atualizada!');
-      loadData();
+      setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, tags: currentTags } : x));
     }
   };
 
@@ -657,7 +682,6 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [timelineMaterial, setTimelineMaterial] = useState<Material | null>(null);
   const [newTagLabel, setNewTagLabel] = useState('');
   const [newTagColor, setNewTagColor] = useState('red');
-  const [tagFormOpen, setTagFormOpen] = useState(false);
 
   const TAG_COLORS = {
     red: { bg: 'bg-red-500/20', text: 'text-red-700 dark:text-red-400', border: 'border-red-500/30' },
@@ -669,20 +693,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     orange: { bg: 'bg-orange-500/20', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-500/30' },
     gray: { bg: 'bg-gray-500/20', text: 'text-gray-700 dark:text-gray-400', border: 'border-gray-500/30' }
   };
-  const getTagStyle = (tagLabel: string) => {
-     const tag = systemTags.find(t => t.label === tagLabel);
-     const colorValue = tag?.color || '#eab308';
+  const TAG_PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#71717a'];
+  const tagHex = (tagLabel: string) => {
+     const colorValue = systemTags.find(t => t.label === tagLabel)?.color || '#eab308';
      const hexMap: Record<string, string> = {
        red: '#ef4444', blue: '#3b82f6', green: '#22c55e', yellow: '#eab308',
        purple: '#a855f7', pink: '#ec4899', orange: '#f97316', gray: '#6b7280'
      };
-     const hex = hexMap[colorValue] || colorValue;
-     return {
-       backgroundColor: hex + '33',
-       color: hex,
-       borderColor: hex + '4D'
-     };
+     return hexMap[colorValue] || colorValue;
   };
+  // Fundo bem suave e texto escurecido (ou clareado no tema escuro) para ficar legível em qualquer cor
+  const chipStyle = (hex: string) => ({
+    backgroundColor: hex + (theme === 'dark' ? '2E' : '1F'),
+    color: `color-mix(in srgb, ${hex} ${theme === 'dark' ? '70%, #fff' : '60%, #000'})`,
+  });
+  const getTagStyle = (tagLabel: string) => chipStyle(tagHex(tagLabel));
   const AVAILABLE_TAGS = systemTags.map(t => t.label);
 
   useEffect(() => {
@@ -715,6 +740,59 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     designers,
     planners
   } = useAdminData(initialMaterials, initialClientes);
+
+  // ---------- Conversa do portal (cliente <-> equipe) ----------
+  const [conversaAdmin, setConversaAdmin] = useState<MensagemConversa[]>([]);
+  const [carregandoConversaAdmin, setCarregandoConversaAdmin] = useState(false);
+  const [avisarWppConversa, setAvisarWppConversa] = useState(true);
+  const [msgsNaoLidas, setMsgsNaoLidas] = useState<Record<string, number>>({});
+  // Conversa aberta: pelo botão "Conversa com o cliente" (timelineMaterial) ou no painel da tarefa
+  const conversaAbertaId = timelineMaterial?.id || (isEditRoteiroModalOpen ? roteiroToEdit?.id || null : null);
+
+  const carregarConversaAdmin = useCallback(async (id: string, silencioso = false) => {
+    if (!silencioso) setCarregandoConversaAdmin(true);
+    try {
+      setConversaAdmin(await conversaEquipe(id));
+      setMsgsNaoLidas(prev => prev[id] ? { ...prev, [id]: 0 } : prev);
+    } catch {
+      if (!silencioso) setConversaAdmin([]);
+    } finally {
+      if (!silencioso) setCarregandoConversaAdmin(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (!conversaAbertaId) { setConversaAdmin([]); return; }
+    carregarConversaAdmin(conversaAbertaId);
+    const t = setInterval(() => carregarConversaAdmin(conversaAbertaId, true), 20000);
+    return () => clearInterval(t);
+  }, [conversaAbertaId, carregarConversaAdmin]);
+
+  // Mensagens de clientes ainda não lidas pela equipe (ponto "Nova mensagem" nas tarefas)
+  useEffect(() => {
+    const atualizar = () => naoLidasEquipe().then(setMsgsNaoLidas).catch(() => null);
+    atualizar();
+    const t = setInterval(atualizar, 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const enviarConversaAdmin = async (m: Material, envio: EnvioConversa) => {
+    try {
+      const anexos = await enviarAnexos((tipo, ext) => prepararAnexoEquipe(m.id, tipo, ext), envio.fotos, envio.audio);
+      await enviarMensagemEquipe(m.id, { texto: envio.texto, fotos: anexos.fotos, audio: anexos.audio });
+      await carregarConversaAdmin(m.id, true);
+      toast.success('Resposta enviada ao cliente.');
+      // Avisa o cliente no WhatsApp que há resposta no portal
+      if (avisarWppConversa && m.cliente?.token_magico && (m.cliente?.whatsapp_group_id || m.cliente?.telefone)) {
+        const link = getSafePortalUrl(window.location.origin, m.cliente.token_magico, (m.link_drive || m.link_capa) ? 'videos' : 'roteiros');
+        const chatId = m.cliente.whatsapp_group_id || m.cliente.telefone.replace(/\D/g, '');
+        notificarWhatsApp(`Olá! A equipe respondeu sobre "${m.titulo}" no seu portal. 💬\n\nVeja aqui:\n${link}`, chatId);
+      }
+      return true;
+    } catch (e: any) {
+      toast.error(e?.message || 'Não foi possível enviar a resposta.');
+      return false;
+    }
+  };
 
   const renderDeadline = (date: string | null) => {
     if (!date || !hasMounted) return null;
@@ -779,9 +857,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   }, [applyFilters])
 
   const groupedVisaoGeral = useMemo(() => {
-    const filtered = materiais.filter(m => showArchived ? m.status === 'concluido' : m.status !== 'concluido')
+    const filtered = materiais
+      .filter(m => showArchived ? m.status === 'concluido' : m.status !== 'concluido')
+      .filter(m => showArchived || !filtroEtapa || ((!filtroEtapa.clienteId || m.cliente_id === filtroEtapa.clienteId) && filtroEtapa.test(m)))
     return groupItems(filtered, !showArchived)
-  }, [materiais, showArchived, groupItems])
+  }, [materiais, showArchived, groupItems, filtroEtapa])
 
   const groupedAnaliseRoteiro = useMemo(() => groupItems(filaAnaliseRoteiro), [filaAnaliseRoteiro, groupItems]);
   const groupedProblemasDecupagem = useMemo(() => groupItems(filaProblemasDecupagem), [filaProblemasDecupagem, groupItems]);
@@ -1850,20 +1930,69 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     });
     return c;
   };
+  // ATALHOS DO INÍCIO: todo número clicável leva aos itens que ele conta.
+  // Se a etapa tem página própria com exatamente esses itens, abre a página já com os clientes expandidos;
+  // senão, filtra a própria lista do Início e expande os clientes/ciclos para os itens aparecerem.
+  const PAGINAS_ETAPA = {
+    ajustes: { tab: 'solicitacao-ajustes', prefixo: 'notif-', grupos: groupedAjustes },
+    aprovacao: { tab: 'materiais-aprovacao', prefixo: 'rev-', grupos: groupedMateriaisAprovacao },
+    prontos: { tab: 'materiais-aprovados', prefixo: 'ok-', grupos: groupedMateriaisAprovados },
+  } as const;
+  const irParaPaginaEtapa = (etapa: keyof typeof PAGINAS_ETAPA, clienteId?: string) => {
+    const d = PAGINAS_ETAPA[etapa];
+    const ids = clienteId ? [clienteId] : Object.keys(d.grupos);
+    setOpenGroups(prev => Array.from(new Set([...prev, ...ids.map(id => d.prefixo + id)])));
+    setActiveTab(d.tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const ETAPA_TESTE = {
+    roteiros: { label: 'Roteiros (análise e com o cliente)', test: (m: Material) => m.status === 'analise_roteiro' || m.status === 'roteiro_pendente' },
+    decupagem: { label: 'Decupagem', test: (m: Material) => ['planejamento', 'em_organizacao', 'faltando_material', 'verificar_material'].includes(m.status) },
+    producao: { label: 'Produção', test: (m: Material) => m.status === 'organizado' || m.status === 'em_edicao' },
+    emEdicao: { label: 'Em produção', test: (m: Material) => m.status === 'em_edicao' },
+    portal: { label: 'No portal do cliente', test: (m: Material) => m.status === 'pendente' },
+    pendentes: { label: 'Pendentes com o cliente', test: (m: Material) => m.status === 'pendente' || m.status === 'roteiro_pendente' },
+    aprovados: { label: 'Aprovados', test: (m: Material) => ['aprovado', 'roteiro_aprovado', 'post_aprovado'].includes(m.status) },
+    roteirosAprovados: { label: 'Roteiros aprovados', test: (m: Material) => m.status === 'roteiro_aprovado' || ((m.status === 'aprovado' || m.status === 'post_aprovado') && !(m.link_drive || m.link_capa)) },
+  } as const;
+  const filtrarInicio = (etapa: keyof typeof ETAPA_TESTE, clienteId?: string) => {
+    const f = { ...ETAPA_TESTE[etapa], clienteId };
+    const itens = materiais.filter(m => m.status !== 'concluido' && (!clienteId || m.cliente_id === clienteId) && f.test(m));
+    setShowArchived(false);
+    setActiveFilter('todos');
+    setFiltroEtapa(f);
+    setExpandedClients(prev => Array.from(new Set([...prev, ...itens.map(m => `geral-${m.cliente_id}`)])));
+    setExpandedCiclos(prev => Array.from(new Set([...prev, ...itens.map(m => `${m.cliente_id}-CICLO ${m.ciclo || 1}`)])));
+    if (activeTab !== 'geral') setActiveTab('geral');
+    setTimeout(() => document.getElementById('lista-inicio')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+  // Destino de cada coluna de contagem por cliente
+  const abrirContagem = (key: (typeof PIPELINE)[number]['key'], clienteId: string) => {
+    if (key === 'ajustes') irParaPaginaEtapa('ajustes', clienteId);
+    else if (key === 'revisao') irParaPaginaEtapa('aprovacao', clienteId);
+    else if (key === 'video') irParaPaginaEtapa('prontos', clienteId);
+    else if (key === 'edicao') filtrarInicio('emEdicao', clienteId);
+    else filtrarInicio('roteirosAprovados', clienteId);
+  };
+
   const PIPELINE_GRID = 'md:grid md:grid-cols-[repeat(5,80px)] md:items-center md:shrink-0';
   // Desktop: colunas fixas, alinhadas com o cabeçalho. Zero vira um traço apagado, então nada muda de lugar.
-  const pipelineCols = (c: PipelineCounts) => (
+  // Com clienteId, cada número vira botão que leva aos itens daquele cliente.
+  const pipelineCols = (c: PipelineCounts, clienteId?: string) => (
     <div className={`hidden ${PIPELINE_GRID}`}>
       {PIPELINE.map(p => {
         const n = c[p.key];
         if (n === 0) return <span key={p.key} className="text-center text-[13px] text-zinc-300 dark:text-zinc-600">–</span>;
         const alerta = p.key === 'ajustes';
-        return (
-          <span key={p.key} className="flex justify-center" title={`${n} ${p.full}`}>
-            <span className={`inline-flex items-center gap-1.5 text-[13px] font-semibold tabular-nums ${alerta ? 'px-2 py-0.5 rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : tc.textMain}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />{n}
-            </span>
+        const conteudo = (
+          <span className={`inline-flex items-center gap-1.5 text-[13px] font-semibold tabular-nums px-2 py-0.5 rounded-md transition-colors ${alerta ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : tc.textMain} ${clienteId ? (alerta ? 'hover:bg-red-100 dark:hover:bg-red-900/40' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800') : ''}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />{n}
           </span>
+        );
+        return clienteId ? (
+          <button key={p.key} type="button" className="flex justify-center" title={`Ver ${n} ${p.full}`} onClick={(e) => { e.stopPropagation(); abrirContagem(p.key, clienteId); }}>{conteudo}</button>
+        ) : (
+          <span key={p.key} className="flex justify-center" title={`${n} ${p.full}`}>{conteudo}</span>
         );
       })}
     </div>
@@ -1877,17 +2006,21 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     </div>
   );
   // Versão em linha (celular e linha do ciclo): ponto + número + nome curto, em tom neutro. Só o que tem valor.
-  const pipelineInline = (c: PipelineCounts, className = '') => {
+  const pipelineInline = (c: PipelineCounts, className = '', clienteId?: string) => {
     const itens = PIPELINE.filter(p => c[p.key] > 0);
     if (itens.length === 0) return null;
     return (
       <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${className}`}>
-        {itens.map(p => (
-          <span key={p.key} title={`${c[p.key]} ${p.full}`} className={`inline-flex items-center gap-1.5 ${p.key === 'ajustes' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'}`}>
+        {itens.map(p => {
+          const cls = `inline-flex items-center gap-1.5 ${p.key === 'ajustes' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'}`;
+          const conteudo = <>
             <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
             <span className={`font-semibold tabular-nums ${p.key === 'ajustes' ? '' : tc.textMain}`}>{c[p.key]}</span> {p.label.toLowerCase()}
-          </span>
-        ))}
+          </>;
+          return clienteId
+            ? <button key={p.key} type="button" title={`Ver ${c[p.key]} ${p.full}`} onClick={(e) => { e.stopPropagation(); abrirContagem(p.key, clienteId); }} className={`${cls} hover:underline underline-offset-2`}>{conteudo}</button>
+            : <span key={p.key} title={`${c[p.key]} ${p.full}`} className={cls}>{conteudo}</span>;
+        })}
       </div>
     );
   };
@@ -2029,7 +2162,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!label) return;
     if (systemTags.some(t => t.label === label)) {
       if (!(m.tags || []).includes(label)) await toggleMaterialTag(m, label);
-      setNewTagLabel(''); setTagFormOpen(false);
+      setNewTagLabel('');
       return;
     }
     setLoading(true);
@@ -2037,67 +2170,124 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error && data) {
       setSystemTags(prev => [...prev, data[0]]);
       await toggleMaterialTag(m, label);
-      setNewTagLabel(''); setTagFormOpen(false);
+      setNewTagLabel('');
       toast.success('Tag criada!');
     } else {
       toast.error('Erro ao criar tag: ' + (error?.message || 'erro desconhecido'));
     }
     setLoading(false);
   };
-  const excluirTag = (tag: { id: string; label: string }) => openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema?`, async () => {
+  const excluirTag = (tag: { id: string; label: string }) => { setTagDropdownOpen(null); openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema?`, async () => {
     await supabase.from('tags').delete().eq('id', tag.id);
     setSystemTags(prev => prev.filter(t => t.id !== tag.id));
     toast.success('Tag removida!');
-  }, 'warning');
-  const tagControl = (m: Material) => (
-    <span className={`relative inline-flex ${tagDropdownOpen === m.id ? 'opacity-100 z-50' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setTagFormOpen(false); setNewTagLabel(''); setTagDropdownOpen(tagDropdownOpen === m.id ? null : m.id); }} title="Tags" className={`w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}>
-        <Tag size={13} />
-      </button>
-      {tagDropdownOpen === m.id && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} />
-          <div onClick={(e) => e.stopPropagation()} className={`absolute top-full left-0 mt-2 w-64 ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 text-left`}>
-            {/* Criar tag (fica acima de todas) */}
-            <div className={`p-2 border-b ${tc.borderStrong}`}>
-              {!tagFormOpen ? (
-                <button type="button" onClick={() => setTagFormOpen(true)} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium text-brand hover:bg-brand-soft transition-colors">
-                  <Plus size={14} /> Criar tag
-                </button>
-              ) : (
-                <div className="space-y-2 p-1">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={newTagColor.startsWith('#') ? newTagColor : '#eab308'} onChange={e => setNewTagColor(e.target.value)} title="Cor da tag" className="w-8 h-8 rounded-md cursor-pointer bg-transparent shrink-0" />
-                    <input autoFocus type="text" value={newTagLabel} onChange={e => setNewTagLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') criarTagNoLocal(m); if (e.key === 'Escape') setTagFormOpen(false); }} placeholder="Nome da tag" className={`flex-1 min-w-0 px-2.5 py-1.5 ${tc.bgInput} border ${tc.borderStrong} rounded-md text-[13px] outline-none focus:border-brand`} />
-                  </div>
-                  <div className="flex justify-end gap-1.5">
-                    <button type="button" onClick={() => setTagFormOpen(false)} className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancelar</button>
-                    <button type="button" disabled={loading || !newTagLabel.trim()} onClick={() => criarTagNoLocal(m)} className="px-2.5 py-1 rounded-md text-xs font-medium bg-brand-ink text-white disabled:opacity-50">Criar e aplicar</button>
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* Tags existentes */}
-            <div className="p-2 max-h-56 overflow-y-auto">
-              {systemTags.length === 0 && <p className="text-xs text-zinc-400 px-2 py-1">Nenhuma tag ainda.</p>}
-              {systemTags.map(tag => (
-                <div key={tag.id} className={`group/tag flex items-center gap-2 px-1.5 py-1 ${tc.bgHover} rounded-md`}>
-                  <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-[13px]">
-                    <input type="checkbox" checked={(m.tags || []).includes(tag.label)} onChange={() => toggleMaterialTag(m, tag.label)} className="accent-brand" />
-                    <span className="px-1.5 py-px border rounded text-xs font-medium truncate" style={getTagStyle(tag.label)}>{tag.label}</span>
-                  </label>
-                  <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag" className="opacity-0 group-hover/tag:opacity-100 text-zinc-400 hover:text-red-500 p-1 rounded transition-opacity"><Trash2 size={13} /></button>
-                </div>
-              ))}
+  }, 'warning'); };
+  // Seletor de tags: busca + lista com bolinha de cor e check; digitar um nome novo oferece "Criar".
+  // O menu é desenhado num portal com posição fixa, então nunca é cortado pela lista e abre para cima quando falta espaço embaixo.
+  const TAG_MENU_W = 272;
+  const TAG_MENU_H = 360;
+  const abrirTags = (e: React.MouseEvent, m: Material) => {
+    e.stopPropagation();
+    if (tagDropdownOpen === m.id) { setTagDropdownOpen(null); return; }
+    setTagAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
+    setNewTagLabel('');
+    setNewTagColor(TAG_PALETTE[systemTags.length % TAG_PALETTE.length]);
+    setTagDropdownOpen(m.id);
+  };
+  const tagMenu = (m: Material) => {
+    if (!tagAnchor || typeof document === 'undefined') return null;
+    const vh = window.innerHeight, vw = window.innerWidth;
+    const espacoAbaixo = vh - tagAnchor.bottom, espacoAcima = tagAnchor.top;
+    const paraCima = espacoAbaixo < TAG_MENU_H + 12 && espacoAcima > espacoAbaixo;
+    const left = Math.max(8, Math.min(tagAnchor.left, vw - TAG_MENU_W - 8));
+    const pos: React.CSSProperties = paraCima
+      ? { bottom: vh - tagAnchor.top + 6, left, maxHeight: Math.min(TAG_MENU_H, espacoAcima - 16) }
+      : { top: tagAnchor.bottom + 6, left, maxHeight: Math.min(TAG_MENU_H, espacoAbaixo - 16) };
+    const aplicadas = m.tags || [];
+    const q = newTagLabel.trim().toUpperCase();
+    const lista = q ? systemTags.filter(t => t.label.includes(q)) : systemTags;
+    const existe = systemTags.find(t => t.label === q);
+    const corNova = newTagColor.startsWith('#') ? newTagColor : TAG_PALETTE[0];
+    const parar = (e: React.SyntheticEvent) => e.stopPropagation();
+    return createPortal(
+      <>
+        <div className="fixed inset-0 z-[10000]" onClick={(e) => { e.stopPropagation(); setTagDropdownOpen(null); }} onMouseDown={parar} />
+        <div
+          ref={tagMenuRef}
+          onClick={parar}
+          onMouseDown={parar}
+          style={{ position: 'fixed', width: TAG_MENU_W, ...pos }}
+          className={`z-[10001] flex flex-col ${tc.bgCard} ${tc.textMain} border ${tc.borderStrong} rounded-xl shadow-2xl overflow-hidden text-left animate-in fade-in zoom-in-95 duration-100`}
+        >
+          <div className={`p-2 border-b ${tc.border} shrink-0`}>
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              <input
+                autoFocus
+                type="text"
+                value={newTagLabel}
+                onChange={e => setNewTagLabel(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter' || !q) return;
+                  if (existe) { toggleMaterialTag(m, existe.label); setNewTagLabel(''); }
+                  else criarTagNoLocal(m);
+                }}
+                placeholder="Buscar ou criar tag"
+                className={`w-full h-8 pl-8 pr-2.5 ${tc.bgInput} border ${tc.borderStrong} rounded-lg text-[13px] outline-none focus:border-brand`}
+              />
             </div>
           </div>
-        </>
-      )}
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-1">
+            {systemTags.length === 0 && !q && <p className="text-xs text-zinc-400 px-2.5 py-2">Nenhuma tag ainda. Digite um nome para criar a primeira.</p>}
+            {lista.map(tag => {
+              const marcada = aplicadas.includes(tag.label);
+              return (
+                <div key={tag.id} className={`group/tag flex items-center rounded-lg ${tc.bgHover} transition-colors`}>
+                  <button type="button" onClick={() => toggleMaterialTag(m, tag.label)} className="flex-1 min-w-0 flex items-center gap-2.5 h-8 px-2 text-left">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tagHex(tag.label) }} />
+                    <span className={`flex-1 truncate text-[13px] ${marcada ? 'font-semibold' : ''}`}>{tag.label}</span>
+                    {marcada && <Check size={15} className="text-brand shrink-0" />}
+                  </button>
+                  <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag do sistema" className="md:opacity-0 md:group-hover/tag:opacity-100 w-7 h-7 mr-0.5 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 transition-opacity shrink-0"><Trash2 size={13} /></button>
+                </div>
+              );
+            })}
+          </div>
+
+          {q && !existe && (
+            <div className={`p-2 border-t ${tc.border} shrink-0 space-y-2`}>
+              <div className="flex items-center justify-between px-1.5">
+                {TAG_PALETTE.map(c => (
+                  <button key={c} type="button" onClick={() => setNewTagColor(c)} title="Escolher cor" aria-label="Escolher cor"
+                    className={`w-5 h-5 rounded-full transition-transform hover:scale-110 ring-offset-2 ${theme === 'dark' ? 'ring-offset-zinc-900' : 'ring-offset-white'} ${corNova === c ? 'ring-2 ring-zinc-400' : ''}`}
+                    style={{ backgroundColor: c }} />
+                ))}
+              </div>
+              <button type="button" disabled={loading} onClick={() => criarTagNoLocal(m)} className="w-full flex items-center gap-2 h-8 px-2 rounded-lg text-[13px] text-zinc-500 hover:bg-brand-soft disabled:opacity-50 transition-colors">
+                <Plus size={14} className="text-brand shrink-0" /> Criar
+                <span className="inline-flex items-center h-5 px-2 rounded-full text-[11px] font-semibold truncate" style={chipStyle(corNova)}>{q}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </>,
+      document.body
+    );
+  };
+  const tagControl = (m: Material) => (
+    <span className={`inline-flex ${tagDropdownOpen === m.id ? 'opacity-100' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
+      <button type="button" onClick={(e) => abrirTags(e, m)} title="Tags" className={`w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} ${tagDropdownOpen === m.id ? 'text-brand border-brand' : 'text-zinc-500'} hover:text-brand`}>
+        <Tag size={13} />
+      </button>
+      {tagDropdownOpen === m.id && tagMenu(m)}
     </span>
   );
   // Tags pequenas, numa linha própria embaixo do título
   const tagChips = (m: Material) => (m.tags || []).filter(t => !t.startsWith('_')).map(t => (
-    <span key={t} className="inline-flex items-center px-1.5 py-px border rounded text-[11px] font-medium leading-4 whitespace-nowrap" style={getTagStyle(t)}>{t}</span>
+    <span key={t} className="inline-flex items-center gap-1.5 h-5 px-2 rounded-full text-[11px] font-semibold whitespace-nowrap" style={getTagStyle(t)}>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tagHex(t) }} />{t}
+    </span>
   ));
   const tagLine = (m: Material) => (m.tags || []).some(t => !t.startsWith('_'))
     ? <div className="flex flex-wrap gap-1 mt-1">{tagChips(m)}</div>
@@ -2119,6 +2309,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="font-medium text-sm truncate">{m.titulo}</span>
+              {(msgsNaoLidas[m.id] || 0) > 0 && <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-brand" title="O cliente mandou mensagem no portal"><span className="w-1.5 h-1.5 rounded-full bg-brand" />Nova mensagem</span>}
               <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`shrink-0 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
               {tagControl(m)}
             </div>
@@ -2199,7 +2390,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   };
   const totalPlanejamento = Object.values(planCounts).reduce((a, b) => a + b, 0);
 
-  const irParaInicio = () => { setShowArchived(false); setActiveTab('geral'); setIsMobileMenuOpen(false); setTopMenuOpen(null); };
+  const irParaInicio = () => { setShowArchived(false); setFiltroEtapa(null); setActiveTab('geral'); setIsMobileMenuOpen(false); setTopMenuOpen(null); };
 
   // ===== Busca geral: tarefas (todas as etapas) e clientes =====
   const buscaNorm = globalSearch.trim().toLowerCase();
@@ -2494,7 +2685,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             };
             const head = planIcons[planSub];
             const timelineItems = (m: Material): MoreItem[] => [
-              { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+              { icon: MessageSquare, label: 'Conversa com o cliente', onClick: () => setTimelineMaterial(m) },
               { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
             ];
             const pastaBtn = (m: Material) => m.link_organizado
@@ -2724,7 +2915,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               {!agendado && <IconAction icon={RotateCcw} label="Pedir ajuste" onClick={pedirAjuste} />}
                               <IconAction icon={agendado ? Send : CheckCircle2} variant="ink" label={agendado ? 'Enviar agora' : 'Aprovar'} loading={actionLoading === m.id} onClick={() => handleCheckAndAprovar(m)} />
                               {moreMenu(`rev-${m.id}`, [
-                                { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                                { icon: MessageSquare, label: 'Conversa com o cliente', onClick: () => setTimelineMaterial(m) },
                                 { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
                                 agendado && { icon: RotateCcw, label: 'Pedir ajuste', onClick: pedirAjuste },
                                 agendado && { icon: X, label: 'Cancelar agendamento', disabled: actionLoading === m.id, onClick: () => handleCancelarAgendamento(m.id), danger: true },
@@ -2761,7 +2952,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             status: statusChip(planejamentoAjuste ? 'Ajuste de planejamento' : 'Ajuste de produção', planejamentoAjuste ? STATUS_INFO.roteiro_aprovado.cls : STATUS_INFO.ajustes.cls),
                             actions: <>
                               {moreMenu(`aj-${m.id}`, [
-                                { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                                { icon: MessageSquare, label: 'Conversa com o cliente', onClick: () => setTimelineMaterial(m) },
                                 { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
                                 !!m.link_drive && { icon: FileVideo, label: 'Ver vídeo enviado', onClick: () => setPreviewUrl(m.link_drive || null) },
                                 !!m.link_capa && { icon: ImageIcon, label: 'Ver capa enviada', onClick: () => setPreviewUrl(m.link_capa || null) },
@@ -2777,13 +2968,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                             below: (
                               <div className="space-y-2">
                                 {delegado && <span className="inline-flex text-xs font-medium px-2 py-0.5 rounded-md bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400">Delegado para {membros.find(mb => mb.id === (m.editor_id || m.designer_id))?.nome || 'equipe'}</span>}
-                                {feedbacks.length > 0 ? feedbacks.map((fb, idx) => (
-                                  <div key={idx} className={`max-w-[85%] ${idx > 0 ? 'opacity-70' : ''}`}>
-                                    {idx === 0 && author && <div className="text-xs text-zinc-500 mb-1">{author.nome} · {author.role}</div>}
-                                    {idx === 0 && !author && <div className="text-xs text-zinc-500 mb-1">{m.cliente?.nome || 'Cliente'}</div>}
-                                    <div className={`px-3 py-2 rounded-xl rounded-bl-sm text-[13px] whitespace-pre-wrap ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>{renderTextWithLinks(fb)}</div>
-                                  </div>
-                                )) : <p className="text-xs text-zinc-400 italic">Motivo não detalhado. Consulte os ajustes no botão de comentários.</p>}
+                                {/* Último pedido do cliente; o histórico inteiro (com fotos e áudios) fica na conversa */}
+                                {(() => {
+                                  const ultimo = feedbacks[0];
+                                  const data = ultimo ? /\[DATE:(.*?)\]/.exec(ultimo)?.[1] : null;
+                                  const texto = ultimo ? ultimo.replace(/\[DATE:.*?\]/g, '').trim() : '';
+                                  return (
+                                    <div className="flex items-end gap-3 flex-wrap">
+                                      {texto ? (
+                                        <div className="max-w-[85%] min-w-0">
+                                          <div className="text-xs text-zinc-500 mb-1">{author ? `${author.nome} · ${author.role}` : (m.cliente?.nome || 'Cliente')}{data ? ` · ${data}` : ''}</div>
+                                          <div className={`px-3 py-2 rounded-2xl rounded-bl-sm text-[13px] whitespace-pre-wrap break-words ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>{renderTextWithLinks(texto)}</div>
+                                        </div>
+                                      ) : <p className="text-xs text-zinc-400">O pedido está na conversa (pode ser foto ou áudio).</p>}
+                                      <button type="button" onClick={() => setTimelineMaterial(m)} className={`${btnLine} !py-1.5 !px-3 !text-xs`}>
+                                        <MessageSquare size={14} /> {feedbacks.length > 1 ? `Abrir conversa (${feedbacks.length} pedidos)` : 'Abrir conversa'}
+                                        {(msgsNaoLidas[m.id] || 0) > 0 && <span className="w-1.5 h-1.5 rounded-full bg-brand" />}
+                                      </button>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             ),
                           });
@@ -2814,7 +3018,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                           actions: <>
                             <IconAction icon={Archive} variant="ink" label="Marcar como postado e arquivar" loading={actionLoading === m.id} onClick={() => openConfirm('Arquivar e finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} />
                             {moreMenu(`ok-${m.id}`, [
-                              { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                              { icon: MessageSquare, label: 'Conversa com o cliente', onClick: () => setTimelineMaterial(m) },
                               { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
                             ])}
                           </>,
@@ -2837,16 +3041,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[
-                  { label: 'Pendentes', val: metrics.pendentes, icon: Clock, cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' },
-                  { label: 'Ajustes', val: metrics.ajustes, icon: MessageSquare, cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400' },
-                  { label: 'Aprovados', val: metrics.aprovados, icon: CheckCircle, cls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400' },
-                  { label: 'Eficiência', val: `${metrics.eficiencia}%`, icon: TrendingUp, cls: 'bg-brand-soft text-brand' },
+                  { label: 'Pendentes', val: metrics.pendentes, icon: Clock, cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400', go: () => filtrarInicio('pendentes'), dica: 'Ver o que está pendente com o cliente' },
+                  { label: 'Ajustes', val: metrics.ajustes, icon: MessageSquare, cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400', go: () => irParaPaginaEtapa('ajustes'), dica: 'Ver os pedidos de ajuste' },
+                  { label: 'Aprovados', val: metrics.aprovados, icon: CheckCircle, cls: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400', go: () => filtrarInicio('aprovados'), dica: 'Ver os itens aprovados' },
+                  { label: 'Eficiência', val: `${metrics.eficiencia}%`, icon: TrendingUp, cls: 'bg-brand-soft text-brand', go: () => setActiveTab('relatorios'), dica: 'Abrir relatórios' },
                 ].map((m, i) => (
-                  <div key={i} className={`${tc.bgCard} px-3.5 py-2.5 rounded-xl border ${tc.borderStrong} flex items-center gap-2.5`}>
+                  <button key={i} type="button" onClick={m.go} title={m.dica} className={`group/card ${tc.bgCard} px-3.5 py-2.5 rounded-xl border ${tc.borderStrong} flex items-center gap-2.5 text-left transition-colors hover:border-brand/50 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'}`}>
                     <span className={`w-7 h-7 rounded-lg inline-flex items-center justify-center shrink-0 ${m.cls}`}><m.icon size={15} /></span>
                     <span className="text-[13px] text-zinc-500">{m.label}</span>
                     <span className="ml-auto text-lg font-semibold leading-none">{m.val}</span>
-                  </div>
+                    <ChevronRight size={15} className="-mr-1 text-zinc-300 group-hover/card:text-brand transition-colors shrink-0" />
+                  </button>
                 ))}
               </div>
 
@@ -2854,10 +3059,18 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               {/* Etapas em uma faixa fina, sem caixa de gargalo */}
               <div className={`${tc.bgCard} px-2 py-1.5 rounded-xl border ${tc.borderStrong} flex gap-1 overflow-x-auto no-scrollbar`}>
                 {pipeline.map((node) => {
-                  const target: Record<string, [string, string?]> = { roteiro: ['planejamento', 'analise'], decupagem: ['planejamento', 'decupagem'], revisao: ['materiais-aprovacao'], ajustes: ['solicitacao-ajustes'], aprovado: ['materiais-aprovados'] };
+                  const target: Record<string, () => void> = {
+                    roteiro: () => filtrarInicio('roteiros'),
+                    decupagem: () => filtrarInicio('decupagem'),
+                    producao: () => filtrarInicio('producao'),
+                    revisao: () => irParaPaginaEtapa('aprovacao'),
+                    cliente: () => filtrarInicio('portal'),
+                    ajustes: () => irParaPaginaEtapa('ajustes'),
+                    aprovado: () => filtrarInicio('aprovados'),
+                  };
                   const go = target[node.id];
                   return (
-                    <button key={node.id} type="button" disabled={!go} onClick={() => go && setActiveTab(go[0], go[1])} title={go ? `Abrir ${node.label.toLowerCase()}` : undefined} className={`flex-1 min-w-[120px] flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors ${go ? (theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50') : 'cursor-default'}`}>
+                    <button key={node.id} type="button" disabled={!go} onClick={() => go?.()} title={go ? `Ver ${node.label.toLowerCase()}` : undefined} className={`flex-1 min-w-[120px] flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-colors ${go ? (theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100') : 'cursor-default'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${node.bg}`} />
                       <span className="text-[13px] whitespace-nowrap">{node.label}</span>
                       <span className={`ml-auto text-[13px] font-semibold ${node.color}`}>{node.count}</span>
@@ -2870,8 +3083,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 {showArchived && <StorageWidget materiais={materiais} theme={theme} />}
 
                 {/* FILTROS RÁPIDOS + BUSCA */}
-                <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div id="lista-inicio" className="flex flex-col md:flex-row md:items-center gap-3 scroll-mt-24">
                   <h2 className="text-lg font-semibold">{showArchived ? 'Concluídas' : 'Fluxo de aprovação'}</h2>
+                  {!showArchived && filtroEtapa && (
+                    <span className="inline-flex items-center gap-1.5 self-start md:self-auto h-7 pl-2.5 pr-1 rounded-full text-[12.5px] font-medium bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft">
+                      {filtroEtapa.label}{filtroEtapa.clienteId ? ` · ${clientes.find(c => c.id === filtroEtapa.clienteId)?.nome || 'cliente'}` : ''}
+                      <button type="button" onClick={() => setFiltroEtapa(null)} title="Mostrar tudo de novo" aria-label="Limpar filtro" className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-brand/15"><X size={13} /></button>
+                    </span>
+                  )}
                   {/* Filtros por prazo, como no Pautta. "Concluídas" mostra os materiais arquivados/finalizados. */}
                   <div className={`flex gap-0.5 p-1 rounded-xl overflow-x-auto no-scrollbar md:ml-auto ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
                     {[
@@ -2885,7 +3104,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                       return (
                         <button key={f.id} type="button" aria-pressed={on}
                           title={f.id === 'concluidas' ? 'Materiais arquivados / finalizados' : undefined}
-                          onClick={() => { if (f.id === 'concluidas') { setShowArchived(true); setActiveFilter('todos'); } else { setShowArchived(false); setActiveFilter(f.id); } }}
+                          onClick={() => { if (f.id === 'concluidas') { setShowArchived(true); setActiveFilter('todos'); } else { setShowArchived(false); setActiveFilter(f.id); if (f.id === 'todos') setFiltroEtapa(null); } }}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium shrink-0 transition-colors ${on ? `${tc.bgCard} text-brand shadow-sm` : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
                           <f.icon size={14} />{f.label}
                         </button>
@@ -2907,8 +3126,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                               <span className="mx-2.5 shrink-0">{clientInitial(group.cliente?.nome)}</span>
                               <span className="text-[15px] font-semibold truncate">{group.cliente?.nome}</span>
                             </div>
-                            {pipelineCols(contagem)}
-                            {pipelineInline(contagem, 'md:hidden ml-[66px]')}
+                            {pipelineCols(contagem, clienteId)}
+                            {pipelineInline(contagem, 'md:hidden ml-[66px]', clienteId)}
                           </div>
                           {expandedClients.includes(`geral-${clienteId}`) && (
                             <div className={`${tc.bgHighlight} pb-4`}>
@@ -2969,7 +3188,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                     actions: <>
                                                       {primary}
                                                       {moreMenu(`geral-${m.id}`, [
-                                                        { icon: MessageSquare, label: 'Ajustes e comentários', onClick: () => setTimelineMaterial(m) },
+                                                        { icon: MessageSquare, label: 'Conversa com o cliente', onClick: () => setTimelineMaterial(m) },
                                                         { icon: List, label: 'Histórico da tarefa', onClick: () => abrirHistoricoDelegacao(m.id, m.titulo) },
                                                         !!m.link_drive && { icon: FileVideo, label: 'Ver vídeo', onClick: () => setPreviewUrl(m.link_drive || null) },
                                                         !!m.link_capa && { icon: ImageIcon, label: 'Ver capa', onClick: () => setPreviewUrl(m.link_capa || null) },
@@ -3036,13 +3255,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                 {lista.length === 0 ? emptyState(clientes.length === 0 ? 'Nenhum cliente cadastrado.' : 'Nenhum cliente encontrado.') : (
                   <div className={`${tc.bgCard} border ${tc.borderStrong} rounded-2xl overflow-visible`}>
-                    <div className={`hidden md:grid md:grid-cols-[minmax(0,1fr)_180px_130px_88px] md:gap-4 px-4 py-2.5 border-b ${tc.borderStrong} text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
+                    <div className={`hidden md:grid md:grid-cols-[minmax(0,1fr)_180px_130px_180px] md:gap-4 px-4 py-2.5 border-b ${tc.borderStrong} text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
                       <span>Cliente</span><span>WhatsApp</span><span>Ciclos</span><span />
                     </div>
                     {lista.map((c, idx) => {
                       const abrir = () => { setEditingCliente(c); setWppGroupId(c.whatsapp_group_id || ''); setIsClienteModalOpen(true); };
                       return (
-                        <div key={`lista-cliente-${c.id}-${idx}`} onClick={abrir} className={`cursor-pointer flex items-center gap-3 md:grid md:grid-cols-[minmax(0,1fr)_180px_130px_88px] md:gap-4 px-4 py-3 border-b last:border-0 ${tc.border} ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
+                        <div key={`lista-cliente-${c.id}-${idx}`} onClick={abrir} className={`cursor-pointer flex items-center gap-3 md:grid md:grid-cols-[minmax(0,1fr)_180px_130px_180px] md:gap-4 px-4 py-3 border-b last:border-0 ${tc.border} ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className="w-9 h-9 rounded-lg overflow-hidden flex shrink-0 items-center justify-center text-white text-sm font-semibold" style={{ background: c.logo_url ? undefined : (c.cor_marca || '#A25431') }}>
                               {c.logo_url
@@ -3057,6 +3276,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                           <span className="hidden md:block text-[13px] text-zinc-500 truncate">{c.telefone}</span>
                           <span className="hidden md:block text-[13px] text-zinc-500">{c.ciclos_contratados || 12} contratados</span>
                           <div className="flex items-center gap-1.5 justify-end shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {/* Entrar no portal do cliente como admin: abre em nova aba com a faixa "modo admin" */}
+                            <button type="button" title={`Abrir o portal de ${c.nome} e agir no lugar do cliente`} onClick={() => window.open(`${getSafePortalUrl(window.location.origin, c.token_magico)}?admin=1`, '_blank', 'noopener')}
+                              className="h-9 px-3 rounded-[10px] inline-flex items-center gap-1.5 text-[13px] font-medium bg-brand-soft text-brand hover:brightness-95 dark:bg-brand/20 dark:text-brand-soft transition">
+                              <LogIn size={15} /> Entrar
+                            </button>
                             <IconAction icon={Link} label="Copiar link do portal" onClick={() => copyToClipboard(getSafePortalUrl(window.location.origin, c.token_magico))} />
                             {moreMenu(`cli-${c.id}`, [
                               { icon: Edit3, label: 'Editar dados', onClick: abrir },
@@ -4007,6 +4231,28 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`${theme === 'dark' ? 'bg-zinc-950 text-zinc-300 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-zinc-900' : 'bg-white text-zinc-800 [&_.ql-toolbar]:border-zinc-200 [&_.ql-container]:border-zinc-200'} rounded-xl overflow-hidden [&_.ql-toolbar]:rounded-t-xl [&_.ql-container]:rounded-b-xl [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
                   <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="[&_.ql-editor]:min-h-[320px] [&_.ql-editor]:text-[15px]" />
                 </div>
+
+                {/* Conversa com o cliente pelo portal (texto, fotos e áudio) */}
+                <div className="flex items-center gap-2 mt-6 mb-2.5">
+                  <span className="text-[15px] font-semibold">Conversa com o cliente</span>
+                  <span className="text-xs text-zinc-500">pelo portal</span>
+                  <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none" title="Manda uma mensagem no WhatsApp do cliente avisando que há resposta no portal">
+                    <input type="checkbox" checked={avisarWppConversa} onChange={(e) => setAvisarWppConversa(e.target.checked)} className="accent-brand" />
+                    Avisar no WhatsApp
+                  </label>
+                </div>
+                <div className={`border ${tc.borderStrong} rounded-xl overflow-hidden`}>
+                  <ConversaMaterial
+                    className="h-[440px]"
+                    mensagens={conversaAdmin}
+                    carregando={carregandoConversaAdmin}
+                    perspectiva="equipe"
+                    dark={theme === 'dark'}
+                    onEnviar={(envio) => enviarConversaAdmin(m, envio)}
+                    placeholder="Responder ao cliente…"
+                    vazio="Nenhuma mensagem do cliente sobre este conteúdo ainda."
+                  />
+                </div>
               </div>
 
               <div className={`px-5 md:px-6 py-4 border-t ${tc.borderStrong} flex justify-end gap-2.5 shrink-0`}>
@@ -4509,73 +4755,50 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
     
 
-      {/* MODAL DE TIMELINE DE COMENTÁRIOS */}
-      {timelineMaterial && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className={`${tc.bgCard} border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} w-[95%] max-w-2xl rounded-2xl p-5 md:p-8 shadow-2xl flex flex-col max-h-[85vh]`}>
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-xl md:text-2xl font-semibold flex items-center gap-3"><MessageSquare size={24} className="text-brand" /> Linha do Tempo</h3>
-                <p className={`${tc.textMuted} text-[12px] font-bold   mt-1`}>{timelineMaterial.titulo}</p>
-              </div>
-              <button onClick={() => setTimelineMaterial(null)} className={`p-2 ${tc.bgHover} rounded-full`}><X size={20} /></button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
-              {!timelineMaterial.feedback && !timelineMaterial.feedback_admin ? (
-                <div className="py-10 text-center opacity-40 font-bold text-[12px]">Nenhum comentário ou ajuste registrado.</div>
-              ) : (
-                <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-300 dark:before:via-zinc-700 before:to-transparent">
-                  {timelineMaterial.feedback_admin && (
-                    <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 bg-blue-500 text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                        <ShieldCheck size={16} />
-                      </div>
-                      <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900/50">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-[11px] text-blue-600 dark:text-blue-400">
-                            {(() => {
-                              const authorInfo = getAuthorInfo(timelineMaterial.feedback_admin);
-                              return authorInfo ? `Instrução de ${authorInfo.nome}` : 'Instrução Interna';
-                            })()}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-200 whitespace-pre-wrap">{renderTextWithLinks(timelineMaterial.feedback_admin)}</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {timelineMaterial.feedback && timelineMaterial.feedback.split('\n\n').map((comentario, idx) => {
-                    if (!comentario.trim()) return null;
-                    const isClient = !comentario.includes('[ID:');
-                    const authorInfo = getAuthorInfo(comentario);
-                    let displayComentario = comentario;
-                    let timestampMatch = displayComentario.match(/\[DATE:(.*?)\]/);
-                    let timestamp = timestampMatch ? timestampMatch[1] : null;
-                    if (timestampMatch) displayComentario = displayComentario.replace(timestampMatch[0], '').trim();
-                    const authorName = isClient ? (timelineMaterial.cliente?.nome || 'Cliente') : (authorInfo ? authorInfo.nome : 'Membro da Equipe');
-                    const authorRole = isClient ? 'Ajuste / Feedback' : (authorInfo ? authorInfo.role : 'Ajuste Interno');
-                    return (
-                      <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-zinc-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${isClient ? 'bg-brand text-white' : 'bg-zinc-600 text-white'}`}>
-                          <MessageSquare size={16} />
-                        </div>
-                        <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl shadow-sm border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`font-semibold text-[11px]  ${isClient ? 'text-brand' : 'text-zinc-500'}`}>{authorRole}: {authorName}</span>
-                            {timestamp && <span className={`text-[11px] font-bold ${theme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'}`}>{timestamp}</span>}
-                          </div>
-                          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'} whitespace-pre-wrap break-words`}>{renderTextWithLinks(displayComentario)}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+      {/* CONVERSA COM O CLIENTE (pedidos de ajuste + mensagens, tudo junto). Painel lateral, no padrão do painel da tarefa. */}
+      {timelineMaterial && (() => {
+        const tm = materiais.find(x => x.id === timelineMaterial.id) || timelineMaterial;
+        return (
+          <div className="fixed inset-0 z-[9999] flex justify-end bg-zinc-950/30 animate-in fade-in duration-200" onClick={() => setTimelineMaterial(null)}>
+            <div onClick={(e) => e.stopPropagation()} className={`${tc.bgCard} w-full md:w-[520px] h-full shadow-2xl flex flex-col text-left animate-in slide-in-from-right duration-300`}>
+              <div className={`px-5 py-4 border-b ${tc.borderStrong} flex items-start gap-3 shrink-0`}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-zinc-500 truncate">{tm.cliente?.nome}{tm.ciclo ? ` · Ciclo ${tm.ciclo}` : ''}</div>
+                  <h3 className={`text-lg font-semibold mt-0.5 leading-snug ${tc.textMain}`}>{tm.titulo}</h3>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {statusChip(statusOf(tm).label, statusOf(tm).cls)}
+                    <button type="button" onClick={() => { setTimelineMaterial(null); openRoteiro(tm); }} className="text-xs font-medium text-brand hover:underline">Abrir tarefa</button>
+                  </div>
                 </div>
+                <IconAction icon={X} label="Fechar" onClick={() => setTimelineMaterial(null)} />
+              </div>
+              {tm.feedback_admin && (
+                <details className={`px-5 py-2.5 border-b ${tc.borderStrong} text-[13px] shrink-0`}>
+                  <summary className="cursor-pointer text-zinc-500 select-none">Instrução interna para a equipe (o cliente não vê)</summary>
+                  <p className={`mt-2 whitespace-pre-wrap ${tc.textMain}`}>{renderTextWithLinks(tm.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').replace(/\[\/?(EDITOR|DESIGNER)\]/g, '').trim())}</p>
+                </details>
               )}
+              <div className={`px-5 py-2.5 border-b ${tc.borderStrong} flex items-center gap-2 shrink-0`}>
+                <span className="text-[13px] font-semibold">Conversa com o cliente</span>
+                <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none" title="Manda uma mensagem no WhatsApp do cliente avisando que há resposta no portal">
+                  <input type="checkbox" checked={avisarWppConversa} onChange={(e) => setAvisarWppConversa(e.target.checked)} className="accent-brand" />
+                  Avisar no WhatsApp
+                </label>
+              </div>
+              <ConversaMaterial
+                className="flex-1 min-h-0"
+                mensagens={conversaAdmin}
+                carregando={carregandoConversaAdmin}
+                perspectiva="equipe"
+                dark={theme === 'dark'}
+                onEnviar={(envio) => enviarConversaAdmin(tm, envio)}
+                placeholder="Responder ao cliente…"
+                vazio="Nenhum pedido ou mensagem do cliente sobre este conteúdo ainda."
+              />
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
 
       {batchApprovalData && (

@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Portal do Cliente · Mockup</title>
+<!--
+  Mockup local e autocontido (nenhum recurso externo), com dados fictícios.
+  Layout do mockup-07 (PNG de 27/10): lista | conteúdo | conversa fixa com campo de mensagem
+  (texto, fotos, áudio). Visual do painel novo: zinc + cobre, linhas em card, chips com ponto,
+  btnInk/btnLine. Botões Pedir ajuste / Aprovar no topo do conteúdo.
+-->
+<style>
+  :root {
+    --brand: #A25431; --brand-soft: #F9E2D2; --brand-ink: #212013; --brand-tint: #FFFBF8; --brand-line: #F3D9C8;
+    --zinc-50: #FAFAFA; --zinc-100: #F4F4F5; --zinc-200: #E4E4E7; --zinc-300: #D4D4D8;
+    --zinc-400: #A1A1AA; --zinc-500: #71717A; --zinc-600: #52525B; --zinc-800: #27272A;
+    --top-h: 64px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--zinc-50); color: var(--zinc-800); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  svg { display: block; flex-shrink: 0; }
+  .hidden { display: none !important; }
+
+  /* Botões do painel */
+  .btn-ink, .btn-line { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; transition: .15s; min-height: 40px; white-space: nowrap; }
+  .btn-ink { background: var(--brand-ink); color: #fff; border: 0; }
+  .btn-ink:hover { opacity: .9; }
+  .btn-line { background: #fff; border: 1px solid var(--zinc-200); color: #3F3F46; }
+  .btn-line:hover { background: var(--zinc-50); }
+  .btn-line.on { border-color: #FDBA74; background: #FFF7ED; color: #C2410C; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--zinc-200); background: #fff; color: var(--zinc-500); display: grid; place-items: center; padding: 0; }
+  .icon-btn:hover { color: var(--brand); }
+
+  /* Barra do topo (white-label) */
+  .topbar { height: var(--top-h); background: #fff; border-bottom: 1px solid var(--zinc-200); }
+  .topbar .in { max-width: 1440px; height: 100%; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 38px; height: 38px; border-radius: 10px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+  .topbar .sb { font-size: 12px; color: var(--zinc-500); }
+  .topbar .nm { font-weight: 600; font-size: 15px; line-height: 1.2; }
+  .topbar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .pend { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 7px 12px; border-radius: 10px; background: #FFF7ED; color: #C2410C; }
+
+  .page { max-width: 1440px; margin: 0 auto; padding: 16px 24px 24px; }
+
+  /* Linha de abas + progresso do ciclo */
+  .bar-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tabs { display: inline-flex; gap: 2px; padding: 4px; background: var(--zinc-100); border-radius: 12px; }
+  .tab { border: 0; background: none; padding: 7px 14px; font-size: 13.5px; font-weight: 500; color: var(--zinc-500); display: inline-flex; align-items: center; gap: 7px; border-radius: 9px; }
+  .tab.on { background: #fff; color: var(--brand); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .tab .badge { font-size: 11px; font-weight: 600; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-grid; place-items: center; background: var(--brand); color: #fff; }
+  .prog { margin-left: auto; display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--zinc-200); border-radius: 12px; padding: 8px 14px; font-size: 13px; }
+  .prog b { font-weight: 500; }
+  .prog .track { width: 140px; height: 6px; background: var(--zinc-100); border-radius: 3px; overflow: hidden; }
+  .prog .track span { display: block; height: 100%; background: #16A34A; border-radius: 3px; }
+  .prog .n { color: var(--zinc-500); }
+
+  /* Três colunas */
+  .cols { display: grid; grid-template-columns: 300px minmax(0, 1fr) 380px; gap: 16px; height: calc(100vh - var(--top-h) - 86px); min-height: 560px; }
+  .card { background: #fff; border: 1px solid var(--zinc-200); border-radius: 16px; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Coluna 1: lista */
+  .list { padding: 12px; overflow-y: auto; }
+  .ciclo { display: flex; align-items: center; gap: 8px; margin: 14px 4px 8px; }
+  .ciclo:first-child { margin-top: 4px; }
+  .ciclo .lb { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--zinc-400); background: none; border: 0; padding: 2px 0; }
+  .ciclo .lb .chev { transition: transform .15s; }
+  .ciclo .lb.closed .chev { transform: rotate(-90deg); }
+  .ciclo .meta { margin-left: auto; font-size: 11.5px; font-weight: 600; color: #16A34A; background: #F0FDF4; padding: 2px 7px; border-radius: 6px; }
+  .all { width: 100%; margin: 0 0 8px; min-height: 34px; font-size: 12.5px; }
+  .row { width: 100%; text-align: left; display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--zinc-200); border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; transition: background .15s, border-color .15s; }
+  .row:hover { background: var(--zinc-50); }
+  .row.sel { border-color: var(--brand); background: var(--brand-tint); box-shadow: 0 0 0 3px rgba(162, 84, 49, .08); }
+  .row .tt { flex: 1; min-width: 0; }
+  .row .title { font-weight: 500; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .row .sub { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .new { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--brand); }
+  .new::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+  .thumb { width: 30px; height: 50px; border-radius: 7px; color: #fff; display: grid; place-items: center; background: linear-gradient(135deg, #F0C9AE, var(--brand)); flex-shrink: 0; }
+  .thumb.muted { filter: grayscale(.6); opacity: .7; }
+  .doc-ic { width: 30px; height: 30px; border-radius: 8px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex-shrink: 0; }
+  .doc-ic.muted { background: var(--zinc-100); color: var(--zinc-400); }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .chip.wait { background: #FFF7ED; color: #C2410C; }
+  .chip.fix { background: #FEF2F2; color: #DC2626; }
+  .chip.prod { background: #EFF6FF; color: #2563EB; }
+  .chip.ok { background: #F0FDF4; color: #16A34A; }
+
+  /* Coluna 2: conteúdo */
+  .detail { display: contents; }
+  .vh { padding: 16px 20px; border-bottom: 1px solid var(--zinc-200); display: flex; align-items: flex-start; gap: 12px; }
+  .vh .info { flex: 1; min-width: 0; }
+  .vh .crumb { font-size: 12px; color: var(--zinc-500); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .vh h2 { margin: 2px 0 6px; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; }
+  .vh .back { display: none; }
+  .vact { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .vact .btn-ink { min-width: 120px; }
+  .vb { padding: 18px 20px; overflow-y: auto; flex: 1; }
+  .ver { font-size: 11.5px; font-weight: 600; background: var(--zinc-100); color: var(--zinc-600); padding: 2px 7px; border-radius: 6px; }
+
+  .note { border-radius: 12px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; border: 1px solid; }
+  .note.prod { background: #EFF6FF; border-color: #DBEAFE; color: #1E40AF; }
+  .note.ok { background: #F0FDF4; border-color: #DCFCE7; color: #166534; }
+  .note.fix { background: #FEF2F2; border-color: #FEE2E2; color: #991B1B; }
+
+  .seg { display: inline-flex; gap: 2px; padding: 4px; background: var(--zinc-100); border-radius: 12px; margin-bottom: 14px; }
+  .seg button { border: 0; background: none; padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--zinc-500); display: inline-flex; align-items: center; gap: 6px; }
+  .seg button.on { background: #fff; color: var(--brand); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .media { height: min(100%, 620px); max-height: calc(100vh - 330px); min-height: 360px; aspect-ratio: 9 / 16; margin: 0 auto; border-radius: 14px; display: grid; place-items: center; color: #fff; position: relative; overflow: hidden; background: linear-gradient(160deg, #E9B996 0%, #A25431 60%, #4A2516 100%); }
+  .media.capa { background: linear-gradient(160deg, #FBE9DD 0%, #E7B593 100%); color: var(--brand-ink); }
+  .media .play { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.25); display: grid; place-items: center; }
+  .media .cap { position: absolute; left: 14px; right: 14px; bottom: 14px; font-weight: 600; font-size: 17px; line-height: 1.25; }
+  .media .tg { position: absolute; top: 10px; left: 10px; font-size: 11px; font-weight: 600; background: rgba(0,0,0,.35); color: #fff; padding: 3px 8px; border-radius: 6px; }
+
+  .doc { background: var(--zinc-50); border: 1px solid var(--zinc-200); border-radius: 12px; padding: 18px 20px; font-size: 14px; line-height: 1.7; color: #3F3F46; max-width: 680px; margin: 0 auto; }
+  .doc h4 { margin: 14px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--zinc-400); }
+  .doc h4:first-child { margin-top: 0; }
+  .doc p { margin: 0 0 8px; }
+
+  /* Coluna 3: conversa */
+  .ch { padding: 16px 18px; border-bottom: 1px solid var(--zinc-200); display: flex; align-items: center; gap: 8px; }
+  .ch h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .ch .about { font-size: 12px; color: var(--zinc-500); background: var(--zinc-100); padding: 2px 8px; border-radius: 6px; }
+  .msgs { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .msgs .vazio { text-align: center; color: var(--zinc-500); font-size: 13px; padding: 30px 10px; }
+  .msg { margin-bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; }
+  .msg .who { font-size: 11.5px; color: var(--zinc-400); margin-bottom: 4px; }
+  .msg .who .aj { color: #C2410C; font-weight: 500; }
+  .msg .bub { max-width: 88%; border-radius: 14px; padding: 9px 12px; font-size: 13.5px; background: var(--zinc-100); }
+  .msg .bub > * + * { margin-top: 8px; }
+  .msg.me { align-items: flex-end; }
+  .msg.me .bub { background: var(--brand-tint); border: 1px solid var(--brand-line); }
+  .fotos { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fotos img, .ph-fake { width: 76px; height: 76px; border-radius: 10px; object-fit: cover; display: block; }
+  .ph-fake { background: linear-gradient(135deg, #F4E1D4, #D9A584); display: grid; place-items: center; color: #fff; }
+  .ph-fake.b { background: linear-gradient(135deg, #E4E4E7, #A1A1AA); }
+
+  .aud { display: inline-flex; align-items: center; gap: 10px; }
+  .aud .ap { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--brand); color: #fff; display: grid; place-items: center; padding: 0; }
+  .aud .wave { display: flex; align-items: center; gap: 2px; height: 22px; }
+  .aud .wave i { width: 3px; border-radius: 2px; background: var(--zinc-300); display: block; }
+  .aud.playing .wave i { background: var(--brand); }
+  .aud .dur { font-size: 12px; color: var(--zinc-500); font-variant-numeric: tabular-nums; }
+
+  /* Campo de mensagem (fixo embaixo da conversa) */
+  .composer { border-top: 1px solid var(--zinc-200); padding: 10px 12px 12px; background: #fff; }
+  .aj-bar { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #9A3412; background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 6px 6px 6px 10px; margin-bottom: 8px; }
+  .aj-bar button { margin-left: auto; border: 0; background: none; color: #9A3412; padding: 4px; border-radius: 6px; }
+  .sobre { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12.5px; color: var(--zinc-500); }
+  .sobre button { border: 1px solid var(--zinc-200); background: #fff; border-radius: 8px; padding: 3px 10px; font-size: 12.5px; font-weight: 500; color: var(--zinc-600); }
+  .sobre button.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand); }
+  .previews { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .previews:empty { display: none; }
+  .pv { position: relative; }
+  .pv img, .pv .ph-fake { width: 56px; height: 56px; }
+  .pv .rm { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; background: var(--zinc-800); color: #fff; display: grid; place-items: center; padding: 0; }
+  .pv.audio { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px; border: 1px solid var(--zinc-200); border-radius: 12px; }
+  .inrow { display: flex; align-items: flex-end; gap: 6px; border: 1px solid var(--zinc-200); border-radius: 14px; padding: 6px 6px 6px 12px; background: var(--zinc-50); }
+  .inrow:focus-within { border-color: var(--brand); background: #fff; }
+  .inrow textarea { flex: 1; border: 0; background: none; resize: none; font: inherit; font-size: 14px; outline: none; padding: 8px 0; max-height: 120px; min-height: 22px; line-height: 1.4; }
+  .inrow .ib { width: 36px; height: 36px; border: 0; background: none; border-radius: 9px; color: var(--zinc-500); display: grid; place-items: center; padding: 0; }
+  .inrow .ib:hover { background: var(--zinc-100); color: var(--brand); }
+  .send { width: 36px; height: 36px; border: 0; border-radius: 10px; background: var(--brand-ink); color: #fff; display: grid; place-items: center; padding: 0; }
+  .recrow { display: flex; align-items: center; gap: 8px; }
+  .recrow .del { width: 40px; height: 40px; border-radius: 10px; border: 0; background: #FEF2F2; color: #DC2626; display: grid; place-items: center; padding: 0; }
+  .recrow .pill { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--zinc-50); border: 1px solid var(--zinc-200); border-radius: 12px; padding: 8px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .recrow .dot { width: 8px; height: 8px; border-radius: 50%; background: #DC2626; animation: pulse 1s infinite; }
+  .recrow .wave i { background: #E7B593; }
+  .recrow .send { width: 40px; height: 40px; }
+  .rec-hint { text-align: center; font-size: 12px; color: var(--zinc-500); margin-top: 6px; }
+  @keyframes pulse { 50% { opacity: .3; } }
+
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; background: #fff; border: 1px solid var(--zinc-200); box-shadow: 0 10px 30px rgba(0,0,0,.12); border-radius: 12px; padding: 12px 14px; font-size: 13px; display: flex; gap: 10px; align-items: center; z-index: 60; }
+  .toast .d { width: 22px; height: 22px; border-radius: 50%; background: #16A34A; color: #fff; display: grid; place-items: center; }
+
+  /* Telas médias: conversa vai para baixo do conteúdo */
+  @media (max-width: 1180px) and (min-width: 901px) {
+    .cols { grid-template-columns: 280px minmax(0, 1fr); height: auto; }
+    .detail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .detail .card { overflow: visible; }
+    .media { height: 520px; max-height: none; }
+    .msgs { max-height: 420px; }
+  }
+
+  /* Celular: lista; o conteúdo abre por cima (como o painel de tarefa), conversa embaixo do vídeo */
+  @media (max-width: 900px) {
+    .topbar .in, .page { padding-left: 16px; padding-right: 16px; }
+    .topbar .wpp-txt { display: none; }
+    .prog { margin-left: 0; width: 100%; justify-content: space-between; }
+    .prog .track { flex: 1; }
+    .cols { display: block; height: auto; }
+    .cols > .card.lst { border: 0; background: none; }
+    .list { padding: 0; overflow: visible; }
+    .detail { display: none; position: fixed; inset: 0; z-index: 40; background: var(--zinc-50); flex-direction: column; overflow-y: auto; }
+    .detail.open { display: flex; }
+    .detail .card { border-radius: 0; border: 0; overflow: visible; }
+    .vh { position: sticky; top: 0; background: #fff; z-index: 2; flex-wrap: wrap; padding: 12px 16px; }
+    .vh .back { display: grid; }
+    .vh h2 { font-size: 17px; }
+    .vact { order: 3; width: 100%; }
+    .vact .btn-line, .vact .btn-ink { flex: 1; min-height: 46px; font-size: 14px; }
+    .vb { padding: 14px 16px; }
+    .media { height: auto; width: 62%; max-height: none; min-height: 0; }
+    .conv-card { border-top: 1px solid var(--zinc-200) !important; flex: 1; }
+    .ch { padding: 14px 16px 6px; border-bottom: 0; }
+    .msgs { overflow: visible; padding: 8px 16px 12px; }
+    .composer { position: sticky; bottom: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 20px rgba(0,0,0,.04); }
+    .toast { bottom: 150px; width: calc(100% - 32px); }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="in">
+    <div class="logo" aria-hidden="true">DG</div>
+    <div>
+      <div class="sb">Portal de conteúdo</div>
+      <div class="nm">Olá, Daniele Graças</div>
+    </div>
+    <div class="right">
+      <span class="pend" id="pend"></span>
+      <button type="button" class="btn-line" title="Falar com a agência no WhatsApp">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/></svg>
+        <span class="wpp-txt">Falar no WhatsApp</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="bar-row">
+    <nav class="tabs" id="tabs" aria-label="Tipo de conteúdo"></nav>
+    <div class="prog" id="prog"></div>
+  </div>
+
+  <div class="cols">
+    <section class="card lst" aria-label="Conteúdos"><div class="list" id="list"></div></section>
+    <div class="detail" id="detail">
+      <section class="card" id="viewer" aria-label="Conteúdo aberto"></section>
+      <section class="card conv-card" aria-label="Conversa">
+        <div class="ch"><h3>Conversa</h3><span class="about" id="about"></span></div>
+        <div class="msgs" id="msgs"></div>
+        <div class="composer" id="composer">
+          <div id="aj-bar"></div>
+          <div class="sobre" id="sobre"></div>
+          <div class="previews" id="prev"></div>
+          <div id="inarea"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<input type="file" id="file" accept="image/*" multiple hidden>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+  const I = {
+    chev: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>',
+    left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+    down: '<svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+    cal: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    doc: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>',
+    play: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/></svg>',
+    tri: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>`,
+    img: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>',
+    mic: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg>',
+    send: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>',
+    trash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>',
+    ok: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+    x: (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
+    edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    clock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+  };
+
+  const ST = {
+    wait: { label: 'Aguardando você', cls: 'wait' },
+    fix:  { label: 'Em ajuste', cls: 'fix' },
+    prod: { label: 'Em produção', cls: 'prod' },
+    ok:   { label: 'Aprovado', cls: 'ok' },
+  };
+
+  // Dados fictícios
+  const ROTEIRO = `<h4>Gancho</h4><p>Você passa protetor solar só quando vai à praia? Então esse vídeo é para você.</p>
+    <h4>Desenvolvimento</h4><p>Mito 1: "Em dia nublado não precisa." Boa parte da radiação UV atravessa as nuvens.</p>
+    <p>Mito 2: "Pele negra não precisa de protetor." Precisa, sim: a proteção natural não evita manchas.</p>
+    <p>Mito 3: "Uma aplicação de manhã dura o dia todo." O ideal é reaplicar ao longo do dia.</p>
+    <h4>Chamada final</h4><p>Salva esse vídeo e manda para aquela amiga que só passa protetor no verão.</p>`;
+  const oi = (q, t) => ({ de: 'equipe', quando: q, texto: t });
+  const itens = [
+    { id: 11, tipo: 'post', ciclo: 'Novembro', titulo: '3 erros ao lavar o rosto', capa: true, versao: 1, st: 'wait', legenda: '3 erros que todo mundo comete ao lavar o rosto', conversa: [oi('10/11 · 09:12', 'Oi, Daniele! O vídeo e a capa já estão prontos para sua aprovação.')] },
+    { id: 12, tipo: 'post', ciclo: 'Novembro', titulo: 'Rotina noturna em 5 passos', capa: false, versao: 1, st: 'wait', legenda: 'Minha rotina noturna em 5 passos', conversa: [] },
+    { id: 13, tipo: 'post', ciclo: 'Novembro', titulo: 'Skincare para pele oleosa', capa: true, versao: 2, st: 'wait', nova: true, legenda: 'Skincare para pele oleosa', conversa: [
+      oi('08/11 · 10:14', 'Oi! O reels já está pronto para sua aprovação.'),
+      { de: 'cliente', quando: '08/11 · 15:40', audio: { url: null, dur: 24 }, ajuste: true, alvo: 'video' },
+      { de: 'cliente', quando: '08/11 · 15:41', fotos: [null, 'b'], texto: 'Queria a legenda nesse estilo, com essa cor.' },
+      oi('09/11 · 09:02', 'Ajustado! Trocamos a legenda e a cor. Dá uma olhada na nova versão.'),
+      { de: 'equipe', quando: '09/11 · 09:03', audio: { url: null, dur: 12 } },
+    ] },
+    { id: 14, tipo: 'post', ciclo: 'Novembro', titulo: 'Bastidores do consultório', capa: true, versao: 1, st: 'fix', legenda: 'Bastidores do consultório', conversa: [
+      { de: 'cliente', quando: '10/11 · 18:20', texto: 'Tirar a parte em que aparece a recepção, por favor.', ajuste: true, alvo: 'video' },
+      oi('10/11 · 18:45', 'Combinado! Te mandamos a nova versão amanhã.'),
+    ] },
+    { id: 15, tipo: 'post', ciclo: 'Outubro', titulo: 'Antes e depois: manchas', capa: true, versao: 1, st: 'ok', em: '01/11', legenda: 'Antes e depois: tratamento de manchas', conversa: [] },
+    { id: 16, tipo: 'post', ciclo: 'Outubro', titulo: 'Como escolher seu hidratante', capa: true, versao: 2, st: 'ok', em: '28/10', legenda: 'Como escolher seu hidratante', conversa: [] },
+    { id: 1, tipo: 'roteiro', ciclo: 'Novembro', titulo: 'Mitos sobre protetor solar', st: 'wait', conversa: [] },
+    { id: 2, tipo: 'roteiro', ciclo: 'Novembro', titulo: 'O que eu uso antes da maquiagem', st: 'wait', conversa: [] },
+    { id: 3, tipo: 'roteiro', ciclo: 'Novembro', titulo: 'Vitamina C: de manhã ou à noite?', st: 'fix', conversa: [
+      { de: 'cliente', quando: '08/11 · 14:20', texto: 'Falar também da vitamina C em sérum, não só em creme.', ajuste: true },
+    ] },
+    { id: 4, tipo: 'roteiro', ciclo: 'Novembro', titulo: 'Sono e pele: tudo a ver', st: 'prod', etapa: 'gravação e edição', conversa: [] },
+    { id: 5, tipo: 'roteiro', ciclo: 'Outubro', titulo: 'Perguntas que mais recebo', st: 'ok', em: '03/11', conversa: [] },
+  ];
+
+  let aba = 'post';
+  let selId = null;
+  let mediaTab = 'video';
+  let fechados = ['post-Outubro', 'roteiro-Outubro'];
+  // estado do campo de mensagem
+  let modoAjuste = false;
+  let sobre = 'video';
+  let anexos = { fotos: [], audio: null };
+  let rec = null;
+
+  const $ = (id) => document.getElementById(id);
+  const byId = (id) => itens.find(i => i.id === id);
+  const chip = (s) => `<span class="chip ${ST[s].cls}">${ST[s].label}</span>`;
+  const daAba = () => itens.filter(i => i.tipo === aba);
+  const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+
+  // ---------- topo, abas, progresso ----------
+  function renderTopo() {
+    const wait = itens.filter(i => i.st === 'wait').length;
+    $('pend').innerHTML = wait ? `${I.clock} ${wait} ${wait === 1 ? 'pendente' : 'pendentes'}` : `${I.ok} Tudo em dia`;
+    $('pend').style.cssText = wait ? '' : 'background:#F0FDF4;color:#16A34A';
+    const cnt = (t) => itens.filter(i => i.tipo === t && i.st === 'wait').length;
+    $('tabs').innerHTML = [['post', 'Posts', I.play], ['roteiro', 'Roteiros', I.doc]].map(([k, l, ic]) =>
+      `<button type="button" class="tab ${aba === k ? 'on' : ''}" data-k="${k}">${ic} ${l}${cnt(k) ? `<span class="badge">${cnt(k)}</span>` : ''}</button>`).join('');
+    $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { aba = b.dataset.k; autoSelecionar(); limparComposer(); render(); });
+    const nov = daAba().filter(i => i.ciclo === 'Novembro');
+    const okN = nov.filter(i => i.st === 'ok' || i.st === 'prod').length;
+    $('prog').innerHTML = `<b>Ciclo de novembro</b><span class="track"><span style="width:${nov.length ? Math.round(okN / nov.length * 100) : 0}%"></span></span><span class="n">${okN} de ${nov.length} aprovados</span>`;
+  }
+
+  // ---------- lista ----------
+  function renderLista() {
+    const grupos = {};
+    const ordem = { wait: 0, fix: 1, prod: 2, ok: 3 };
+    daAba().sort((a, b) => ordem[a.st] - ordem[b.st]).forEach(i => (grupos[i.ciclo] = grupos[i.ciclo] || []).push(i));
+    $('list').innerHTML = Object.entries(grupos).map(([ciclo, lista]) => {
+      const key = `${aba}-${ciclo}`;
+      const fechado = fechados.includes(key);
+      const pend = lista.filter(i => i.st === 'wait');
+      const okN = lista.filter(i => i.st === 'ok' || i.st === 'prod').length;
+      const tudoOk = okN === lista.length;
+      return `<div class="ciclo">
+          <button type="button" class="lb ${fechado ? 'closed' : ''}" data-key="${key}" aria-expanded="${!fechado}">${I.down}${I.cal} Ciclo de ${ciclo.toLowerCase()}</button>
+          ${tudoOk ? `<span class="meta">${okN}/${lista.length}</span>` : ''}
+        </div>
+        ${!fechado && aba === 'roteiro' && pend.length > 1 ? `<button type="button" class="btn-line all" data-all="${ciclo}">${I.ok} Aprovar todos os roteiros (${pend.length})</button>` : ''}
+        ${fechado ? '' : lista.map(rowHTML).join('')}`;
+    }).join('');
+    $('list').querySelectorAll('.lb').forEach(b => b.onclick = () => {
+      const k = b.dataset.key;
+      fechados = fechados.includes(k) ? fechados.filter(x => x !== k) : [...fechados, k];
+      renderLista();
+    });
+    $('list').querySelectorAll('[data-all]').forEach(b => b.onclick = () => {
+      const lista = daAba().filter(i => i.ciclo === b.dataset.all && i.st === 'wait');
+      lista.forEach(i => { i.st = 'prod'; i.etapa = 'gravação e edição'; });
+      toast(`${lista.length} roteiros aprovados. A equipe já foi avisada.`);
+      autoSelecionar(); render();
+    });
+    $('list').querySelectorAll('.row').forEach(b => b.onclick = () => abrir(+b.dataset.id));
+  }
+
+  function rowHTML(i) {
+    const lead = i.tipo === 'post'
+      ? `<span class="thumb ${i.st === 'ok' ? 'muted' : ''}">${I.tri(12)}</span>`
+      : `<span class="doc-ic ${i.st === 'ok' ? 'muted' : ''}">${I.doc}</span>`;
+    return `<button type="button" class="row ${selId === i.id ? 'sel' : ''}" data-id="${i.id}">
+      ${lead}
+      <span class="tt"><span class="title">${i.titulo}</span><span class="sub">${chip(i.st)}${i.nova ? '<span class="new">Nova mensagem</span>' : ''}</span></span>
+    </button>`;
+  }
+
+  function abrir(id) {
+    if (selId !== id) limparComposer();
+    selId = id; mediaTab = 'video';
+    byId(id).nova = false;
+    render();
+    if (isMobile()) { $('detail').classList.add('open'); $('detail').scrollTop = 0; }
+  }
+  function autoSelecionar() {
+    const prox = daAba().find(i => i.st === 'wait') || daAba()[0];
+    selId = prox ? prox.id : null; mediaTab = 'video';
+    if (prox) prox.nova = false;
+  }
+
+  // ---------- coluna do conteúdo ----------
+  function renderViewer() {
+    const v = $('viewer');
+    const i = byId(selId);
+    if (!i) { v.innerHTML = ''; return; }
+    const tipoTxt = i.tipo === 'post' ? (i.capa ? 'Vídeo e capa' : 'Vídeo') : 'Roteiro';
+    const aviso = {
+      fix: `<div class="note fix">A equipe está fazendo o ajuste que você pediu. Avisamos quando a nova versão estiver pronta.</div>`,
+      prod: `<div class="note prod">Você já aprovou este roteiro. Agora a equipe está na etapa de ${i.etapa}.</div>`,
+      ok: `<div class="note ok">Você aprovou este conteúdo em ${i.em}.</div>`,
+    }[i.st] || '';
+    let corpo;
+    if (i.tipo === 'roteiro') {
+      corpo = `<div class="doc">${ROTEIRO}</div>`;
+    } else {
+      const seg = i.capa ? `<div style="text-align:center"><div class="seg" role="tablist">
+          <button type="button" data-t="video" class="${mediaTab === 'video' ? 'on' : ''}">${I.play} Vídeo</button>
+          <button type="button" data-t="capa" class="${mediaTab === 'capa' ? 'on' : ''}">${I.img.replace(/18/g, '15')} Capa</button>
+        </div></div>` : '';
+      corpo = seg + (mediaTab === 'video'
+        ? `<div class="media" role="img" aria-label="Prévia do vídeo">${i.versao > 1 ? `<span class="tg">Versão ${i.versao}</span>` : ''}<span class="play">${I.tri(26)}</span><span class="cap">${i.legenda}</span></div>`
+        : `<div class="media capa" role="img" aria-label="Prévia da capa"><span class="cap">${i.legenda}</span></div>`);
+    }
+    v.innerHTML = `
+      <div class="vh">
+        <button type="button" class="icon-btn back" id="v-back" aria-label="Voltar para a lista">${I.left}</button>
+        <div class="info">
+          <div class="crumb">Ciclo de ${i.ciclo.toLowerCase()} · ${tipoTxt}${i.versao > 1 ? ` <span class="ver">Versão ${i.versao}</span>` : ''}</div>
+          <h2>${i.titulo}</h2>
+          ${chip(i.st)}
+        </div>
+        ${i.st === 'wait' ? `<div class="vact">
+          <button type="button" class="btn-line ${modoAjuste ? 'on' : ''}" id="v-fix">${I.edit} Pedir ajuste</button>
+          <button type="button" class="btn-ink" id="v-ok">${I.ok} Aprovar</button>
+        </div>` : ''}
+      </div>
+      <div class="vb">${aviso}${corpo}</div>`;
+
+    $('v-back').onclick = () => $('detail').classList.remove('open');
+    v.querySelectorAll('.seg button').forEach(b => b.onclick = () => { mediaTab = b.dataset.t; if (i.capa) sobre = mediaTab; renderViewer(); renderComposer(); });
+    if (i.st === 'wait') {
+      $('v-fix').onclick = () => { modoAjuste = !modoAjuste; renderViewer(); renderComposer(); if (modoAjuste) focarCampo(); };
+      $('v-ok').onclick = () => {
+        if (i.tipo === 'roteiro') { i.st = 'prod'; i.etapa = 'gravação e edição'; } else { i.st = 'ok'; i.em = 'hoje'; }
+        i.conversa.push({ de: 'cliente', quando: 'agora', sistema: 'Aprovou ' + (i.tipo === 'roteiro' ? 'o roteiro' : 'o post') });
+        const prox = daAba().find(x => x.st === 'wait');
+        toast(prox ? `Aprovado! Próximo: ${prox.titulo}` : 'Aprovado! Você revisou tudo desta aba.');
+        limparComposer();
+        if (prox) { selId = prox.id; prox.nova = false; mediaTab = 'video'; }
+        else if (isMobile()) $('detail').classList.remove('open');
+        render();
+      };
+    }
+  }
+
+  // ---------- coluna da conversa ----------
+  const WAVE = [6, 12, 18, 10, 20, 14, 8, 16, 22, 12, 6, 14, 18, 10, 16, 8, 12, 20, 10, 6, 14, 18];
+  const fmtDur = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const audioHTML = (a) => `<span class="aud" data-src="${a.url || ''}">
+      <button type="button" class="ap" aria-label="Ouvir áudio">${I.tri(13)}</button>
+      <span class="wave" aria-hidden="true">${WAVE.map(h => `<i style="height:${h}px"></i>`).join('')}</span>
+      <span class="dur">${fmtDur(a.dur)}</span></span>`;
+  const fotoHTML = (u) => u && u !== 'b' ? `<img src="${u}" alt="Foto enviada">` : `<span class="ph-fake ${u === 'b' ? 'b' : ''}" role="img" aria-label="Foto enviada">${I.img}</span>`;
+  const ALVO = { video: 'Vídeo', capa: 'Capa', ambos: 'Vídeo e capa' };
+
+  function renderMsgs() {
+    const i = byId(selId);
+    $('about').textContent = i ? `sobre este ${i.tipo === 'post' ? 'post' : 'roteiro'}` : '';
+    if (!i) { $('msgs').innerHTML = ''; return; }
+    if (!i.conversa.length) {
+      $('msgs').innerHTML = `<div class="vazio">Alguma dúvida ou pedido sobre este conteúdo?<br>Escreva, mande fotos ou grave um áudio.</div>`;
+      return;
+    }
+    $('msgs').innerHTML = i.conversa.map(m => {
+      if (m.sistema) return `<div class="msg me"><div class="who">Você · ${m.quando}</div><span class="chip ok">${m.sistema}</span></div>`;
+      const eu = m.de === 'cliente';
+      const aj = m.ajuste ? ` · <span class="aj">Pedido de ajuste${m.alvo ? ' · ' + ALVO[m.alvo] : ''}</span>` : '';
+      return `<div class="msg ${eu ? 'me' : ''}">
+        <div class="who">${eu ? 'Você' : 'Equipe'} · ${m.quando}${aj}</div>
+        <div class="bub">
+          ${m.fotos && m.fotos.length ? `<div class="fotos">${m.fotos.map(fotoHTML).join('')}</div>` : ''}
+          ${m.audio ? audioHTML(m.audio) : ''}
+          ${m.texto ? `<div>${m.texto}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    ligarAudios($('msgs'));
+    if (!isMobile()) $('msgs').scrollTop = $('msgs').scrollHeight;
+  }
+
+  let tocando = null;
+  function ligarAudios(root) {
+    root.querySelectorAll('.aud').forEach(el => el.querySelector('.ap').onclick = () => {
+      const src = el.dataset.src;
+      if (!src) { toast('Áudio de exemplo (no portal real ele toca aqui).'); return; }
+      if (tocando && tocando.el === el) { tocando.a.pause(); el.classList.remove('playing'); tocando = null; return; }
+      if (tocando) { tocando.a.pause(); tocando.el.classList.remove('playing'); }
+      const a = new Audio(src);
+      a.onended = () => { el.classList.remove('playing'); tocando = null; };
+      a.play(); el.classList.add('playing'); tocando = { a, el };
+    });
+  }
+
+  // ---------- campo de mensagem: texto, fotos, áudio ----------
+  function limparComposer() { pararGravacao(true); modoAjuste = false; anexos = { fotos: [], audio: null }; sobre = 'video'; const t = $('txt'); if (t) t.value = ''; }
+  function focarCampo() { setTimeout(() => { const t = $('txt'); if (t) t.focus(); }, 30); }
+
+  function renderComposer() {
+    const i = byId(selId);
+    if (!i) { $('composer').classList.add('hidden'); return; }
+    $('composer').classList.remove('hidden');
+    $('aj-bar').innerHTML = modoAjuste
+      ? `<div class="aj-bar">${I.edit} Pedido de ajuste: conte o que mudar. Pode mandar foto e áudio.<button type="button" id="aj-x" aria-label="Cancelar pedido de ajuste">${I.x(14)}</button></div>` : '';
+    if ($('aj-x')) $('aj-x').onclick = () => { modoAjuste = false; renderViewer(); renderComposer(); };
+    const temSobre = i.tipo === 'post' && i.capa;
+    $('sobre').innerHTML = temSobre ? `Sobre: ${['video', 'capa', 'ambos'].map(k => `<button type="button" data-v="${k}" class="${sobre === k ? 'on' : ''}">${ALVO[k]}</button>`).join('')}` : '';
+    $('sobre').classList.toggle('hidden', !temSobre);
+    $('sobre').querySelectorAll('button').forEach(b => b.onclick = () => { sobre = b.dataset.v; renderComposer(); });
+
+    $('prev').innerHTML = anexos.fotos.map((u, k) => `<span class="pv">${fotoHTML(u)}<button type="button" class="rm" data-k="${k}" aria-label="Remover foto">${I.x(10)}</button></span>`).join('')
+      + (anexos.audio ? `<span class="pv audio">${audioHTML(anexos.audio)}<button type="button" class="rm" id="rm-aud" aria-label="Apagar áudio" style="position:static;border:0">${I.x(10)}</button></span>` : '');
+    $('prev').querySelectorAll('.rm[data-k]').forEach(b => b.onclick = () => { anexos.fotos.splice(+b.dataset.k, 1); renderComposer(); });
+    if ($('rm-aud')) $('rm-aud').onclick = () => { anexos.audio = null; renderComposer(); };
+    ligarAudios($('prev'));
+
+    const valor = $('txt') ? $('txt').value : '';
+    if (rec) {
+      $('inarea').innerHTML = `<div class="recrow">
+          <button type="button" class="del" id="rec-del" aria-label="Descartar áudio">${I.trash}</button>
+          <span class="pill"><span class="dot"></span><span id="rec-t">${fmtDur(rec.segs)}</span><span class="wave aud" aria-hidden="true" style="display:flex;gap:2px;align-items:center;height:22px">${WAVE.slice(0, 16).map(h => `<i style="height:${h}px;width:3px;border-radius:2px;display:block;background:#E7B593"></i>`).join('')}</span></span>
+          <button type="button" class="send" id="rec-ok" aria-label="Terminar gravação">${I.ok}</button>
+        </div><div class="rec-hint">Gravando áudio…</div>`;
+      $('rec-del').onclick = () => { pararGravacao(true); renderComposer(); };
+      $('rec-ok').onclick = () => pararGravacao(false);
+    } else {
+      $('inarea').innerHTML = `<div class="inrow">
+          <textarea id="txt" rows="1" placeholder="${modoAjuste ? 'O que você quer mudar?' : 'Escreva uma mensagem…'}"></textarea>
+          <button type="button" class="ib" id="b-foto" aria-label="Adicionar fotos" title="Adicionar fotos">${I.img}</button>
+          <button type="button" class="ib" id="b-mic" aria-label="Gravar áudio" title="Gravar áudio">${I.mic}</button>
+          <button type="button" class="send" id="b-send" aria-label="Enviar">${I.send}</button>
+        </div>`;
+      const t = $('txt');
+      t.value = valor;
+      t.oninput = () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; };
+      t.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } };
+      $('b-foto').onclick = () => $('file').click();
+      $('b-mic').onclick = gravar;
+      $('b-send').onclick = enviar;
+    }
+  }
+
+  $('file').onchange = (e) => {
+    [...e.target.files].forEach(f => anexos.fotos.push(URL.createObjectURL(f)));
+    e.target.value = '';
+    renderComposer();
+  };
+
+  // Grava de verdade pelo microfone; se o navegador não deixar (arquivo local), simula para a demonstração
+  async function gravar() {
+    const guardado = $('txt') ? $('txt').value : '';
+    rec = { segs: 0, mr: null, stream: null, chunks: [], guardado };
+    try {
+      rec.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      rec.mr = new MediaRecorder(rec.stream);
+      rec.mr.ondataavailable = (ev) => rec && rec.chunks.push(ev.data);
+      rec.mr.start();
+    } catch (err) { if (rec) rec.mr = null; }
+    if (!rec) return;
+    rec.t = setInterval(() => { if (!rec) return; rec.segs++; const el = $('rec-t'); if (el) el.textContent = fmtDur(rec.segs); }, 1000);
+    renderComposer();
+  }
+  function pararGravacao(descartar) {
+    if (!rec) return;
+    const r = rec; rec = null;
+    clearInterval(r.t);
+    const dur = Math.max(1, r.segs);
+    const fim = (url) => {
+      if (!descartar) anexos.audio = { url, dur };
+      renderComposer();
+      if ($('txt')) $('txt').value = r.guardado || '';
+    };
+    if (r.mr) {
+      r.mr.onstop = () => { r.stream.getTracks().forEach(t => t.stop()); fim(descartar ? null : URL.createObjectURL(new Blob(r.chunks, { type: r.mr.mimeType }))); };
+      r.mr.stop();
+    } else if (!descartar) fim(null);
+  }
+
+  function enviar() {
+    const i = byId(selId);
+    const txt = ($('txt') ? $('txt').value : '').trim();
+    if (!txt && !anexos.fotos.length && !anexos.audio) { focarCampo(); return; }
+    const temSobre = i.tipo === 'post' && i.capa;
+    i.conversa.push({ de: 'cliente', quando: 'agora', texto: txt, fotos: anexos.fotos, audio: anexos.audio, ajuste: modoAjuste, alvo: modoAjuste && temSobre ? sobre : null });
+    const eraAjuste = modoAjuste;
+    if (eraAjuste && i.st === 'wait') i.st = 'fix';
+    anexos = { fotos: [], audio: null }; modoAjuste = false;
+    if ($('txt')) $('txt').value = '';
+    toast(eraAjuste ? 'Pedido de ajuste enviado. A equipe já foi avisada.' : 'Mensagem enviada para a equipe.');
+    render();
+  }
+
+  // ---------- geral ----------
+  let tt;
+  function toast(msg) {
+    const t = $('toast');
+    t.innerHTML = `<span class="d">${I.ok}</span>${msg}`;
+    t.classList.remove('hidden');
+    clearTimeout(tt); tt = setTimeout(() => t.classList.add('hidden'), 2400);
+  }
+
+  function render() { renderTopo(); renderLista(); renderViewer(); renderMsgs(); renderComposer(); }
+
+  autoSelecionar();
+  render();
+</script>
+</body>
+</html>

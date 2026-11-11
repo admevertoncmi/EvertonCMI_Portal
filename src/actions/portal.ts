@@ -3,6 +3,7 @@
 import { getAdminSupabase } from '@/lib/supabase'
 import { requireClientePorToken } from '@/lib/auth-guard'
 import { enviarClickUpChat } from '@/lib/clickup-chat'
+import { criarUploadAnexo, inserirMensagem, lerConversa, contarNaoLidas, type AnexoTipo, type NovaMensagem } from '@/lib/conversa'
 
 // O portal do cliente não tem login: o token mágico é a credencial.
 // Toda leitura/escrita do portal passa por aqui, validando o token e
@@ -27,10 +28,50 @@ export async function carregarPortal(token: string) {
       .neq('status', 'concluido')
       .order('ordem', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
-    return { cliente, materiais: materiais || [] }
+    // Mensagens da equipe que o cliente ainda não leu, por material (tabela pode não existir ainda)
+    const naoLidas = await contarNaoLidas({ clienteId: cliente.id }, 'cliente').catch(() => ({}))
+    return { cliente, materiais: materiais || [], naoLidas: naoLidas as Record<string, number> }
   } catch {
-    return { cliente: null, materiais: [] }
+    return { cliente: null, materiais: [], naoLidas: {} as Record<string, number> }
   }
+}
+
+/** Confere se o material é do cliente dono do token. */
+async function materialDoCliente(token: string, materialId: string) {
+  const cliente = await requireClientePorToken(token)
+  const { data: material } = await getAdminSupabase()
+    .from('materiais').select('id, titulo').eq('id', materialId).eq('cliente_id', cliente.id).maybeSingle()
+  if (!material) throw new Error('Não autorizado')
+  return { cliente, material }
+}
+
+// ---------- Conversa do conteúdo (texto, fotos e áudio) ----------
+
+export async function conversaPortal(token: string, materialId: string) {
+  await materialDoCliente(token, materialId)
+  return lerConversa(materialId, 'cliente')
+}
+
+export async function prepararAnexoPortal(token: string, materialId: string, tipo: AnexoTipo, ext: string) {
+  const { cliente } = await materialDoCliente(token, materialId)
+  return criarUploadAnexo(cliente.id, materialId, tipo, ext)
+}
+
+export async function enviarMensagemPortal(token: string, materialId: string, msg: NovaMensagem, opts?: { feitoPelaAgencia?: boolean; avisarEquipe?: boolean }) {
+  const { cliente, material } = await materialDoCliente(token, materialId)
+  const id = await inserirMensagem({
+    materialId, clienteId: cliente.id, autor: 'cliente',
+    autorNome: opts?.feitoPelaAgencia ? 'Agência (pelo portal)' : cliente.nome,
+    feitoPelaAgencia: !!opts?.feitoPelaAgencia,
+  }, msg)
+
+  // Mensagem comum avisa a equipe no ClickUp; pedido de ajuste e aprovação já têm aviso próprio
+  if (opts?.avisarEquipe !== false && !msg.ajuste && !msg.evento) {
+    const anexos = [msg.fotos?.length ? `${msg.fotos.length} foto(s)` : '', msg.audio ? 'áudio' : ''].filter(Boolean).join(' + ')
+    const texto = `💬 MENSAGEM DO CLIENTE${opts?.feitoPelaAgencia ? ' (FEITO PELA AGÊNCIA)' : ''}\n\n**${cliente.nome}**\n${material.titulo}\n\n${msg.texto || ''}${anexos ? `\n📎 ${anexos} (veja na tarefa)` : ''}`
+    await enviarClickUpChat(texto.slice(0, 4000)).catch(() => null)
+  }
+  return id
 }
 
 export async function atualizarMateriaisPortal(token: string, ids: string[], patch: PatchMaterialCliente) {
