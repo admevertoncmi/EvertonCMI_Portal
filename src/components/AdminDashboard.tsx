@@ -1813,13 +1813,80 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const AVATAR_COLORS = ['#E8559A', '#3B82F6', '#F59E0B', '#14B8A6', '#9B6CF0', '#A25431'];
   const avatarColor = (s: string) => AVATAR_COLORS[s.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
   const initials = (nome?: string) => (nome || '?').split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
-  const avatars = (ids: (string | null | undefined)[]) => {
-    const people = Array.from(new Set(ids.filter(Boolean) as string[])).map(id => membros.find(mb => mb.id === id)).filter(Boolean) as MembroComNome[];
-    if (people.length === 0) return <span className="text-xs text-zinc-400">—</span>;
+  // Avatares dos responsáveis. A ordem dos ids segue AVATAR_ROLES (planner, editor, designer);
+  // quem acumula papéis aparece uma vez só, com todos os papéis no tooltip.
+  const AVATAR_ROLES = ['Planner', 'Editor', 'Designer'];
+  const avatars = (ids: (string | null | undefined)[], center = false) => {
+    const roles = new Map<string, string[]>();
+    ids.forEach((id, i) => { if (id) roles.set(id, [...(roles.get(id) || []), AVATAR_ROLES[i] || '']); });
+    const people = Array.from(roles.keys()).map(id => membros.find(mb => mb.id === id)).filter(Boolean) as MembroComNome[];
+    if (people.length === 0) return <div className={`flex ${center ? 'md:justify-center' : ''}`}><span className="text-xs text-zinc-400">—</span></div>;
     return (
-      <div className="flex">
+      <div className={`flex ${center ? 'md:justify-center' : ''}`}>
         {people.map((p, i) => (
-          <span key={p.id} title={p.nome || p.email} style={{ background: avatarColor(p.id) }} className={`w-6 h-6 rounded-full text-[10px] font-semibold text-white inline-flex items-center justify-center ring-2 ${theme === 'dark' ? 'ring-zinc-900' : 'ring-white'} ${i > 0 ? '-ml-1.5' : ''}`}>{initials(p.nome || p.email)}</span>
+          <span key={p.id} title={`${(roles.get(p.id) || []).filter(Boolean).join(' / ')}: ${p.nome || p.email}`} style={{ background: avatarColor(p.id) }} className={`w-6 h-6 shrink-0 rounded-full text-[10px] font-semibold text-white inline-flex items-center justify-center ring-2 ${theme === 'dark' ? 'ring-zinc-900' : 'ring-white'} ${i > 0 ? '-ml-1.5' : ''}`}>{initials(p.nome || p.email)}</span>
+        ))}
+      </div>
+    );
+  };
+
+  // Contadores do fluxo por cliente/ciclo (substituem as pílulas coloridas ao lado do nome)
+  const PIPELINE = [
+    { key: 'edicao', label: 'Produção', full: 'em produção', dot: 'bg-blue-500' },
+    { key: 'revisao', label: 'Aprovação', full: 'para aprovação', dot: 'bg-purple-500' },
+    { key: 'ajustes', label: 'Ajustes', full: 'com ajuste', dot: 'bg-red-500' },
+    { key: 'video', label: 'Postar', full: 'para postar', dot: 'bg-green-500' },
+    { key: 'roteiro', label: 'Roteiros', full: 'roteiros aprovados', dot: 'bg-orange-500' },
+  ] as const;
+  type PipelineCounts = Record<(typeof PIPELINE)[number]['key'], number>;
+  const countPipeline = (itens: Material[]): PipelineCounts => {
+    const c: PipelineCounts = { edicao: 0, revisao: 0, ajustes: 0, video: 0, roteiro: 0 };
+    itens.forEach(i => {
+      if (i.status === 'em_edicao') c.edicao++;
+      if (i.status === 'revisao') c.revisao++;
+      if (i.status === 'ajustes') c.ajustes++;
+      if (i.status === 'aprovado' || i.status === 'post_aprovado') { if (i.link_drive || i.link_capa) c.video++; else c.roteiro++; }
+      if (i.status === 'roteiro_aprovado') c.roteiro++;
+    });
+    return c;
+  };
+  const PIPELINE_GRID = 'md:grid md:grid-cols-[repeat(5,80px)] md:items-center md:shrink-0';
+  // Desktop: colunas fixas, alinhadas com o cabeçalho. Zero vira um traço apagado, então nada muda de lugar.
+  const pipelineCols = (c: PipelineCounts) => (
+    <div className={`hidden ${PIPELINE_GRID}`}>
+      {PIPELINE.map(p => {
+        const n = c[p.key];
+        if (n === 0) return <span key={p.key} className="text-center text-[13px] text-zinc-300 dark:text-zinc-600">–</span>;
+        const alerta = p.key === 'ajustes';
+        return (
+          <span key={p.key} className="flex justify-center" title={`${n} ${p.full}`}>
+            <span className={`inline-flex items-center gap-1.5 text-[13px] font-semibold tabular-nums ${alerta ? 'px-2 py-0.5 rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : tc.textMain}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />{n}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+  const pipelineHead = () => (
+    <div className={`hidden md:flex items-center gap-4 px-5 py-2.5 text-[11px] font-semibold tracking-wider uppercase text-zinc-400 border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>
+      <span className="flex-1">Cliente</span>
+      <div className={PIPELINE_GRID}>
+        {PIPELINE.map(p => <span key={p.key} className="text-center">{p.label}</span>)}
+      </div>
+    </div>
+  );
+  // Versão em linha (celular e linha do ciclo): ponto + número + nome curto, em tom neutro. Só o que tem valor.
+  const pipelineInline = (c: PipelineCounts, className = '') => {
+    const itens = PIPELINE.filter(p => c[p.key] > 0);
+    if (itens.length === 0) return null;
+    return (
+      <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${className}`}>
+        {itens.map(p => (
+          <span key={p.key} title={`${c[p.key]} ${p.full}`} className={`inline-flex items-center gap-1.5 ${p.key === 'ajustes' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+            <span className={`font-semibold tabular-nums ${p.key === 'ajustes' ? '' : tc.textMain}`}>{c[p.key]}</span> {p.label.toLowerCase()}
+          </span>
         ))}
       </div>
     );
@@ -1894,10 +1961,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   );
 
   // Colunas com largura fixa (inclusive a de ações) para ficarem alinhadas em todas as linhas e no cabeçalho
-  const TASK_GRID = 'md:grid md:grid-cols-[minmax(0,1fr)_96px_180px_104px_124px] md:items-center md:gap-4';
+  const TASK_GRID = 'md:grid md:grid-cols-[minmax(0,1fr)_120px_180px_104px_124px] md:items-center md:gap-4';
+  // px-[15px]: compensa a borda de 1px das linhas, para o cabeçalho cair exatamente sobre as colunas
   const taskHead = () => (
-    <div className={`hidden ${TASK_GRID} px-3.5 py-2 text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
-      <span>Tarefa</span><span>Responsáveis</span><span>Status</span><span>Entrega</span><span />
+    <div className={`hidden ${TASK_GRID} px-[15px] py-2 text-[11px] font-semibold tracking-wider uppercase text-zinc-400`}>
+      <span>Tarefa</span><span className="text-center">Responsáveis</span><span>Status</span><span>Entrega</span><span />
     </div>
   );
 
@@ -2057,7 +2125,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             {tagLine(m)}
           </div>
         </div>
-        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Responsáveis</span>{avatars([m.planner_id, m.editor_id, m.designer_id])}</div>
+        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24 shrink-0">Responsáveis</span>{avatars([m.planner_id, m.editor_id, m.designer_id], true)}</div>
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Status</span>{status ?? statusChip(statusOf(m).label, statusOf(m).cls)}</div>
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Entrega</span>{entregaCell(m, ignoreLate)}</div>
         <div className="flex items-center gap-1.5 md:justify-end" onClick={(e) => e.stopPropagation()}>{actions}</div>
@@ -2827,46 +2895,25 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
 
                 <div className={`${tc.bgCard} border rounded-2xl overflow-hidden ${tc.borderStrong} transition-colors`}>
+                  {Object.keys(groupedVisaoGeral).length > 0 && pipelineHead()}
                   <div className={`divide-y ${theme === 'dark' ? 'divide-zinc-800' : 'divide-zinc-100'} text-left`}>
                     {Object.entries(groupedVisaoGeral).map(([clienteId, group]) => {
-                      let countPendentes = 0, countAjustes = 0, countAprovadosRoteiro = 0, countAprovadosVideo = 0, countRevisao = 0, countEmEdicao = 0;
-                      Object.values(group.ciclos).forEach((cicloData: any) => {
-                        cicloData.itens.forEach((i: Material) => {
-                          if (i.status === 'pendente' || i.status === 'roteiro_pendente') countPendentes++;
-                          if (i.status === 'ajustes') countAjustes++;
-                          if (i.status === 'revisao') countRevisao++;
-                          if (i.status === 'em_edicao') countEmEdicao++;
-                          if (i.status === 'aprovado' || i.status === 'post_aprovado') { if (i.link_drive || i.link_capa) countAprovadosVideo++; else countAprovadosRoteiro++; }
-                          if (i.status === 'roteiro_aprovado') countAprovadosRoteiro++;
-                        });
-                      });
+                      const contagem = countPipeline(Object.values(group.ciclos).flatMap((c: any) => c.itens as Material[]));
                       return (
                         <div key={`geral-${clienteId}`} className={`group border-b ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-50'} last:border-0`}>
-                          <div className={`w-full flex flex-col md:flex-row md:items-center gap-2 md:gap-4 px-5 py-3.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} cursor-pointer transition-colors`} onClick={() => toggleClient(`geral-${clienteId}`)}>
-                            <div className="flex items-center">
-                              <ChevronRight className={`text-zinc-400 transition-transform ${expandedClients.includes(`geral-${clienteId}`) ? 'rotate-90' : ''}`} size={18} />
-                              <span className="mx-2.5">{clientInitial(group.cliente?.nome)}</span>
-                              <span className="text-[15px] font-semibold truncate md:min-w-[200px]">{group.cliente?.nome}</span>
+                          <div className={`w-full flex flex-col md:flex-row md:items-center gap-1.5 md:gap-4 px-5 py-3.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} cursor-pointer transition-colors`} onClick={() => toggleClient(`geral-${clienteId}`)}>
+                            <div className="flex items-center flex-1 min-w-0">
+                              <ChevronRight className={`shrink-0 text-zinc-400 transition-transform ${expandedClients.includes(`geral-${clienteId}`) ? 'rotate-90' : ''}`} size={18} />
+                              <span className="mx-2.5 shrink-0">{clientInitial(group.cliente?.nome)}</span>
+                              <span className="text-[15px] font-semibold truncate">{group.cliente?.nome}</span>
                             </div>
-                            <div className="flex gap-1.5 ml-8 md:ml-0 flex-wrap">
-                              {countEmEdicao > 0 && <span className={`px-2 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 rounded-md text-xs font-medium`}>{countEmEdicao} em produção</span>}
-                              {countRevisao > 0 && <span className={`px-2 py-0.5 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 rounded-md text-xs font-medium`}>{countRevisao} para aprovação</span>}
-                              {countAjustes > 0 && <span className={`px-2 py-0.5 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-md text-xs font-medium`}>{countAjustes} {countAjustes === 1 ? 'ajuste' : 'ajustes'}</span>}
-                              {countAprovadosVideo > 0 && <span className={`px-2 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-md text-xs font-medium`}>{countAprovadosVideo} para postar</span>}
-                              {countAprovadosRoteiro > 0 && <span className={`px-2 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-md text-xs font-medium`}>{countAprovadosRoteiro} roteiros aprovados</span>}
-                            </div>
+                            {pipelineCols(contagem)}
+                            {pipelineInline(contagem, 'md:hidden ml-[66px]')}
                           </div>
                           {expandedClients.includes(`geral-${clienteId}`) && (
                             <div className={`${tc.bgHighlight} pb-4`}>
                               {Object.entries(group.ciclos).map(([cicloLabel, data]: [string, any]) => {
-                                let cicloRevisao = 0, cicloAjustes = 0, cicloAprovadosRoteiro = 0, cicloAprovadosVideo = 0, cicloEdicao = 0;
-                                data.itens.forEach((i: Material) => {
-                                  if (i.status === 'revisao') cicloRevisao++;
-                                  if (i.status === 'ajustes') cicloAjustes++;
-                                  if (i.status === 'em_edicao') cicloEdicao++;
-                                  if (i.status === 'aprovado' || i.status === 'post_aprovado') { if (i.link_drive || i.link_capa) cicloAprovadosVideo++; else cicloAprovadosRoteiro++; }
-                                  if (i.status === 'roteiro_aprovado') cicloAprovadosRoteiro++;
-                                });
+                                const contagemCiclo = countPipeline(data.itens);
                                 return (
                                   <div key={`geral-ciclo-${cicloLabel}`} className="px-3 md:px-6 pt-2">
                                     <div className={`w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 px-4 ${tc.bgHover} rounded-2xl border border-transparent ${theme === 'dark' ? 'hover:border-zinc-800' : 'hover:border-zinc-100'} mb-1 transition-colors`}>
@@ -2876,12 +2923,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                         <span className={`text-[12px] font-semibold   truncate ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>{fmtCiclo(cicloLabel)}</span>
                                         <span className={`text-[11px] font-semibold  shrink-0 px-1 ${textSecundario}`}>{data.aprovados}/{data.total} ok</span>
 
-                                        <div className="flex gap-1.5 flex-wrap ml-1">
-                                          {cicloEdicao > 0 && <span className={`px-2 py-0.5 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 rounded-md text-xs font-medium`}>{cicloEdicao} em produção</span>}
-                                          {cicloRevisao > 0 && <span className={`px-2 py-0.5 bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400 rounded-md text-xs font-medium`}>{cicloRevisao} para aprovação</span>}
-                                          {cicloAjustes > 0 && <span className={`px-2 py-0.5 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 rounded-md text-xs font-medium`}>{cicloAjustes} {cicloAjustes === 1 ? 'ajuste' : 'ajustes'}</span>}
-                                          {cicloAprovadosVideo > 0 && <span className={`px-2 py-0.5 bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400 rounded-md text-xs font-medium`}>{cicloAprovadosVideo} para postar</span>}
-                                        </div>
+                                        {pipelineInline(contagemCiclo, 'ml-2')}
                                       </div>
 
                                       {!showArchived && (
