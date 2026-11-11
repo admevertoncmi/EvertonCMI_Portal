@@ -159,6 +159,7 @@ export default function DecupadorDashboard() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<{ nome: string, role: string } | null>(null)
+  const [comoAdmin, setComoAdmin] = useState<string | null>(null) // nome do membro quando a admin "entra" no painel dele
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [expandedTasks, setExpandedTasks] = useState<string[]>([])
@@ -240,14 +241,25 @@ export default function DecupadorDashboard() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/'); return; }
-    setUserId(user.id)
-    const { data: profile } = await supabase.from('perfis_equipe').select('*').eq('id', user.id).single();
-    if (profile) setUserProfile(profile as any);
+    // Modo "Entrar" do admin (?como=<id>): mostra o painel daquele membro. Só vale se quem está logado for admin.
+    let alvoId = user.id
+    const comoId = new URLSearchParams(window.location.search).get('como')
+    if (comoId && comoId !== user.id) {
+      const { data: eu } = await supabase.from('perfis_equipe').select('role').eq('id', user.id).maybeSingle()
+      if (eu?.role === 'admin') alvoId = comoId
+    }
+    setUserId(alvoId)
+    const { data: profile } = await supabase.from('perfis_equipe').select('*').eq('id', alvoId).single();
+    if (profile) {
+      // No modo admin, o nome leva "(via admin)": aparece nos registros e avisos das ações feitas aqui
+      setUserProfile(alvoId !== user.id ? { ...(profile as any), nome: `${profile.nome || profile.email} (via admin)` } : profile as any);
+      setComoAdmin(alvoId !== user.id ? (profile.nome || profile.email) : null);
+    }
 
     const { data: m } = await supabase
       .from('materiais')
       .select(`*, cliente:clientes(nome)`)
-      .eq('planner_id', user.id)
+      .eq('planner_id', alvoId)
       .order('ordem', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
 
@@ -511,6 +523,13 @@ export default function DecupadorDashboard() {
   return (
     <div className={`flex h-screen h-[100dvh] ${bgPrincipal} font-sans ${textPrincipal} overflow-hidden ${theme}`}>
       <Toaster position="top-right" richColors theme={theme} />
+      {comoAdmin && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 pl-4 pr-1.5 py-1.5 rounded-full bg-zinc-900 text-white text-[13px] shadow-xl max-w-[calc(100%-24px)]">
+          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+          <span className="truncate">Você está no painel de <b>{comoAdmin}</b>. As ações valem de verdade e ficam registradas como “via admin”.</span>
+          <a href="/admin/dashboard" className="shrink-0 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 font-medium">Voltar ao painel</a>
+        </div>
+      )}
 
       {/* HEADER MOBILE CLÁSSICO MARROM COM DARK MODE */}
       <div className={`md:hidden flex items-center justify-between p-5 pt-8 safe-pt-header-classic ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-[#212013] border-brand'} text-white rounded-b-2xl fixed top-0 w-full z-[100] shadow-lg border-b`}>
@@ -559,7 +578,9 @@ export default function DecupadorDashboard() {
           <button onClick={toggleTheme} className={`w-full flex items-center gap-3 p-3 text-yellow-500 font-bold ${hoverSecundario} rounded-xl transition-all`}>
             {theme === 'dark' ? <><Sun size={20} /> Modo Claro</> : <><Moon size={20} /> Modo Escuro</>}
           </button>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className={`w-full flex items-center gap-3 p-3 text-red-500 font-bold ${hoverSecundario} rounded-xl transition-all`}><LogOut size={20} /> Sair</button>
+          {comoAdmin
+            ? <a href="/admin/dashboard" className={`w-full flex items-center gap-3 p-3 text-amber-600 font-bold ${hoverSecundario} rounded-xl transition-all`}><LogOut size={20} /> Voltar ao painel admin</a>
+            : <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className={`w-full flex items-center gap-3 p-3 text-red-500 font-bold ${hoverSecundario} rounded-xl transition-all`}><LogOut size={20} /> Sair</button>}
         </div>
       </aside>
 

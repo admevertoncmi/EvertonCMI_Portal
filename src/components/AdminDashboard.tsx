@@ -3426,6 +3426,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                           <p className="text-xs text-zinc-500 truncate">{ROLE_LABEL[m.role] || m.role} · {m.email}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {/* Entrar no painel do membro (vê o que ele vê); admin não tem painel próprio além deste */}
+                          {m.role !== 'admin' && (
+                            <button type="button" title={`Abrir o painel de ${m.nome || m.email}`}
+                              onClick={() => window.open(`${m.role === 'planner' ? '/planner' : '/editor'}?como=${m.id}`, '_blank', 'noopener')}
+                              className="h-9 px-3 rounded-[10px] inline-flex items-center gap-1.5 text-[13px] font-medium bg-brand-soft text-brand hover:brightness-95 dark:bg-brand/20 dark:text-brand-soft transition">
+                              <LogIn size={15} /> Entrar
+                            </button>
+                          )}
                           <IconAction icon={Edit3} label="Editar membro" onClick={() => abrirEdicao(m)} />
                           <IconAction icon={Trash2} label="Remover membro" onClick={() => openConfirm('Remover membro', `Deseja remover ${m.nome || m.email} da equipe?`, async () => { await excluirMembro(m.id); loadData(); }, 'danger')} />
                         </div>
