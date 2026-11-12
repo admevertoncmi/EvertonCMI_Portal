@@ -6,7 +6,7 @@
 import { formatRichText } from '@/lib/utils'
 import {
   carregarPortal, atualizarMateriaisPortal, registrarLogPortal, notificarEquipePortal,
-  conversaPortal, prepararAnexoPortal, enviarMensagemPortal,
+  conversaPortal, prepararAnexoPortal, enviarMensagemPortal, transcreverAudioPortal,
 } from '@/actions/portal'
 import { useState, useEffect, useMemo, useCallback, useRef, use, type ReactNode } from 'react'
 import { ScaledGoogleDrivePlayer } from './ScaledGoogleDrivePlayer'
@@ -628,6 +628,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     carregando={carregandoConversa}
                     perspectiva="cliente"
                     onEnviar={enviarConversa}
+                    onTranscrever={(mensagemId) => transcreverAudioPortal(token, selectedId!, mensagemId)}
                     modoAjuste={modoAjuste}
                     onCancelarAjuste={() => setModoAjuste(false)}
                     mostrarSobre={modoAjuste && ehVideoComCapa}

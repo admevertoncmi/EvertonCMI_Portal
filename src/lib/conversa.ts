@@ -18,7 +18,7 @@ export type MensagemConversa = {
   feito_pela_agencia: boolean
   texto: string | null
   fotos: string[]                       // links assinados (temporários)
-  audio: { url: string; dur: number } | null
+  audio: { url: string; dur: number; transcricao: string | null } | null
   ajuste: boolean
   alvo: 'video' | 'capa' | 'ambos' | null
   evento: string | null
@@ -110,7 +110,7 @@ export async function lerConversa(materialId: string, leitor: 'cliente' | 'equip
     feito_pela_agencia: !!r.feito_pela_agencia,
     texto: r.texto,
     fotos: (r.fotos || []).map((p: string) => assinados.get(p)).filter(Boolean) as string[],
-    audio: r.audio_path && assinados.get(r.audio_path) ? { url: assinados.get(r.audio_path)!, dur: r.audio_dur || 0 } : null,
+    audio: r.audio_path && assinados.get(r.audio_path) ? { url: assinados.get(r.audio_path)!, dur: r.audio_dur || 0, transcricao: r.audio_transcricao ?? null } : null,
     ajuste: !!r.ajuste,
     alvo: r.alvo,
     evento: r.evento,
@@ -159,6 +159,46 @@ function ajustesLegados(materialId: string, feedback: string | null | undefined,
       created_at: dataDoFeedback(data, base),
     }
   }).filter(Boolean) as MensagemConversa[]
+}
+
+/**
+ * Transcreve o áudio de uma mensagem (só quando alguém clica em "Transcrever").
+ * Usa a API da Groq (Whisper) e guarda o texto: a segunda vez não chama a API de novo.
+ */
+export async function transcreverAudio(materialId: string, mensagemId: string): Promise<string> {
+  const admin = getAdminSupabase()
+  const { data: msg, error } = await admin.from('mensagens_material')
+    .select('id, audio_path, audio_transcricao')
+    .eq('id', mensagemId).eq('material_id', materialId).maybeSingle()
+  if (error) throw new Error('A transcrição ainda não está ativada no banco.')
+  if (!msg?.audio_path) throw new Error('Áudio não encontrado')
+  if (msg.audio_transcricao) return msg.audio_transcricao
+
+  const chave = process.env.GROQ_API_KEY
+  if (!chave) throw new Error('Transcrição indisponível no momento.')
+
+  const { data: arquivo, error: erroDownload } = await admin.storage.from(BUCKET_ANEXOS).download(msg.audio_path)
+  if (erroDownload || !arquivo) throw new Error('Não foi possível abrir o áudio')
+
+  const form = new FormData()
+  form.append('file', arquivo, msg.audio_path.split('/').pop() || 'audio.webm')
+  form.append('model', 'whisper-large-v3-turbo')
+  form.append('language', 'pt')
+  form.append('response_format', 'json')
+
+  const resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${chave}` },
+    body: form,
+  })
+  if (!resp.ok) {
+    console.error('Groq transcrição falhou', resp.status, await resp.text().catch(() => ''))
+    throw new Error('Não foi possível transcrever agora. Tente de novo em instantes.')
+  }
+  const texto = String((await resp.json())?.text || '').trim() || '(áudio sem fala reconhecida)'
+
+  await admin.from('mensagens_material').update({ audio_transcricao: texto }).eq('id', mensagemId)
+  return texto
 }
 
 /** Quantas mensagens não lidas há por material, do ponto de vista de quem lê. */

@@ -50,6 +50,8 @@ export default async function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning className="antialiased">
       <head>
         <style id="tema-cores" dangerouslySetInnerHTML={{ __html: cssDoTema(tema) }} />
+        {/* Favicon redondo nas cores do tema (gerado em src/app/favicon-tema/route.ts) */}
+        <link rel="icon" type="image/png" sizes="192x192" href={`/favicon-tema?v=${(tema.soft + tema.ink).replace(/#/g, '')}`} />
         {/* Script para bloquear injeções de atributos por extensões (como bis_skin_checked) e evitar erros de Hydration Mismatch */}
         <script
           suppressHydrationWarning={true}

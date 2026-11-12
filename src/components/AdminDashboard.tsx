@@ -15,7 +15,7 @@ import { getDriveFolderFiles } from '@/actions/google'
 import { createBatchFolders } from '@/actions/google-mutations'
 import { StorageWidget } from '@/components/StorageWidget'
 import ConversaMaterial, { enviarAnexos, type EnvioConversa, type MensagemConversa } from '@/components/ConversaMaterial'
-import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEquipe } from '@/actions/conversa'
+import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEquipe, transcreverAudioEquipe } from '@/actions/conversa'
 import { lerTemaEquipe, salvarTema } from '@/actions/tema'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
@@ -1601,7 +1601,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const itensInvalidos = loteItens.filter(i => !i.titulo || !i.roteiro);
     if (itensInvalidos.length > 0) return toast.error("Preencha o título e o roteiro de todas as subtarefas.");
     setLoading(true);
-    const insercoes = loteItens.map(item => ({ cliente_id: loteForm.cliente_id, ciclo: parseInt(loteForm.ciclo) || 1, link_bruto: loteForm.link_bruto || null, titulo: item.titulo, roteiro: item.roteiro, status: 'analise_roteiro' }));
+    // Mesmo cuidado da importação do ClickUp: horários escalonados mantêm a ordem em que o lote foi digitado
+    const agora = Date.now();
+    const insercoes = loteItens.map((item, i) => ({ cliente_id: loteForm.cliente_id, ciclo: parseInt(loteForm.ciclo) || 1, link_bruto: loteForm.link_bruto || null, titulo: item.titulo, roteiro: item.roteiro, status: 'analise_roteiro', created_at: new Date(agora - i).toISOString() }));
     const { error } = await supabase.from('materiais').insert(insercoes);
     if (error) { toast.error("Erro ao enviar lote: " + error.message); setLoading(false); return; }
     toast.success(`${qtd(loteItens.length, 'tarefa', 'tarefas')} criadas e enviadas para Roteiro em Análise!`);
@@ -1632,14 +1634,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         return marked.parse(md, { breaks: true, gfm: true }) as string;
       };
 
-      const novos = subtarefasCompletas.map((sub: any) => ({
+      // As listas mostram do mais novo para o mais antigo. Cada roteiro ganha um horário 1 ms mais antigo
+      // que o anterior, para a 1ª subtarefa do ClickUp ficar no topo (com o mesmo horário a ordem saía invertida).
+      const agora = Date.now();
+      const novos = subtarefasCompletas.map((sub: any, i: number) => ({
         cliente_id: importClienteId,
         titulo: sub.name,
         roteiro: parseClickUpRoteiro(sub),
         status: 'analise_roteiro',
         clickup_task_id: sub.id,
         ciclo: parseInt(importCiclo) || 1,
-        created_at: new Date().toISOString(),
+        created_at: new Date(agora - i).toISOString(),
         link_bruto: '' // default empty
       }))
 
@@ -2193,8 +2198,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   }, 'warning'); };
   // Seletor de tags: busca + lista com bolinha de cor e check; digitar um nome novo oferece "Criar".
   // O menu é desenhado num portal com posição fixa, então nunca é cortado pela lista e abre para cima quando falta espaço embaixo.
-  const TAG_MENU_W = 272;
-  const TAG_MENU_H = 360;
+  const TAG_MENU_W = 232;
+  const TAG_MENU_H = 300;
   const abrirTags = (e: React.MouseEvent, m: Material) => {
     e.stopPropagation();
     if (tagDropdownOpen === m.id) { setTagDropdownOpen(null); return; }
@@ -2226,11 +2231,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           onClick={parar}
           onMouseDown={parar}
           style={{ position: 'fixed', width: TAG_MENU_W, ...pos }}
-          className={`z-[10001] flex flex-col ${tc.bgCard} ${tc.textMain} border ${tc.borderStrong} rounded-xl shadow-2xl overflow-hidden text-left animate-in fade-in zoom-in-95 duration-100`}
+          className={`z-[10001] flex flex-col ${tc.bgCard} ${tc.textMain} border ${tc.borderStrong} rounded-lg shadow-lg overflow-hidden text-left animate-in fade-in zoom-in-95 duration-100`}
         >
-          <div className={`p-2 border-b ${tc.border} shrink-0`}>
+          <div className={`p-1.5 border-b ${tc.border} shrink-0`}>
             <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
               <input
                 autoFocus
                 type="text"
@@ -2242,40 +2247,40 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   else criarTagNoLocal(m);
                 }}
                 placeholder="Buscar ou criar tag"
-                className={`w-full h-8 pl-8 pr-2.5 ${tc.bgInput} border ${tc.borderStrong} rounded-lg text-[13px] outline-none focus:border-brand`}
+                className={`w-full h-7 pl-7 pr-2 ${tc.bgInput} border ${tc.borderStrong} rounded-md text-[12px] outline-none focus:border-brand`}
               />
             </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-1">
-            {systemTags.length === 0 && !q && <p className="text-xs text-zinc-400 px-2.5 py-2">Nenhuma tag ainda. Digite um nome para criar a primeira.</p>}
+            {systemTags.length === 0 && !q && <p className="text-[11.5px] text-zinc-400 px-2 py-1.5">Nenhuma tag ainda. Digite um nome para criar a primeira.</p>}
             {lista.map(tag => {
               const marcada = aplicadas.includes(tag.label);
               return (
-                <div key={tag.id} className={`group/tag flex items-center rounded-lg ${tc.bgHover} transition-colors`}>
-                  <button type="button" onClick={() => toggleMaterialTag(m, tag.label)} className="flex-1 min-w-0 flex items-center gap-2.5 h-8 px-2 text-left">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tagHex(tag.label) }} />
-                    <span className={`flex-1 truncate text-[13px] ${marcada ? 'font-semibold' : ''}`}>{tag.label}</span>
-                    {marcada && <Check size={15} className="text-brand shrink-0" />}
+                <div key={tag.id} className={`group/tag flex items-center rounded-md ${tc.bgHover} transition-colors`}>
+                  <button type="button" onClick={() => toggleMaterialTag(m, tag.label)} className="flex-1 min-w-0 flex items-center gap-2 h-7 px-2 text-left">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: tagHex(tag.label) }} />
+                    <span className={`flex-1 truncate text-[12px] ${marcada ? 'font-semibold' : ''}`}>{tag.label}</span>
+                    {marcada && <Check size={13} className="text-brand shrink-0" />}
                   </button>
-                  <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag do sistema" className="md:opacity-0 md:group-hover/tag:opacity-100 w-7 h-7 mr-0.5 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 transition-opacity shrink-0"><Trash2 size={13} /></button>
+                  <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag do sistema" className="md:opacity-0 md:group-hover/tag:opacity-100 w-6 h-6 mr-0.5 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 transition-opacity shrink-0"><Trash2 size={12} /></button>
                 </div>
               );
             })}
           </div>
 
           {q && !existe && (
-            <div className={`p-2 border-t ${tc.border} shrink-0 space-y-2`}>
+            <div className={`p-1.5 border-t ${tc.border} shrink-0 space-y-1.5`}>
               <div className="flex items-center justify-between px-1.5">
                 {TAG_PALETTE.map(c => (
                   <button key={c} type="button" onClick={() => setNewTagColor(c)} title="Escolher cor" aria-label="Escolher cor"
-                    className={`w-5 h-5 rounded-full transition-transform hover:scale-110 ring-offset-2 ${theme === 'dark' ? 'ring-offset-zinc-900' : 'ring-offset-white'} ${corNova === c ? 'ring-2 ring-zinc-400' : ''}`}
+                    className={`w-4 h-4 rounded-full transition-transform hover:scale-110 ring-offset-2 ${theme === 'dark' ? 'ring-offset-zinc-900' : 'ring-offset-white'} ${corNova === c ? 'ring-2 ring-zinc-400' : ''}`}
                     style={{ backgroundColor: c }} />
                 ))}
               </div>
-              <button type="button" disabled={loading} onClick={() => criarTagNoLocal(m)} className="w-full flex items-center gap-2 h-8 px-2 rounded-lg text-[13px] text-zinc-500 hover:bg-brand-soft disabled:opacity-50 transition-colors">
-                <Plus size={14} className="text-brand shrink-0" /> Criar
-                <span className="inline-flex items-center h-5 px-2 rounded-full text-[11px] font-semibold truncate" style={chipStyle(corNova)}>{q}</span>
+              <button type="button" disabled={loading} onClick={() => criarTagNoLocal(m)} className="w-full flex items-center gap-2 h-7 px-2 rounded-md text-[12px] text-zinc-500 hover:bg-brand-soft disabled:opacity-50 transition-colors">
+                <Plus size={13} className="text-brand shrink-0" /> Criar
+                <span className="inline-flex items-center h-[18px] px-1.5 rounded-full text-[10.5px] font-semibold truncate" style={chipStyle(corNova)}>{q}</span>
               </button>
             </div>
           )}
@@ -4266,6 +4271,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     perspectiva="equipe"
                     dark={theme === 'dark'}
                     onEnviar={(envio) => enviarConversaAdmin(m, envio)}
+                    onTranscrever={(mensagemId) => transcreverAudioEquipe(m.id, mensagemId)}
                     placeholder="Responder ao cliente…"
                     vazio="Nenhuma mensagem do cliente sobre este conteúdo ainda."
                   />
@@ -4809,6 +4815,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 perspectiva="equipe"
                 dark={theme === 'dark'}
                 onEnviar={(envio) => enviarConversaAdmin(tm, envio)}
+                onTranscrever={(mensagemId) => transcreverAudioEquipe(tm.id, mensagemId)}
                 placeholder="Responder ao cliente…"
                 vazio="Nenhum pedido ou mensagem do cliente sobre este conteúdo ainda."
               />

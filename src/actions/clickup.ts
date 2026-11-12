@@ -23,7 +23,8 @@ export async function getClickUpTaskAndSubtasks(taskId: string) {
     if (!res.ok) return { error: "Tarefa não encontrada no ClickUp" };
     
     const data = await res.json();
-    const subtarefasBasicas = data.subtasks || [];
+    // Mesma ordem em que as subtarefas aparecem no ClickUp (a API não garante isso sozinha)
+    const subtarefasBasicas = [...(data.subtasks || [])].sort((a: any, b: any) => (Number(a.orderindex) || 0) - (Number(b.orderindex) || 0));
     
     if (subtarefasBasicas.length === 0) {
       return { error: "❌ ERRO: Esta tarefa não tem Subtarefas! O sistema precisa que os roteiros sejam subtarefas." };

@@ -3,7 +3,7 @@
 import { getAdminSupabase } from '@/lib/supabase'
 import { requireClientePorToken } from '@/lib/auth-guard'
 import { enviarClickUpChat } from '@/lib/clickup-chat'
-import { criarUploadAnexo, inserirMensagem, lerConversa, contarNaoLidas, type AnexoTipo, type NovaMensagem } from '@/lib/conversa'
+import { criarUploadAnexo, inserirMensagem, lerConversa, contarNaoLidas, transcreverAudio, type AnexoTipo, type NovaMensagem } from '@/lib/conversa'
 
 // O portal do cliente não tem login: o token mágico é a credencial.
 // Toda leitura/escrita do portal passa por aqui, validando o token e
@@ -50,6 +50,16 @@ async function materialDoCliente(token: string, materialId: string) {
 export async function conversaPortal(token: string, materialId: string) {
   await materialDoCliente(token, materialId)
   return lerConversa(materialId, 'cliente')
+}
+
+/** Transcreve um áudio da conversa (só quando o cliente clica em "Transcrever"). */
+export async function transcreverAudioPortal(token: string, materialId: string, mensagemId: string): Promise<{ texto?: string; erro?: string }> {
+  try {
+    await materialDoCliente(token, materialId)
+    return { texto: await transcreverAudio(materialId, mensagemId) }
+  } catch (e: any) {
+    return { erro: e?.message || 'Não foi possível transcrever o áudio' }
+  }
 }
 
 export async function prepararAnexoPortal(token: string, materialId: string, tipo: AnexoTipo, ext: string) {

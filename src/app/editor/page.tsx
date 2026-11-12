@@ -14,7 +14,7 @@ import {
 import { createClient } from '@/lib/supabase-browser'
 import { formatRichText } from '@/lib/utils'
 import { notificarClickUpChat } from '@/actions/clickup'
-import { conversaEquipe } from '@/actions/conversa'
+import { conversaEquipe, transcreverAudioEquipe } from '@/actions/conversa'
 import ConversaMaterial, { type MensagemConversa } from '@/components/ConversaMaterial'
 import {
   TeamShell, PageHeader, StatCards, Filtros, GrupoCliente, LinhaTarefa, Vazio, PainelTarefa, Secao, TextoRecolhivel,
@@ -356,7 +356,7 @@ export default function EditorDashboard() {
             <Secao titulo="O que o cliente pediu">
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
                 <ConversaMaterial somenteLeitura className="max-h-[360px]" mensagens={conversa} carregando={carregandoConversa} perspectiva="equipe"
-                  dark={theme === 'dark'} onEnviar={async () => false} vazio="O pedido de ajuste ainda não tem detalhes." />
+                  dark={theme === 'dark'} onEnviar={async () => false} onTranscrever={(mensagemId) => transcreverAudioEquipe(aberto.id, mensagemId)} vazio="O pedido de ajuste ainda não tem detalhes." />
               </div>
             </Secao>
           )}

@@ -6,7 +6,7 @@
 // a gravação de áudio e o envio dos arquivos para o Storage por link assinado.
 
 import { useEffect, useRef, useState } from 'react'
-import { Image as ImageIcon, Mic, SendHorizontal, Trash2, Check, X, Play, Pause, Loader2, MessageSquare } from 'lucide-react'
+import { Image as ImageIcon, Mic, SendHorizontal, Trash2, Check, X, Play, Pause, Loader2, MessageSquare, FileText, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import type { MensagemConversa } from '@/lib/conversa'
 
@@ -70,10 +70,48 @@ function AudioPill({ url, dur, dark }: { url: string; dur: number; dark?: boolea
   )
 }
 
+type Transcrever = (mensagemId: string) => Promise<{ texto?: string; erro?: string }>
+
+/** "Transcrever" embaixo do áudio: só chama a API quando a pessoa clica; depois o texto fica salvo. */
+function TranscricaoAudio({ mensagemId, inicial, onTranscrever }: { mensagemId: string; inicial: string | null; onTranscrever?: Transcrever }) {
+  const [texto, setTexto] = useState<string | null>(inicial)
+  const [aberto, setAberto] = useState(false)
+  const [carregando, setCarregando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  useEffect(() => { if (inicial) setTexto(inicial) }, [inicial])
+  if (!texto && !onTranscrever) return null
+
+  const clicar = async () => {
+    if (aberto) { setAberto(false); return }
+    if (texto) { setAberto(true); return }
+    if (!onTranscrever || carregando) return
+    setCarregando(true); setErro(null)
+    try {
+      const r = await onTranscrever(mensagemId)
+      if (r.texto) { setTexto(r.texto); setAberto(true) } else setErro(r.erro || 'Não foi possível transcrever o áudio')
+    } catch {
+      setErro('Não foi possível transcrever o áudio')
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      <button type="button" onClick={clicar} disabled={carregando}
+        className="inline-flex items-center gap-1 text-[12px] font-medium text-brand hover:underline disabled:opacity-60 disabled:no-underline">
+        {carregando ? <><Loader2 size={12} className="animate-spin" /> Transcrevendo…</> : aberto ? <><ChevronUp size={12} /> Ocultar transcrição</> : <><FileText size={12} /> {texto ? 'Ver transcrição' : 'Transcrever'}</>}
+      </button>
+      {aberto && texto && <p className="whitespace-pre-wrap m-0 text-[13px] italic opacity-90">{texto}</p>}
+      {erro && <p className="m-0 text-[12px] text-red-500">{erro}</p>}
+    </div>
+  )
+}
+
 export default function ConversaMaterial({
   mensagens, carregando, perspectiva, onEnviar, modoAjuste = false, onCancelarAjuste,
   mostrarSobre = false, alvoInicial = 'video', dark = false, placeholder, vazio, className = '', enviando: enviandoExterno = false,
-  composerClassName = '', mensagensClassName = '', focarSinal = 0, somenteLeitura = false,
+  composerClassName = '', mensagensClassName = '', focarSinal = 0, somenteLeitura = false, onTranscrever,
 }: {
   mensagens: MensagemConversa[]
   carregando?: boolean
@@ -92,6 +130,7 @@ export default function ConversaMaterial({
   mensagensClassName?: string
   focarSinal?: number              // muda o número para focar o campo de mensagem
   somenteLeitura?: boolean         // só mostra as mensagens (ex.: editor vendo o pedido do cliente)
+  onTranscrever?: Transcrever      // botão "Transcrever" nos áudios (chama a API só no clique)
 }) {
   const [texto, setTexto] = useState('')
   const [fotos, setFotos] = useState<{ file: File; url: string }[]>([])
@@ -211,6 +250,7 @@ export default function ConversaMaterial({
                   </div>
                 )}
                 {m.audio && <AudioPill url={m.audio.url} dur={m.audio.dur} dark={dark} />}
+                {m.audio && <TranscricaoAudio mensagemId={m.id} inicial={m.audio.transcricao} onTranscrever={onTranscrever} />}
                 {m.texto && <p className="whitespace-pre-wrap m-0">{m.texto}</p>}
               </div>
             </div>

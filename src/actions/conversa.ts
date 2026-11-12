@@ -2,7 +2,7 @@
 
 import { getAdminSupabase } from '@/lib/supabase'
 import { requireEquipe } from '@/lib/auth-guard'
-import { criarUploadAnexo, inserirMensagem, lerConversa, contarNaoLidas, type AnexoTipo, type NovaMensagem } from '@/lib/conversa'
+import { criarUploadAnexo, inserirMensagem, lerConversa, contarNaoLidas, transcreverAudio, type AnexoTipo, type NovaMensagem } from '@/lib/conversa'
 
 // Lado da equipe da conversa do portal. Toda action exige membro da equipe logado.
 
@@ -33,6 +33,17 @@ export async function enviarMensagemEquipe(materialId: string, msg: NovaMensagem
     materialId, clienteId: material.cliente_id, autor: 'equipe',
     autorId: user.id, autorNome: membro?.nome || perfil.email || 'Equipe',
   }, { ...msg, ajuste: false, evento: null })
+}
+
+/** Transcreve um áudio da conversa (só quando a equipe clica em "Transcrever"). */
+export async function transcreverAudioEquipe(materialId: string, mensagemId: string): Promise<{ texto?: string; erro?: string }> {
+  try {
+    await requireEquipe()
+    await materialComCliente(materialId)
+    return { texto: await transcreverAudio(materialId, mensagemId) }
+  } catch (e: any) {
+    return { erro: e?.message || 'Não foi possível transcrever o áudio' }
+  }
 }
 
 /** Mensagens do cliente ainda não lidas pela equipe, por material. */
