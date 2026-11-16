@@ -209,6 +209,7 @@ const THEME_PRESETS: { nome: string; cores: BrandColors }[] = [
   { nome: 'Grafite', cores: { soft: '#E8E8E8', brand: '#3A3A3A', ink: '#1A1A1A' } },
 ]
 const THEME_STORAGE_KEY = 'everton-brand-colors'
+const RASCUNHO_ROTEIRO = 'rascunho-roteiro:'
 const hexToRgbChannels = (hex: string) => {
   const h = hex.replace('#', '');
   const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
@@ -553,6 +554,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [isEditRoteiroModalOpen, setIsEditRoteiroModalOpen] = useState(false);
   const [roteiroToEdit, setRoteiroToEdit] = useState<Material | null>(null);
   const [newRoteiroText, setNewRoteiroText] = useState('');
+  const [salvandoRoteiro, setSalvandoRoteiro] = useState(false);
+  const roteiroAlteradoRef = useRef(false);
+  // Fundo do painel só fecha se o clique começou nele (evita fechar ao selecionar texto e soltar fora)
+  const cliqueComecouNoFundoRef = useRef(false);
   const [isEditTituloModalOpen, setIsEditTituloModalOpen] = useState(false);
   const [novoTituloText, setNovoTituloText] = useState('');
   const [materialBeingEdited, setMaterialBeingEdited] = useState<Material | null>(null);
@@ -1141,12 +1146,29 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   };
 
   const handleSaveRoteiro = async () => {
-    if (!roteiroToEdit) return; setLoading(true);
+    if (!roteiroToEdit || salvandoRoteiro) return;
+    const id = roteiroToEdit.id;
+    const titulo = novoTituloText.trim() || roteiroToEdit.titulo;
     let textToSave = newRoteiroText;
     textToSave = textToSave.replace(/<li data-list="checked">/gi, '<li class="task-list-item"><input type="checkbox" checked disabled> ');
     textToSave = textToSave.replace(/<li data-list="unchecked">/gi, '<li class="task-list-item"><input type="checkbox" disabled> ');
-    const { error } = await supabase.from('materiais').update({ roteiro: textToSave, titulo: novoTituloText }).eq('id', roteiroToEdit.id);
-    if (!error) { toast.success("Roteiro atualizado!"); setIsEditRoteiroModalOpen(false); loadData(); } else { toast.error("Erro."); } setLoading(false);
+    setSalvandoRoteiro(true);
+    try {
+      const { data, error } = await supabase.from('materiais').update({ roteiro: textToSave, titulo }).eq('id', id).select('id');
+      if (error) throw error;
+      // Sem linha devolvida = o banco não gravou (sessão expirada ou sem permissão)
+      if (!data || data.length === 0) throw new Error('O banco não confirmou a gravação. Saia e entre de novo no painel e tente outra vez — o texto continua guardado.');
+      apagarRascunhoRoteiro(id);
+      roteiroAlteradoRef.current = false;
+      setMateriais(prev => prev.map(x => x.id === id ? { ...x, roteiro: textToSave, titulo } : x));
+      toast.success('Roteiro salvo!');
+      setIsEditRoteiroModalOpen(false);
+      loadData();
+    } catch (err: any) {
+      toast.error(`Não foi possível salvar o roteiro. ${err?.message || ''}`.trim(), { duration: 8000 });
+    } finally {
+      setSalvandoRoteiro(false);
+    }
   }
 
   const handleUpdateLinkBruto = async () => {
@@ -2054,9 +2076,35 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!txt.includes('<p>') && !txt.includes('<br>')) txt = txt.replace(/\n/g, '<br/>');
     txt = txt.replace(/<li[^>]*>\s*<input[^>]*checked=""?[^>]*>\s*/gi, '<li data-list="checked">');
     txt = txt.replace(/<li[^>]*>\s*<input[^>]*type="checkbox"[^>]*>\s*/gi, '<li data-list="unchecked">');
-    setNovoTituloText(m.titulo);
+    // Se o painel fechou antes de salvar, recupera o que ela tinha escrito
+    let titulo = m.titulo;
+    let recuperado = false;
+    try {
+      const salvo = localStorage.getItem(RASCUNHO_ROTEIRO + m.id);
+      if (salvo) {
+        const r = JSON.parse(salvo);
+        if (typeof r?.roteiro === 'string') { txt = r.roteiro; recuperado = true; }
+        if (typeof r?.titulo === 'string') titulo = r.titulo;
+      }
+    } catch { /* sem armazenamento local: abre o que está salvo */ }
+    roteiroAlteradoRef.current = recuperado;
+    setNovoTituloText(titulo);
     setNewRoteiroText(txt);
     setIsEditRoteiroModalOpen(true);
+    if (recuperado) toast.info('Recuperamos o que você tinha escrito e ainda não foi salvo. Clique em Salvar para guardar.', { duration: 6000 });
+  };
+
+  // Guarda um rascunho local a cada alteração, para nada se perder se o painel fechar
+  const guardarRascunhoRoteiro = (roteiro: string, titulo: string) => {
+    if (!roteiroToEdit) return;
+    try { localStorage.setItem(RASCUNHO_ROTEIRO + roteiroToEdit.id, JSON.stringify({ roteiro, titulo })); } catch { /* ignora */ }
+  };
+  const apagarRascunhoRoteiro = (id: string) => { try { localStorage.removeItem(RASCUNHO_ROTEIRO + id); } catch { /* ignora */ } };
+
+  // Fecha o painel; se houver alteração não salva, pergunta antes
+  const fecharRoteiro = () => {
+    if (roteiroAlteradoRef.current && !window.confirm('Você tem alterações no roteiro que ainda não foram salvas. Fechar mesmo assim?\n\n(O texto fica guardado e volta quando você abrir a tarefa de novo.)')) return;
+    setIsEditRoteiroModalOpen(false);
   };
 
   const pageHeader = ({ title, icon: Icon, iconCls = 'bg-brand-soft text-brand', meta, crumb, actions }: { title: string; icon: any; iconCls?: string; meta?: string; crumb?: string; actions?: React.ReactNode }) => (
@@ -4225,14 +4273,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           </button>
         );
         return (
-          <div className="fixed inset-0 z-[9999] flex justify-end bg-zinc-950/30 animate-in fade-in duration-200" onClick={() => setIsEditRoteiroModalOpen(false)}>
+          <div className="fixed inset-0 z-[9999] flex justify-end bg-zinc-950/30 animate-in fade-in duration-200"
+            onMouseDown={(e) => { cliqueComecouNoFundoRef.current = e.target === e.currentTarget; }}
+            onClick={(e) => { if (e.target === e.currentTarget && cliqueComecouNoFundoRef.current) fecharRoteiro(); cliqueComecouNoFundoRef.current = false; }}>
             <div onClick={(e) => e.stopPropagation()} className={`${tc.bgCard} w-full md:w-[760px] h-full shadow-2xl flex flex-col text-left animate-in slide-in-from-right duration-300`}>
               <div className={`px-5 md:px-6 py-4 border-b ${tc.borderStrong} flex items-start gap-3 shrink-0`}>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-zinc-500 truncate">{m.cliente?.nome}{m.ciclo ? ` · Ciclo ${m.ciclo}` : ''}</div>
-                  <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-lg font-semibold mt-0.5 w-full bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 focus:border-brand outline-none rounded-md px-1.5 py-0.5 -ml-1.5 resize-none overflow-hidden ${tc.textMain}`} placeholder="Título da tarefa" />
+                  <textarea ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} rows={1} value={novoTituloText} onChange={(e) => { setNovoTituloText(e.target.value); roteiroAlteradoRef.current = true; guardarRascunhoRoteiro(newRoteiroText, e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} className={`text-lg font-semibold mt-0.5 w-full bg-transparent border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 focus:border-brand outline-none rounded-md px-1.5 py-0.5 -ml-1.5 resize-none overflow-hidden ${tc.textMain}`} placeholder="Título da tarefa" />
                 </div>
-                <IconAction icon={X} label="Fechar" onClick={() => setIsEditRoteiroModalOpen(false)} />
+                <IconAction icon={X} label="Fechar" onClick={fecharRoteiro} />
               </div>
 
               <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4">
@@ -4251,7 +4301,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 </div>
                 <div className="flex items-center gap-2 mb-2.5"><span className="text-[15px] font-semibold">Roteiro</span></div>
                 <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`${theme === 'dark' ? 'bg-zinc-950 text-zinc-300 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-zinc-900' : 'bg-white text-zinc-800 [&_.ql-toolbar]:border-zinc-200 [&_.ql-container]:border-zinc-200'} rounded-xl overflow-hidden [&_.ql-toolbar]:rounded-t-xl [&_.ql-container]:rounded-b-xl [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
-                  <ReactQuill theme="snow" value={newRoteiroText} onChange={setNewRoteiroText} placeholder="Escreva o roteiro aqui com formatação..." className="[&_.ql-editor]:min-h-[320px] [&_.ql-editor]:text-[15px]" />
+                  <ReactQuill theme="snow" value={newRoteiroText} onChange={(valor: string, _delta: unknown, origem: string) => { setNewRoteiroText(valor); if (origem === 'user') { roteiroAlteradoRef.current = true; guardarRascunhoRoteiro(valor, novoTituloText); } }} placeholder="Escreva o roteiro aqui com formatação..." className="[&_.ql-editor]:min-h-[320px] [&_.ql-editor]:text-[15px]" />
                 </div>
 
                 {/* Conversa com o cliente pelo portal (texto, fotos e áudio) */}
@@ -4279,8 +4329,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
               </div>
 
               <div className={`px-5 md:px-6 py-4 border-t ${tc.borderStrong} flex justify-end gap-2.5 shrink-0`}>
-                <button onClick={() => setIsEditRoteiroModalOpen(false)} className={btnLine}>Cancelar</button>
-                <button onClick={handleSaveRoteiro} disabled={loading} className={btnInk}>{loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar</button>
+                <button onClick={fecharRoteiro} className={btnLine}>Cancelar</button>
+                <button onClick={handleSaveRoteiro} disabled={salvandoRoteiro} className={btnInk}>{salvandoRoteiro ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar</button>
               </div>
             </div>
           </div>
