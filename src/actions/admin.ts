@@ -100,26 +100,27 @@ export async function getEquipeMembers() {
  * Roda no servidor para não depender das policies da tabela de tags
  * (pelo navegador o banco pode recusar a exclusão sem devolver erro).
  */
-export async function excluirTagSistema(label: string): Promise<{ label: string; materiaisAlterados: string[] }> {
+export async function excluirTagSistema(label: string): Promise<{ ok: true; label: string; materiaisAlterados: string[] } | { ok: false; error: string }> {
+  // Devolve o erro em vez de lançar: em produção o Next esconde a mensagem de erros lançados
   await requireEquipe()
-  if (!label) throw new Error('Tag sem nome.')
+  if (!label) return { ok: false, error: 'Tag sem nome.' }
 
   const { data: comTags, error: erroMateriais } = await supabaseAdmin.from('materiais').select('id, tags').not('tags', 'is', null)
-  if (erroMateriais) throw new Error(`Erro ao buscar as tarefas: ${erroMateriais.message}`)
+  if (erroMateriais) return { ok: false, error: `Erro ao buscar as tarefas: ${erroMateriais.message}` }
 
   const materiaisAlterados: string[] = []
   for (const row of (comTags || []) as { id: string; tags: string[] | null }[]) {
     const tags = Array.isArray(row.tags) ? row.tags : []
     if (!tags.includes(label)) continue
     const { error } = await supabaseAdmin.from('materiais').update({ tags: tags.filter(t => t !== label) }).eq('id', row.id)
-    if (error) throw new Error(`Erro ao tirar a tag de uma tarefa: ${error.message}`)
+    if (error) return { ok: false, error: `Erro ao tirar a tag de uma tarefa: ${error.message}` }
     materiaisAlterados.push(row.id)
   }
 
   const { error: erroDelete } = await supabaseAdmin.from('tags').delete().eq('label', label)
-  if (erroDelete) throw new Error(`Erro ao excluir a tag: ${erroDelete.message}`)
+  if (erroDelete) return { ok: false, error: `Erro ao excluir a tag: ${erroDelete.message}` }
   const { data: restou } = await supabaseAdmin.from('tags').select('label').eq('label', label).limit(1)
-  if (restou && restou.length > 0) throw new Error('O banco não confirmou a exclusão da tag.')
+  if (restou && restou.length > 0) return { ok: false, error: 'O banco não confirmou a exclusão da tag.' }
 
-  return { label, materiaisAlterados }
+  return { ok: true, label, materiaisAlterados }
 }

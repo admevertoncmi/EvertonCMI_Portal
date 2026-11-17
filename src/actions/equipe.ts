@@ -8,19 +8,26 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Grava a foto de perfil (coluna foto_url). Separado do resto para dar um aviso claro
-// se a coluna ainda não existir no banco.
-async function salvarFotoMembro(userId: string, formData: FormData) {
-  if (!formData.has('foto_url')) return
+// Em produção o Next esconde a mensagem de erros lançados por server actions; por isso estas
+// ações DEVOLVEM { success: false, error } para o aviso certo chegar na tela.
+type Resultado = { success: true; aviso?: string } | { success: false; error: string }
+
+// Grava a foto de perfil (coluna foto_url). Devolve a mensagem de erro, ou null se deu certo.
+async function salvarFotoMembro(userId: string, formData: FormData, ignorarVazia: boolean): Promise<string | null> {
+  if (!formData.has('foto_url')) return null
   const foto = String(formData.get('foto_url') || '').trim() || null
+  if (!foto && ignorarVazia) return null
   const { error } = await supabaseAdmin.from('perfis_equipe').update({ foto_url: foto }).eq('id', userId)
-  if (error) {
-    if (/foto_url/i.test(error.message)) throw new Error('A foto não foi salva: falta rodar a atualização do banco (coluna foto_url em perfis_equipe).')
-    throw new Error(`A foto não foi salva: ${error.message}`)
-  }
+  if (!error) return null
+  const faltaColuna = /foto_url/i.test(error.message)
+  // Sem a coluna e sem foto para gravar, não há nada a fazer
+  if (faltaColuna && !foto) return null
+  return faltaColuna
+    ? 'A foto não foi salva: falta rodar a atualização do banco (coluna foto_url em perfis_equipe).'
+    : `A foto não foi salva: ${error.message}`
 }
 
-export async function criarMembroEquipe(formData: FormData) {
+export async function criarMembroEquipe(formData: FormData): Promise<Resultado> {
   await requireAdmin()
   const nome = formData.get("nome") as string
   const email = formData.get("email") as string
@@ -37,7 +44,7 @@ export async function criarMembroEquipe(formData: FormData) {
     app_metadata: { role }
   })
 
-  if (error) throw error
+  if (error) return { success: false, error: `Não foi possível criar o membro: ${error.message}` }
 
   if (telegram_thread_id || nome) {
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -52,16 +59,13 @@ export async function criarMembroEquipe(formData: FormData) {
       .eq('id', data.user.id);
   }
 
-  if (formData.has('foto_url')) {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    await salvarFotoMembro(data.user.id, formData)
-  }
-
-  return { success: true, user: data.user }
+  // O membro já foi criado: se só a foto falhar, avisa sem dar erro
+  const erroFoto = await salvarFotoMembro(data.user.id, formData, true)
+  return erroFoto ? { success: true, aviso: `Membro criado. ${erroFoto}` } : { success: true }
 }
 
 // 👇 NOVA FUNÇÃO PARA EDITAR UM MEMBRO EXISTENTE 👇
-export async function atualizarMembroEquipe(userId: string, formData: FormData) {
+export async function atualizarMembroEquipe(userId: string, formData: FormData): Promise<Resultado> {
   await requireAdmin()
   const nome = formData.get("nome") as string
   const role = formData.get("role") as string
@@ -79,16 +83,17 @@ export async function atualizarMembroEquipe(userId: string, formData: FormData) 
 
   // 1. Atualiza no sistema de autenticação
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, updateData)
-  if (error) throw error
+  if (error) return { success: false, error: `Não foi possível salvar o acesso do membro: ${error.message}` }
 
   // 2. Atualiza na tabela visual do painel
   const { error: erroPerfil } = await supabaseAdmin
     .from('perfis_equipe')
     .update({ nome, role, telegram_thread_id })
     .eq('id', userId);
-  if (erroPerfil) throw new Error(`Erro ao salvar os dados do membro: ${erroPerfil.message}`)
+  if (erroPerfil) return { success: false, error: `Erro ao salvar os dados do membro: ${erroPerfil.message}` }
 
-  await salvarFotoMembro(userId, formData)
+  const erroFoto = await salvarFotoMembro(userId, formData, false)
+  if (erroFoto) return { success: false, error: erroFoto }
 
   return { success: true }
 }

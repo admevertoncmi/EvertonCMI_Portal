@@ -2362,7 +2362,8 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   // Exclui a tag do sistema e também a tira de todas as tarefas onde estava aplicada
   const excluirTag = (tag: { id: string; label: string }) => { setTagDropdownOpen(null); openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema? Ela também sai das tarefas onde está aplicada.`, async () => {
     try {
-      await excluirTagSistema(tag.label);
+      const r = await excluirTagSistema(tag.label);
+      if (!r || !r.ok) { toast.error('Não foi possível excluir a tag. ' + (r && 'error' in r ? r.error : ''), { duration: 8000 }); return; }
     } catch (err: any) {
       toast.error('Não foi possível excluir a tag. ' + (err?.message || ''), { duration: 8000 });
       return;
@@ -3667,13 +3668,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         const f = new FormData(e.currentTarget);
                         setIsCreatingUser(true);
                         try {
-                          if (editingMembro) {
-                            await atualizarMembroEquipe(editingMembro.id, f);
-                            toast.success("Membro atualizado!");
-                          } else {
-                            await criarMembroEquipe(f);
-                            toast.success("Membro adicionado!");
-                          }
+                          const r = editingMembro ? await atualizarMembroEquipe(editingMembro.id, f) : await criarMembroEquipe(f);
+                          // Erro devolvido pelo servidor: mostra o motivo e deixa a janela aberta
+                          if (!r || !r.success) { toast.error(r && 'error' in r ? r.error : 'Não foi possível salvar.', { duration: 9000 }); if (!editingMembro) loadData(); return; }
+                          if ('aviso' in r && r.aviso) toast.warning(r.aviso, { duration: 9000 });
+                          else toast.success(editingMembro ? 'Membro atualizado!' : 'Membro adicionado!');
                           fechar();
                           loadData();
                         } catch (error: any) {
