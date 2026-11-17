@@ -77,8 +77,70 @@ const EditorWrapper = (props: any) => {
           }
         };
 
+        // --- MOVER IMAGEM DENTRO DO ROTEIRO (arrastar uma imagem do próprio texto) ---
+        let imagemArrastada: HTMLImageElement | null = null;
+        const handleDragStart = (e: DragEvent) => {
+          const alvo = e.target as HTMLElement;
+          if (alvo && alvo.tagName === 'IMG' && editor.root.contains(alvo)) {
+            imagemArrastada = alvo as HTMLImageElement;
+            try { (editor.getModule('imageResize') as any)?.hide?.(); } catch { /* sem moldura aberta */ }
+            if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); }
+          } else {
+            imagemArrastada = null;
+          }
+        };
+        const handleDragEnd = () => { imagemArrastada = null; };
+        const handleDragOver = (e: DragEvent) => {
+          if (imagemArrastada) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; }
+        };
+        // Converte o ponto do mouse numa posição do texto do Quill
+        const indiceNoPonto = (x: number, y: number): number | null => {
+          const doc: any = document;
+          let node: Node | null = null;
+          let offset = 0;
+          if (doc.caretRangeFromPoint) {
+            const r = doc.caretRangeFromPoint(x, y);
+            if (r) { node = r.startContainer; offset = r.startOffset; }
+          } else if (doc.caretPositionFromPoint) {
+            const p = doc.caretPositionFromPoint(x, y);
+            if (p) { node = p.offsetNode; offset = p.offset; }
+          }
+          if (!node || !editor.root.contains(node)) return null;
+          if (node.nodeType === Node.TEXT_NODE) {
+            const blot = Quill.find(node, true) as any;
+            return blot ? editor.getIndex(blot) + offset : null;
+          }
+          const filho = node.childNodes[offset];
+          if (filho) {
+            const blot = Quill.find(filho, true) as any;
+            if (blot) return editor.getIndex(blot);
+          }
+          const blot = Quill.find(node, true) as any;
+          if (!blot || blot === editor.scroll) return editor.getLength() - 1;
+          return editor.getIndex(blot) + blot.length() - (node === editor.root ? 0 : 1);
+        };
+        const moverImagem = (e: DragEvent): boolean => {
+          const img = imagemArrastada;
+          imagemArrastada = null;
+          if (!img) return false;
+          e.preventDefault();
+          e.stopPropagation();
+          const blot = Quill.find(img) as any;
+          if (!blot) return true;
+          const de = editor.getIndex(blot);
+          let para = indiceNoPonto(e.clientX, e.clientY);
+          if (para === null || para === de || para === de + 1) return true;
+          const conteudo = editor.getContents(de, 1); // a imagem com largura/altura que ela já tinha
+          editor.deleteText(de, 1, 'user');
+          if (para > de) para -= 1;
+          editor.updateContents({ ops: [{ retain: para }, ...conteudo.ops] } as any, 'user');
+          editor.setSelection(para + 1, 0, 'silent');
+          return true;
+        };
+
         // --- INTERCEPTADOR DE DROP (Arrastar e Soltar) ---
         const handleDrop = async (e: DragEvent) => {
+          if (moverImagem(e)) return;
           if (e.dataTransfer && e.dataTransfer.files) {
             const files = Array.from(e.dataTransfer.files).filter(f => f.type.indexOf('image') === 0);
             if (files.length > 0) {
@@ -122,11 +184,17 @@ const EditorWrapper = (props: any) => {
 
         editor.root.addEventListener('paste', handlePaste, true);
         editor.root.addEventListener('drop', handleDrop, true);
+        editor.root.addEventListener('dragstart', handleDragStart, true);
+        editor.root.addEventListener('dragend', handleDragEnd, true);
+        editor.root.addEventListener('dragover', handleDragOver, true);
 
         // Cleanup
         return () => {
           editor.root.removeEventListener('paste', handlePaste, true);
           editor.root.removeEventListener('drop', handleDrop, true);
+          editor.root.removeEventListener('dragstart', handleDragStart, true);
+          editor.root.removeEventListener('dragend', handleDragEnd, true);
+          editor.root.removeEventListener('dragover', handleDragOver, true);
         };
       }
     }
@@ -137,7 +205,10 @@ const EditorWrapper = (props: any) => {
       magicUrl: true, // Enables automatic link identification while typing
       imageResize: {
         parchment: Quill.import('parchment'),
-        modules: ['Resize', 'DisplaySize']
+        modules: ['Resize', 'DisplaySize'],
+        // A moldura não bloqueia o mouse (assim dá para arrastar a imagem); só as alças de redimensionar recebem clique
+        overlayStyles: { pointerEvents: 'none' },
+        handleStyles: { pointerEvents: 'auto' }
       },
       toolbar: {
         container: [

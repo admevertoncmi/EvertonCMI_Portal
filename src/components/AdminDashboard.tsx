@@ -509,6 +509,31 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
   };
 
+  // Altera campos da tarefa na hora (status, responsáveis, entrega, título) e desfaz se o banco recusar
+  const atualizarCamposTarefa = async (material: Material, patch: Partial<Material>) => {
+    const atual = materiais.find(x => x.id === material.id) || material;
+    const antes: Partial<Material> = {};
+    (Object.keys(patch) as (keyof Material)[]).forEach(k => { (antes as any)[k] = atual[k]; });
+    setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, ...patch } : x));
+    const { data, error } = await supabase.from('materiais').update(patch).eq('id', material.id).select('id');
+    if (error || !data || data.length === 0) {
+      toast.error('Não foi possível salvar a alteração.');
+      setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, ...antes } : x));
+      return false;
+    }
+    return true;
+  };
+
+  // Edição do título direto no card (duplo clique no título)
+  const [tituloInlineId, setTituloInlineId] = useState<string | null>(null);
+  const [tituloInlineTexto, setTituloInlineTexto] = useState('');
+  const salvarTituloInline = async (m: Material) => {
+    const texto = tituloInlineTexto.trim();
+    setTituloInlineId(null);
+    if (!texto || texto === m.titulo) return;
+    if (await atualizarCamposTarefa(m, { titulo: texto })) toast.success('Título atualizado!');
+  };
+
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [confirmConfig, setConfirmConfig] = useState<{ title: string; text: string; onConfirm: () => void; type: 'danger' | 'warning' }>({
     title: '', text: '', onConfirm: () => { }, type: 'warning'
@@ -1925,6 +1950,20 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     </span>
   );
   const statusOf = (m: Material) => STATUS_INFO[m.status] || { label: String(m.status), cls: STATUS_INFO.concluido.cls };
+  // Opções do seletor de status no painel da tarefa (rótulos repetidos ganham o complemento da etapa)
+  const STATUS_OPCOES: { value: string; label: string }[] = Object.entries(STATUS_INFO).map(([value, { label }]) => ({
+    value,
+    label: value === 'roteiro_pendente' ? 'Aguardando cliente (roteiro)'
+      : value === 'pendente' ? 'Aguardando cliente (vídeo)'
+      : value === 'aprovado' ? 'Aprovado (vídeo)'
+      : value === 'post_aprovado' ? 'Aprovado (post)'
+      : label,
+  }));
+  const PAPEIS_TAREFA: { campo: 'planner_id' | 'editor_id' | 'designer_id'; label: string; roles: string[] }[] = [
+    { campo: 'planner_id', label: 'Decupador', roles: ['planner'] },
+    { campo: 'editor_id', label: 'Editor', roles: ['editor'] },
+    { campo: 'designer_id', label: 'Designer', roles: ['designer'] },
+  ];
 
   const AVATAR_COLORS = ['#E8559A', '#3B82F6', '#F59E0B', '#14B8A6', '#9B6CF0', '#A25431'];
   const avatarColor = (s: string) => AVATAR_COLORS[s.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
@@ -2239,10 +2278,19 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }
     setLoading(false);
   };
-  const excluirTag = (tag: { id: string; label: string }) => { setTagDropdownOpen(null); openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema?`, async () => {
-    await supabase.from('tags').delete().eq('id', tag.id);
+  // Exclui a tag do sistema e também a tira de todas as tarefas onde estava aplicada
+  const excluirTag = (tag: { id: string; label: string }) => { setTagDropdownOpen(null); openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema? Ela também sai das tarefas onde está aplicada.`, async () => {
+    const { data: comTag, error: erroBusca } = await supabase.from('materiais').select('id, tags').contains('tags', [tag.label]);
+    if (erroBusca) { toast.error('Erro ao excluir tag: ' + erroBusca.message); return; }
+    for (const row of (comTag || []) as { id: string; tags: string[] | null }[]) {
+      const { error } = await supabase.from('materiais').update({ tags: (row.tags || []).filter(t => t !== tag.label) }).eq('id', row.id);
+      if (error) { toast.error('Erro ao tirar a tag de uma tarefa: ' + error.message); return; }
+    }
+    const { error } = await supabase.from('tags').delete().eq('id', tag.id);
+    if (error) { toast.error('Erro ao excluir tag: ' + error.message); return; }
     setSystemTags(prev => prev.filter(t => t.id !== tag.id));
-    toast.success('Tag removida!');
+    setMateriais(prev => prev.map(x => (x.tags || []).includes(tag.label) ? { ...x, tags: (x.tags || []).filter(t => t !== tag.label) } : x));
+    toast.success('Tag excluída!');
   }, 'warning'); };
   // Seletor de tags: busca + lista com bolinha de cor e check; digitar um nome novo oferece "Criar".
   // O menu é desenhado num portal com posição fixa, então nunca é cortado pela lista e abre para cima quando falta espaço embaixo.
@@ -2267,7 +2315,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       : { top: tagAnchor.bottom + 6, left, maxHeight: Math.min(TAG_MENU_H, espacoAbaixo - 16) };
     const aplicadas = m.tags || [];
     const q = newTagLabel.trim().toUpperCase();
-    const lista = q ? systemTags.filter(t => t.label.includes(q)) : systemTags;
+    // Tags aplicadas que não estão no cadastro (ex.: vieram do ClickUp) também aparecem, para poder desmarcar
+    const orfas = aplicadas.filter(t => !t.startsWith('_') && !systemTags.some(s => s.label === t)).map(t => ({ id: `orfa-${t}`, label: t, orfa: true }));
+    const todas: { id: string; label: string; orfa?: boolean }[] = [...orfas, ...systemTags];
+    const lista = q ? todas.filter(t => t.label.toUpperCase().includes(q)) : todas;
     const existe = systemTags.find(t => t.label === q);
     const corNova = newTagColor.startsWith('#') ? newTagColor : TAG_PALETTE[0];
     const parar = (e: React.SyntheticEvent) => e.stopPropagation();
@@ -2311,7 +2362,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                     <span className={`flex-1 truncate text-[12px] ${marcada ? 'font-semibold' : ''}`}>{tag.label}</span>
                     {marcada && <Check size={13} className="text-brand shrink-0" />}
                   </button>
-                  <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag do sistema" className="md:opacity-0 md:group-hover/tag:opacity-100 w-6 h-6 mr-0.5 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 transition-opacity shrink-0"><Trash2 size={12} /></button>
+                  {!tag.orfa && <button type="button" onClick={() => excluirTag(tag)} title="Excluir tag do sistema" className="md:opacity-0 md:group-hover/tag:opacity-100 w-6 h-6 mr-0.5 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-red-500 transition-opacity shrink-0"><Trash2 size={12} /></button>}
                 </div>
               );
             })}
@@ -2338,7 +2389,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     );
   };
   const tagControl = (m: Material) => (
-    <span className={`inline-flex ${tagDropdownOpen === m.id ? 'opacity-100' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
+    <span onDoubleClick={(e) => e.stopPropagation()} className={`inline-flex ${tagDropdownOpen === m.id ? 'opacity-100' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
       <button type="button" onClick={(e) => abrirTags(e, m)} title="Tags" className={`w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} ${tagDropdownOpen === m.id ? 'text-brand border-brand' : 'text-zinc-500'} hover:text-brand`}>
         <Tag size={13} />
       </button>
@@ -2346,33 +2397,58 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     </span>
   );
   // Tags pequenas, numa linha própria embaixo do título
-  const tagChips = (m: Material) => (m.tags || []).filter(t => !t.startsWith('_')).map(t => (
-    <span key={t} className="inline-flex items-center gap-1.5 h-5 px-2 rounded-full text-[11px] font-semibold whitespace-nowrap" style={getTagStyle(t)}>
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tagHex(t) }} />{t}
+  // removivel: mostra um "x" para tirar a tag da tarefa (usado no painel da tarefa)
+  const tagChips = (m: Material, removivel = false) => (m.tags || []).filter(t => !t.startsWith('_')).map(t => (
+    <span key={t} className="inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[9.5px] font-semibold leading-none whitespace-nowrap" style={getTagStyle(t)}>
+      <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: tagHex(t) }} />{t}
+      {removivel && (
+        <button type="button" onClick={(e) => { e.stopPropagation(); toggleMaterialTag(m, t); }} title="Tirar esta tag" aria-label={`Tirar a tag ${t}`} className="-mr-0.5 inline-flex items-center justify-center opacity-60 hover:opacity-100">
+          <X size={10} strokeWidth={2.5} />
+        </button>
+      )}
     </span>
   ));
   const tagLine = (m: Material) => (m.tags || []).some(t => !t.startsWith('_'))
     ? <div className="flex flex-wrap gap-1 mt-1">{tagChips(m)}</div>
     : null;
 
-  // Linha de tarefa em colunas (Tarefa | Responsáveis | Status | Entrega | ações). Clique abre a tarefa.
+  // Linha de tarefa em colunas (Tarefa | Responsáveis | Status | Entrega | ações).
+  // Duplo clique no card abre a tarefa; duplo clique no título edita o título ali mesmo.
   const taskRow = ({ m, status, actions, below, drag, ignoreLate, lead }: { m: Material; status?: React.ReactNode; actions?: React.ReactNode; below?: React.ReactNode; drag?: { provided: any; snapshot: any }; ignoreLate?: boolean; lead?: React.ReactNode }) => (
     <div
       key={m.id}
       ref={drag?.provided.innerRef}
       {...(drag ? drag.provided.draggableProps : {})}
       {...(drag ? drag.provided.dragHandleProps : {})}
-      onClick={() => openRoteiro(m)}
-      className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
+      onDoubleClick={() => { if (tituloInlineId !== m.id) openRoteiro(m); }}
+      title="Clique duas vezes para abrir"
+      className={`group/row cursor-pointer select-none rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
     >
       <div className={`flex flex-col gap-2.5 ${TASK_GRID}`}>
         <div className="flex items-center gap-3 min-w-0">
           {lead}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="font-medium text-sm truncate">{m.titulo}</span>
+              {tituloInlineId === m.id ? (
+                <input
+                  autoFocus
+                  value={tituloInlineTexto}
+                  onChange={(e) => setTituloInlineTexto(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') salvarTituloInline(m); if (e.key === 'Escape') setTituloInlineId(null); }}
+                  onBlur={() => salvarTituloInline(m)}
+                  className={`flex-1 min-w-0 font-medium text-sm h-7 px-1.5 -ml-1.5 rounded-md ${tc.bgInput} border border-brand outline-none select-text`}
+                />
+              ) : (
+                <span
+                  onDoubleClick={(e) => { e.stopPropagation(); setTituloInlineTexto(m.titulo || ''); setTituloInlineId(m.id); }}
+                  title="Clique duas vezes para editar o título"
+                  className="font-medium text-sm truncate cursor-text"
+                >{m.titulo}</span>
+              )}
               {(msgsNaoLidas[m.id] || 0) > 0 && <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-brand" title="O cliente mandou mensagem no portal"><span className="w-1.5 h-1.5 rounded-full bg-brand" />Nova mensagem</span>}
-              <button type="button" onClick={(e) => { e.stopPropagation(); handleEditTitulo(m); }} title="Editar título" className={`shrink-0 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 hover:text-brand`}><Edit3 size={13} /></button>
               {tagControl(m)}
             </div>
             {tagLine(m)}
@@ -2381,9 +2457,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24 shrink-0">Responsáveis</span>{avatars([m.planner_id, m.editor_id, m.designer_id], true)}</div>
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Status</span>{status ?? statusChip(statusOf(m).label, statusOf(m).cls)}</div>
         <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Entrega</span>{entregaCell(m, ignoreLate)}</div>
-        <div className="flex items-center gap-1.5 md:justify-end" onClick={(e) => e.stopPropagation()}>{actions}</div>
+        <div className="flex items-center gap-1.5 md:justify-end" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>{actions}</div>
       </div>
-      {below && <div className="mt-3" onClick={(e) => e.stopPropagation()}>{below}</div>}
+      {below && <div className="mt-3" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>{below}</div>}
     </div>
   );
   const openUrl = (url: string) => window.open(url.startsWith('http') ? url : `https://${url}`, '_blank', 'noopener,noreferrer');
@@ -4294,13 +4370,56 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                 )}
                 <div className={`border-b ${tc.borderStrong} pb-2 mb-4`}>
-                  {field(Activity, 'Status', statusChip(st.label, st.cls))}
-                  {field(Users, 'Responsáveis', avatars([m.planner_id, m.editor_id, m.designer_id]))}
-                  {field(Calendar, 'Entrega', entregaCell(m))}
-                  {field(Tag, 'Tags', <>{tagChips(m)}<span className="[&>span]:opacity-100">{tagControl(m)}</span></>)}
+                  {field(Activity, 'Status', (
+                    <span className="relative inline-flex">
+                      {statusChip(st.label, st.cls)}
+                      <select
+                        value={m.status}
+                        onChange={(e) => atualizarCamposTarefa(m, { status: e.target.value as Material['status'] })}
+                        title="Mudar status"
+                        aria-label="Status"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      >
+                        {!STATUS_INFO[m.status] && <option value={m.status}>{String(m.status)}</option>}
+                        {STATUS_OPCOES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </span>
+                  ))}
+                  {field(Users, 'Responsáveis', (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {PAPEIS_TAREFA.map(p => {
+                        const atual = m[p.campo] as string | null | undefined;
+                        const opcoes = membros.filter(mb => p.roles.includes(mb.role) || mb.id === atual);
+                        return (
+                          <label key={p.campo} className={`inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-md border ${tc.borderStrong} text-[12px]`}>
+                            <span className="text-zinc-500">{p.label}</span>
+                            <select
+                              value={atual || ''}
+                              onChange={(e) => atualizarCamposTarefa(m, { [p.campo]: e.target.value || null } as Partial<Material>)}
+                              className={`bg-transparent outline-none font-medium max-w-[140px] cursor-pointer ${tc.textMain} [&>option]:text-zinc-900`}
+                            >
+                              <option value="">Ninguém</option>
+                              {(opcoes.length ? opcoes : membros).map(mb => <option key={mb.id} value={mb.id}>{mb.nome || mb.email}</option>)}
+                            </select>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  {field(Calendar, 'Entrega', (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={m.data_limite ? String(m.data_limite).slice(0, 10) : ''}
+                        onChange={(e) => atualizarCamposTarefa(m, { data_limite: e.target.value || null } as Partial<Material>)}
+                        className={`h-7 px-2 rounded-md border ${tc.borderStrong} ${tc.bgInput} text-[13px] outline-none focus:border-brand ${isDateLate(m.data_limite || '') && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) ? 'text-red-600 dark:text-red-400' : tc.textMain} ${theme === 'dark' ? '[color-scheme:dark]' : ''}`}
+                      />
+                    </div>
+                  ))}
+                  {field(Tag, 'Tags', <>{tagChips(m, true)}<span className="[&>span]:opacity-100">{tagControl(m)}</span></>)}
                 </div>
                 <div className="flex items-center gap-2 mb-2.5"><span className="text-[15px] font-semibold">Roteiro</span></div>
-                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`${theme === 'dark' ? 'bg-zinc-950 text-zinc-300 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-zinc-900' : 'bg-white text-zinc-800 [&_.ql-toolbar]:border-zinc-200 [&_.ql-container]:border-zinc-200'} rounded-xl overflow-hidden [&_.ql-toolbar]:rounded-t-xl [&_.ql-container]:rounded-b-xl [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
+                <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`${theme === 'dark' ? 'bg-zinc-950 text-zinc-300 [&_.ql-toolbar]:bg-zinc-950 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-zinc-900' : 'bg-white text-zinc-800 [&_.ql-toolbar]:bg-white [&_.ql-toolbar]:border-zinc-200 [&_.ql-container]:border-zinc-200'} rounded-xl [&_.ql-toolbar]:sticky [&_.ql-toolbar]:-top-4 [&_.ql-toolbar]:z-20 [&_.ql-toolbar]:shadow-[0_1px_0_rgba(0,0,0,0.04)] [&_.ql-toolbar]:rounded-t-xl [&_.ql-container]:rounded-b-xl [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
                   <ReactQuill theme="snow" value={newRoteiroText} onChange={(valor: string, _delta: unknown, origem: string) => { setNewRoteiroText(valor); if (origem === 'user') { roteiroAlteradoRef.current = true; guardarRascunhoRoteiro(valor, novoTituloText); } }} placeholder="Escreva o roteiro aqui com formatação..." className="[&_.ql-editor]:min-h-[320px] [&_.ql-editor]:text-[15px]" />
                 </div>
 
@@ -4781,7 +4900,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       )}
       {/* MODAL DE CONFIRMAÇÃO PERSONALIZADO */}
       {isConfirmModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
           <div className={`${tc.bgCard} w-full max-w-sm rounded-2xl p-8 shadow-2xl border ${theme === 'dark' ? 'border-zinc-800' : 'border-transparent'} text-center space-y-6`}>
             <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${confirmConfig.type === 'danger' ? 'bg-red-500/20 text-red-500' : 'bg-amber-500/20 text-amber-500'}`}>
               {confirmConfig.type === 'danger' ? <Trash2 size={32} /> : <AlertTriangle size={32} />}
