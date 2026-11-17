@@ -6,12 +6,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bodoni_Moda } from 'next/font/google'
+import localFont from 'next/font/local'
 import { createClient } from '@/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 import { Loader2, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 
-const display = Bodoni_Moda({ subsets: ['latin'], display: 'swap' })
+// Bodoni Moda variável (latin) dentro do projeto: o build não depende de baixar do Google Fonts
+const display = localFont({ src: './fonts/bodoni-moda-latin-wght-normal.woff2', weight: '400 900', style: 'normal', display: 'swap' })
 
 // Wordmark "everton" usado como máscara: a cor vem da classe de fundo (oliva do tema à esquerda, branco à direita)
 const wordmarkMask: React.CSSProperties = {

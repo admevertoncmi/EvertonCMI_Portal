@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import '@/app/globals.css'
 import 'react-quill-new/dist/quill.snow.css';
 import { connection } from 'next/server'
@@ -7,9 +7,12 @@ import { lerTemaServidor } from '@/lib/tema-servidor'
 import { cssDoTema } from '@/lib/tema'
 
 // 1. Configuração da Fonte
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+// Inter variável (latin) dentro do projeto: o build não depende de baixar do Google Fonts
+const inter = localFont({
+  src: './fonts/inter-latin-wght-normal.woff2',
+  weight: '100 900',
+  style: 'normal',
+  display: 'swap',
   variable: '--font-sans',
 })
 
