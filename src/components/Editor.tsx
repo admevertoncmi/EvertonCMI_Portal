@@ -83,6 +83,8 @@ const EditorWrapper = (props: any) => {
           const alvo = e.target as HTMLElement;
           if (alvo && alvo.tagName === 'IMG' && editor.root.contains(alvo)) {
             imagemArrastada = alvo as HTMLImageElement;
+            // O Quill 2 cancela todo dragstart dentro do editor; para imagens, o evento não chega até ele
+            e.stopPropagation();
             try { (editor.getModule('imageResize') as any)?.hide?.(); } catch { /* sem moldura aberta */ }
             if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); }
           } else {

@@ -94,3 +94,32 @@ export async function getEquipeMembers() {
     role: (u.user_metadata?.role as 'admin' | 'editor') || 'editor'
   })) as EquipeMember[]
 }
+
+/**
+ * Exclui uma tag do sistema e a tira de todas as tarefas onde estava aplicada.
+ * Roda no servidor para não depender das policies da tabela de tags
+ * (pelo navegador o banco pode recusar a exclusão sem devolver erro).
+ */
+export async function excluirTagSistema(label: string): Promise<{ label: string; materiaisAlterados: string[] }> {
+  await requireEquipe()
+  if (!label) throw new Error('Tag sem nome.')
+
+  const { data: comTags, error: erroMateriais } = await supabaseAdmin.from('materiais').select('id, tags').not('tags', 'is', null)
+  if (erroMateriais) throw new Error(`Erro ao buscar as tarefas: ${erroMateriais.message}`)
+
+  const materiaisAlterados: string[] = []
+  for (const row of (comTags || []) as { id: string; tags: string[] | null }[]) {
+    const tags = Array.isArray(row.tags) ? row.tags : []
+    if (!tags.includes(label)) continue
+    const { error } = await supabaseAdmin.from('materiais').update({ tags: tags.filter(t => t !== label) }).eq('id', row.id)
+    if (error) throw new Error(`Erro ao tirar a tag de uma tarefa: ${error.message}`)
+    materiaisAlterados.push(row.id)
+  }
+
+  const { error: erroDelete } = await supabaseAdmin.from('tags').delete().eq('label', label)
+  if (erroDelete) throw new Error(`Erro ao excluir a tag: ${erroDelete.message}`)
+  const { data: restou } = await supabaseAdmin.from('tags').select('label').eq('label', label).limit(1)
+  if (restou && restou.length > 0) throw new Error('O banco não confirmou a exclusão da tag.')
+
+  return { label, materiaisAlterados }
+}

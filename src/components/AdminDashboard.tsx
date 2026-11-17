@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase-browser'
 import { Toaster, toast } from 'sonner'
 import { criarMembroEquipe, atualizarMembroEquipe, excluirMembro } from '@/actions/equipe'
 import { cadastrarClienteCompleto } from '@/actions/clientes'
+import { excluirTagSistema } from '@/actions/admin'
 import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from '@/actions/clickup'
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
@@ -502,9 +503,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       ? currentTags.filter(t => t !== tag)
       : [...currentTags, tag];
     setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, tags: newTags } : x));
-    const { error } = await supabase.from('materiais').update({ tags: newTags }).eq('id', material.id);
-    if (error) {
-      toast.error('Erro ao salvar tag');
+    const { data, error } = await supabase.from('materiais').update({ tags: newTags }).eq('id', material.id).select('id');
+    if (error || !data || data.length === 0) {
+      toast.error('Erro ao salvar tag' + (error?.message ? `: ${error.message}` : ''));
       setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, tags: currentTags } : x));
     }
   };
@@ -527,6 +528,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   // Edição do título direto no card (duplo clique no título)
   const [tituloInlineId, setTituloInlineId] = useState<string | null>(null);
   const [tituloInlineTexto, setTituloInlineTexto] = useState('');
+  const tituloInlineRef = useRef<HTMLInputElement | null>(null);
+  const tituloInlineAbertoEmRef = useRef(0);
+  const abrirTituloInline = (m: Material) => {
+    setTituloInlineTexto(m.titulo || '');
+    setTituloInlineId(m.id);
+    tituloInlineAbertoEmRef.current = Date.now();
+  };
+  // Foca e seleciona o título assim que o campo aparece (depois de a tela terminar de atualizar)
+  useEffect(() => {
+    if (!tituloInlineId) return;
+    const focar = () => { const el = tituloInlineRef.current; if (el && document.activeElement !== el) { el.focus(); el.select(); } };
+    const raf = requestAnimationFrame(focar);
+    const t = setTimeout(focar, 80);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+  }, [tituloInlineId]);
+  // Perda de foco logo depois de abrir não fecha a edição (algum elemento pode ter roubado o foco)
+  const blurTituloInline = (m: Material) => {
+    if (Date.now() - tituloInlineAbertoEmRef.current < 400) { setTimeout(() => { tituloInlineRef.current?.focus(); }, 0); return; }
+    salvarTituloInline(m);
+  };
   const salvarTituloInline = async (m: Material) => {
     const texto = tituloInlineTexto.trim();
     setTituloInlineId(null);
@@ -2280,15 +2301,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   };
   // Exclui a tag do sistema e também a tira de todas as tarefas onde estava aplicada
   const excluirTag = (tag: { id: string; label: string }) => { setTagDropdownOpen(null); openConfirm('Excluir tag', `Excluir a tag "${tag.label}" de todo o sistema? Ela também sai das tarefas onde está aplicada.`, async () => {
-    const { data: comTag, error: erroBusca } = await supabase.from('materiais').select('id, tags').contains('tags', [tag.label]);
-    if (erroBusca) { toast.error('Erro ao excluir tag: ' + erroBusca.message); return; }
-    for (const row of (comTag || []) as { id: string; tags: string[] | null }[]) {
-      const { error } = await supabase.from('materiais').update({ tags: (row.tags || []).filter(t => t !== tag.label) }).eq('id', row.id);
-      if (error) { toast.error('Erro ao tirar a tag de uma tarefa: ' + error.message); return; }
+    try {
+      await excluirTagSistema(tag.label);
+    } catch (err: any) {
+      toast.error('Não foi possível excluir a tag. ' + (err?.message || ''), { duration: 8000 });
+      return;
     }
-    const { error } = await supabase.from('tags').delete().eq('id', tag.id);
-    if (error) { toast.error('Erro ao excluir tag: ' + error.message); return; }
-    setSystemTags(prev => prev.filter(t => t.id !== tag.id));
+    setSystemTags(prev => prev.filter(t => t.label !== tag.label));
     setMateriais(prev => prev.map(x => (x.tags || []).includes(tag.label) ? { ...x, tags: (x.tags || []).filter(t => t !== tag.label) } : x));
     toast.success('Tag excluída!');
   }, 'warning'); };
@@ -2422,7 +2441,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       {...(drag ? drag.provided.dragHandleProps : {})}
       onDoubleClick={() => { if (tituloInlineId !== m.id) openRoteiro(m); }}
       title="Clique duas vezes para abrir"
-      className={`group/row cursor-pointer select-none rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
+      className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
     >
       <div className={`flex flex-col gap-2.5 ${TASK_GRID}`}>
         <div className="flex items-center gap-3 min-w-0">
@@ -2431,6 +2450,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             <div className="flex items-center gap-1.5 min-w-0">
               {tituloInlineId === m.id ? (
                 <input
+                  ref={tituloInlineRef}
                   autoFocus
                   value={tituloInlineTexto}
                   onChange={(e) => setTituloInlineTexto(e.target.value)}
@@ -2438,12 +2458,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   onDoubleClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') salvarTituloInline(m); if (e.key === 'Escape') setTituloInlineId(null); }}
-                  onBlur={() => salvarTituloInline(m)}
+                  onBlur={() => blurTituloInline(m)}
                   className={`flex-1 min-w-0 font-medium text-sm h-7 px-1.5 -ml-1.5 rounded-md ${tc.bgInput} border border-brand outline-none select-text`}
                 />
               ) : (
                 <span
-                  onDoubleClick={(e) => { e.stopPropagation(); setTituloInlineTexto(m.titulo || ''); setTituloInlineId(m.id); }}
+                  onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); abrirTituloInline(m); }}
                   title="Clique duas vezes para editar o título"
                   className="font-medium text-sm truncate cursor-text"
                 >{m.titulo}</span>
