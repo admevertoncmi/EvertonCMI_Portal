@@ -229,3 +229,24 @@
 
 .custom-scrollbar::-webkit-scrollbar { width: 0px; background: transparent; }
 .custom-scrollbar { scrollbar-width: none; }
+
+/* Calendário da data de entrega (react-day-picker) no visual do painel */
+.calendario-entrega .rdp {
+  --rdp-cell-size: 34px;
+  --rdp-accent-color: rgb(var(--brand));
+  --rdp-background-color: rgb(var(--brand-soft));
+  --rdp-accent-color-dark: rgb(var(--brand));
+  --rdp-background-color-dark: rgb(var(--brand) / 0.25);
+  --rdp-outline: 2px solid rgb(var(--brand));
+  --rdp-outline-selected: 2px solid rgb(var(--brand));
+  margin: 0;
+  font-size: 13px;
+}
+.calendario-entrega .rdp-caption_label { font-size: 14px; font-weight: 600; text-transform: capitalize; }
+.calendario-entrega .rdp-head_cell { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #a1a1aa; }
+.calendario-entrega .rdp-nav_button { width: 28px; height: 28px; }
+.calendario-entrega .rdp-day_today:not(.rdp-day_outside) { font-weight: 700; color: rgb(var(--brand)); }
+.calendario-entrega .rdp-day_selected,
+.calendario-entrega .rdp-day_selected:hover { color: #fff; }
+.calendario-entrega .rdp-day_outside { opacity: 0.4; }
+.calendario-escuro .rdp { --rdp-background-color: rgb(var(--brand) / 0.25); }

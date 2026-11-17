@@ -8,6 +8,18 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Grava a foto de perfil (coluna foto_url). Separado do resto para dar um aviso claro
+// se a coluna ainda não existir no banco.
+async function salvarFotoMembro(userId: string, formData: FormData) {
+  if (!formData.has('foto_url')) return
+  const foto = String(formData.get('foto_url') || '').trim() || null
+  const { error } = await supabaseAdmin.from('perfis_equipe').update({ foto_url: foto }).eq('id', userId)
+  if (error) {
+    if (/foto_url/i.test(error.message)) throw new Error('A foto não foi salva: falta rodar a atualização do banco (coluna foto_url em perfis_equipe).')
+    throw new Error(`A foto não foi salva: ${error.message}`)
+  }
+}
+
 export async function criarMembroEquipe(formData: FormData) {
   await requireAdmin()
   const nome = formData.get("nome") as string
@@ -40,6 +52,11 @@ export async function criarMembroEquipe(formData: FormData) {
       .eq('id', data.user.id);
   }
 
+  if (formData.has('foto_url')) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await salvarFotoMembro(data.user.id, formData)
+  }
+
   return { success: true, user: data.user }
 }
 
@@ -65,10 +82,13 @@ export async function atualizarMembroEquipe(userId: string, formData: FormData) 
   if (error) throw error
 
   // 2. Atualiza na tabela visual do painel
-  await supabaseAdmin
+  const { error: erroPerfil } = await supabaseAdmin
     .from('perfis_equipe')
     .update({ nome, role, telegram_thread_id })
     .eq('id', userId);
+  if (erroPerfil) throw new Error(`Erro ao salvar os dados do membro: ${erroPerfil.message}`)
+
+  await salvarFotoMembro(userId, formData)
 
   return { success: true }
 }

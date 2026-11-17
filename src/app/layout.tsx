@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import '@/app/globals.css'
 import 'react-quill-new/dist/quill.snow.css';
+import 'react-day-picker/dist/style.css';
 import { connection } from 'next/server'
 import { lerTemaServidor } from '@/lib/tema-servidor'
 import { cssDoTema } from '@/lib/tema'

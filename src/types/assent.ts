@@ -34,7 +34,8 @@ export interface Material {
   roteiro?: string | null 
   editor_id?: string | null 
   designer_id?: string | null; // 🔥 Adicionado
-  planner_id?: string | null 
+  planner_id?: string | null
+  responsaveis?: string[] | null 
   clickup_task_id?: string | null
   ciclo?: number // <-- ADICIONADO PARA CORRIGIR O ERRO
   cliente?: Cliente
@@ -48,6 +49,7 @@ export interface EquipeMember {
   role: 'admin' | 'editor' | 'planner' | 'designer'; // 🔥 Designer adicionado aqui
   telegram_thread_id?: string;
   created_at?: string;
+  foto_url?: string | null;
 }
 
 // --- AUXILIARES ---

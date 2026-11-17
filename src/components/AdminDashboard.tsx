@@ -9,6 +9,7 @@ import { Toaster, toast } from 'sonner'
 import { criarMembroEquipe, atualizarMembroEquipe, excluirMembro } from '@/actions/equipe'
 import { cadastrarClienteCompleto } from '@/actions/clientes'
 import { excluirTagSistema } from '@/actions/admin'
+import { Avatar, CampoResponsaveis, CampoStatus, CampoEntrega } from '@/components/tarefa/campos'
 import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from '@/actions/clickup'
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
@@ -40,8 +41,8 @@ import {
 , Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images, MoreHorizontal, Home, LogIn } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
-export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; }
-export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; data_limite_editor?: string; data_limite_designer?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; ordem?: number; }
+export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; foto_url?: string | null; }
+export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; data_limite_editor?: string; data_limite_designer?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; ordem?: number; responsaveis?: string[] | null; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
 interface Props { materials: Material[]; initialClientes?: Cliente[] }
 
@@ -518,7 +519,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, ...patch } : x));
     const { data, error } = await supabase.from('materiais').update(patch).eq('id', material.id).select('id');
     if (error || !data || data.length === 0) {
-      toast.error('Não foi possível salvar a alteração.');
+      const faltaColuna = !!error && /responsaveis/i.test(error.message);
+      toast.error(faltaColuna
+        ? 'Não foi possível salvar: falta rodar a atualização do banco (coluna responsaveis em materiais).'
+        : `Não foi possível salvar a alteração.${error?.message ? ' ' + error.message : ''}`, { duration: 8000 });
       setMateriais(prev => prev.map(x => x.id === material.id ? { ...x, ...antes } : x));
       return false;
     }
@@ -538,9 +542,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   // Foca e seleciona o título assim que o campo aparece (depois de a tela terminar de atualizar)
   useEffect(() => {
     if (!tituloInlineId) return;
-    const focar = () => { const el = tituloInlineRef.current; if (el && document.activeElement !== el) { el.focus(); el.select(); } };
+    // Seleciona o título inteiro uma vez ao abrir; depois só devolve o foco se algo o tirou
+    let selecionou = false;
+    const focar = () => {
+      const el = tituloInlineRef.current;
+      if (!el) return;
+      if (document.activeElement !== el) el.focus();
+      if (!selecionou) { el.select(); selecionou = true; }
+    };
     const raf = requestAnimationFrame(focar);
-    const t = setTimeout(focar, 80);
+    const t = setTimeout(() => { const el = tituloInlineRef.current; if (el && document.activeElement !== el) el.focus(); }, 80);
     return () => { cancelAnimationFrame(raf); clearTimeout(t); };
   }, [tituloInlineId]);
   // Perda de foco logo depois de abrir não fecha a edição (algum elemento pode ter roubado o foco)
@@ -565,7 +576,26 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setIsConfirmModalOpen(true)
   }
 
-  const [formE, setFormE] = useState({ nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '' })
+  const [formE, setFormE] = useState({ nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '', foto_url: '' })
+  const [enviandoFotoMembro, setEnviandoFotoMembro] = useState(false)
+  // Envia a foto de perfil para o Storage e guarda a URL no formulário (é salva junto com o membro)
+  const enviarFotoMembro = async (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Escolha um arquivo de imagem.'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('A foto deve ter no máximo 5 MB.'); return; }
+    setEnviandoFotoMembro(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const caminho = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('roteiros-midia').upload(caminho, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from('roteiros-midia').getPublicUrl(caminho);
+      setFormE(prev => ({ ...prev, foto_url: data.publicUrl }));
+    } catch (err: any) {
+      toast.error('Não foi possível enviar a foto. ' + (err?.message || ''));
+    } finally {
+      setEnviandoFotoMembro(false);
+    }
+  }
   const [loteForm, setLoteForm] = useState({ cliente_id: '', ciclo: '1', link_bruto: '' })
   const [loteItens, setLoteItens] = useState([{ id: 1, titulo: '', roteiro: '' }])
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
@@ -1972,19 +2002,49 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   );
   const statusOf = (m: Material) => STATUS_INFO[m.status] || { label: String(m.status), cls: STATUS_INFO.concluido.cls };
   // Opções do seletor de status no painel da tarefa (rótulos repetidos ganham o complemento da etapa)
-  const STATUS_OPCOES: { value: string; label: string }[] = Object.entries(STATUS_INFO).map(([value, { label }]) => ({
+  const STATUS_OPCOES: { value: string; label: string; cls: string }[] = Object.entries(STATUS_INFO).map(([value, { label, cls }]) => ({
     value,
+    cls,
     label: value === 'roteiro_pendente' ? 'Aguardando cliente (roteiro)'
       : value === 'pendente' ? 'Aguardando cliente (vídeo)'
       : value === 'aprovado' ? 'Aprovado (vídeo)'
       : value === 'post_aprovado' ? 'Aprovado (post)'
       : label,
   }));
-  const PAPEIS_TAREFA: { campo: 'planner_id' | 'editor_id' | 'designer_id'; label: string; roles: string[] }[] = [
-    { campo: 'planner_id', label: 'Decupador', roles: ['planner'] },
-    { campo: 'editor_id', label: 'Editor', roles: ['editor'] },
-    { campo: 'designer_id', label: 'Designer', roles: ['designer'] },
-  ];
+  // Responsáveis: lista livre de pessoas. Por trás, quem é editor/decupador/designer ocupa o posto da função
+  // (é o que faz a tarefa aparecer no painel dessa pessoa); os demais ficam em "responsaveis".
+  const CAMPO_DA_FUNCAO: Record<string, 'planner_id' | 'editor_id' | 'designer_id'> = { planner: 'planner_id', editor: 'editor_id', designer: 'designer_id' };
+  const responsaveisDe = (m: Material) => Array.from(new Set([m.planner_id, m.editor_id, m.designer_id, ...(m.responsaveis || [])].filter(Boolean) as string[]));
+  const alternarResponsavel = (m: Material, id: string, marcar: boolean) => {
+    const atual = materiais.find(x => x.id === m.id) || m;
+    const extras = [...(atual.responsaveis || [])];
+    const patch: Partial<Material> = {};
+    if (marcar) {
+      if (responsaveisDe(atual).includes(id)) return;
+      const campo = CAMPO_DA_FUNCAO[membros.find(x => x.id === id)?.role || ''];
+      if (campo && !atual[campo]) patch[campo] = id;
+      else patch.responsaveis = [...extras, id];
+    } else {
+      (['planner_id', 'editor_id', 'designer_id'] as const).forEach(c => { if (atual[c] === id) patch[c] = null; });
+      if (extras.includes(id)) patch.responsaveis = extras.filter(x => x !== id);
+    }
+    if (Object.keys(patch).length) atualizarCamposTarefa(m, patch);
+  };
+  const campoResponsaveis = (m: Material) => (
+    <CampoResponsaveis selecionados={responsaveisDe(m)} pessoas={membros} onAlternar={(id, marcar) => alternarResponsavel(m, id, marcar)} dark={theme === 'dark'} />
+  );
+  // chip: rótulo próprio da tela (ex.: "Pronto para decupar"); o menu muda o status real da tarefa
+  const campoStatus = (m: Material, chip?: React.ReactNode) => (
+    <CampoStatus valor={m.status} opcoes={STATUS_OPCOES} chip={chip ?? statusChip(statusOf(m).label, statusOf(m).cls)} onMudar={(v) => atualizarCamposTarefa(m, { status: v as Material['status'] })} dark={theme === 'dark'} />
+  );
+  const campoEntrega = (m: Material, ignoreLate = false) => (
+    <CampoEntrega
+      valor={m.data_limite}
+      atrasada={!ignoreLate && !!m.data_limite && isDateLate(String(m.data_limite).slice(0, 10)) && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status)}
+      onMudar={(v) => atualizarCamposTarefa(m, { data_limite: v } as Partial<Material>)}
+      dark={theme === 'dark'}
+    />
+  );
 
   const AVATAR_COLORS = ['#E8559A', '#3B82F6', '#F59E0B', '#14B8A6', '#9B6CF0', '#A25431'];
   const avatarColor = (s: string) => AVATAR_COLORS[s.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
@@ -2000,7 +2060,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     return (
       <div className={`flex ${center ? 'md:justify-center' : ''}`}>
         {people.map((p, i) => (
-          <span key={p.id} title={`${(roles.get(p.id) || []).filter(Boolean).join(' / ')}: ${p.nome || p.email}`} style={{ background: avatarColor(p.id) }} className={`w-6 h-6 shrink-0 rounded-full text-[10px] font-semibold text-white inline-flex items-center justify-center ring-2 ${theme === 'dark' ? 'ring-zinc-900' : 'ring-white'} ${i > 0 ? '-ml-1.5' : ''}`}>{initials(p.nome || p.email)}</span>
+          <Avatar key={p.id} pessoa={p} title={`${(roles.get(p.id) || []).filter(Boolean).join(' / ')}: ${p.nome || p.email}`} className={`ring-2 ${theme === 'dark' ? 'ring-zinc-900' : 'ring-white'} ${i > 0 ? '-ml-1.5' : ''}`} />
         ))}
       </div>
     );
@@ -2315,13 +2375,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   // O menu é desenhado num portal com posição fixa, então nunca é cortado pela lista e abre para cima quando falta espaço embaixo.
   const TAG_MENU_W = 232;
   const TAG_MENU_H = 300;
-  const abrirTags = (e: React.MouseEvent, m: Material) => {
+  // A chave inclui onde o botão está (card ou painel), para o menu não ser desenhado duas vezes
+  const chaveTags = (m: Material, noPainel: boolean) => noPainel ? `${m.id}:painel` : m.id;
+  const abrirTags = (e: React.MouseEvent, m: Material, noPainel = false) => {
     e.stopPropagation();
-    if (tagDropdownOpen === m.id) { setTagDropdownOpen(null); return; }
+    const chave = chaveTags(m, noPainel);
+    if (tagDropdownOpen === chave) { setTagDropdownOpen(null); return; }
     setTagAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
     setNewTagLabel('');
     setNewTagColor(TAG_PALETTE[systemTags.length % TAG_PALETTE.length]);
-    setTagDropdownOpen(m.id);
+    setTagDropdownOpen(chave);
   };
   const tagMenu = (m: Material) => {
     if (!tagAnchor || typeof document === 'undefined') return null;
@@ -2407,40 +2470,44 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       document.body
     );
   };
-  const tagControl = (m: Material) => (
-    <span onDoubleClick={(e) => e.stopPropagation()} className={`inline-flex ${tagDropdownOpen === m.id ? 'opacity-100' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
-      <button type="button" onClick={(e) => abrirTags(e, m)} title="Tags" className={`w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} ${tagDropdownOpen === m.id ? 'text-brand border-brand' : 'text-zinc-500'} hover:text-brand`}>
+  const tagControl = (m: Material, noPainel = false) => {
+    const aberto = tagDropdownOpen === chaveTags(m, noPainel);
+    return (
+    <span onDoubleClick={(e) => e.stopPropagation()} className={`inline-flex ${aberto ? 'opacity-100' : 'md:opacity-0 md:group-hover/row:opacity-100'} transition-opacity`}>
+      <button type="button" onClick={(e) => abrirTags(e, m, noPainel)} title="Tags" className={`w-7 h-7 inline-flex items-center justify-center rounded-md border ${tc.borderStrong} ${tc.bgCard} ${aberto ? 'text-brand border-brand' : 'text-zinc-500'} hover:text-brand`}>
         <Tag size={13} />
       </button>
-      {tagDropdownOpen === m.id && tagMenu(m)}
+      {aberto && tagMenu(m)}
     </span>
-  );
+    );
+  };
   // Tags pequenas, numa linha própria embaixo do título
-  // removivel: mostra um "x" para tirar a tag da tarefa (usado no painel da tarefa)
-  const tagChips = (m: Material, removivel = false) => (m.tags || []).filter(t => !t.startsWith('_')).map(t => (
-    <span key={t} className="inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[9.5px] font-semibold leading-none whitespace-nowrap" style={getTagStyle(t)}>
+  // removivel 'sempre': "x" sempre visível (painel da tarefa); 'hover': o "x" aparece ao passar o mouse na tag (lista)
+  const tagChips = (m: Material, removivel: false | 'sempre' | 'hover' = false) => (m.tags || []).filter(t => !t.startsWith('_')).map(t => (
+    <span key={t} className="group/chip inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[9.5px] font-semibold leading-none whitespace-nowrap" style={getTagStyle(t)}>
       <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: tagHex(t) }} />{t}
       {removivel && (
-        <button type="button" onClick={(e) => { e.stopPropagation(); toggleMaterialTag(m, t); }} title="Tirar esta tag" aria-label={`Tirar a tag ${t}`} className="-mr-0.5 inline-flex items-center justify-center opacity-60 hover:opacity-100">
+        <button type="button" onClick={(e) => { e.stopPropagation(); toggleMaterialTag(m, t); }} onDoubleClick={(e) => e.stopPropagation()} title="Tirar esta tag" aria-label={`Tirar a tag ${t}`}
+          className={`-mr-0.5 inline-flex items-center justify-center transition-opacity ${removivel === 'hover' ? 'hidden group-hover/chip:inline-flex opacity-70 hover:opacity-100' : 'opacity-60 hover:opacity-100'}`}>
           <X size={10} strokeWidth={2.5} />
         </button>
       )}
     </span>
   ));
   const tagLine = (m: Material) => (m.tags || []).some(t => !t.startsWith('_'))
-    ? <div className="flex flex-wrap gap-1 mt-1">{tagChips(m)}</div>
+    ? <div className="flex flex-wrap gap-1 mt-1">{tagChips(m, 'hover')}</div>
     : null;
 
   // Linha de tarefa em colunas (Tarefa | Responsáveis | Status | Entrega | ações).
-  // Duplo clique no card abre a tarefa; duplo clique no título edita o título ali mesmo.
+  // Um clique no card abre a tarefa; um clique no título edita o título ali mesmo.
+  // Responsáveis, status e entrega são editáveis direto na linha.
   const taskRow = ({ m, status, actions, below, drag, ignoreLate, lead }: { m: Material; status?: React.ReactNode; actions?: React.ReactNode; below?: React.ReactNode; drag?: { provided: any; snapshot: any }; ignoreLate?: boolean; lead?: React.ReactNode }) => (
     <div
       key={m.id}
       ref={drag?.provided.innerRef}
       {...(drag ? drag.provided.draggableProps : {})}
       {...(drag ? drag.provided.dragHandleProps : {})}
-      onDoubleClick={() => { if (tituloInlineId !== m.id) openRoteiro(m); }}
-      title="Clique duas vezes para abrir"
+      onClick={() => { if (tituloInlineId !== m.id) openRoteiro(m); }}
       className={`group/row cursor-pointer rounded-xl border ${tc.borderStrong} ${tc.bgCard} px-3.5 py-3 mb-1.5 ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors ${drag?.snapshot.isDragging ? 'ring-2 ring-brand shadow-xl' : ''}`}
     >
       <div className={`flex flex-col gap-2.5 ${TASK_GRID}`}>
@@ -2463,10 +2530,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                 />
               ) : (
                 <span
-                  onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
-                  onDoubleClick={(e) => { e.stopPropagation(); abrirTituloInline(m); }}
-                  title="Clique duas vezes para editar o título"
-                  className="font-medium text-sm truncate cursor-text"
+                  onClick={(e) => { e.stopPropagation(); abrirTituloInline(m); }}
+                  title="Clique para editar o título"
+                  className="font-medium text-sm truncate cursor-text hover:underline decoration-zinc-300 underline-offset-4"
                 >{m.titulo}</span>
               )}
               {(msgsNaoLidas[m.id] || 0) > 0 && <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-brand" title="O cliente mandou mensagem no portal"><span className="w-1.5 h-1.5 rounded-full bg-brand" />Nova mensagem</span>}
@@ -2475,9 +2541,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             {tagLine(m)}
           </div>
         </div>
-        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24 shrink-0">Responsáveis</span>{avatars([m.planner_id, m.editor_id, m.designer_id], true)}</div>
-        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Status</span>{status ?? statusChip(statusOf(m).label, statusOf(m).cls)}</div>
-        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Entrega</span>{entregaCell(m, ignoreLate)}</div>
+        <div className="flex items-center gap-2 md:justify-center"><span className="md:hidden text-xs text-zinc-400 w-24 shrink-0">Responsáveis</span>{campoResponsaveis(m)}</div>
+        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Status</span>{campoStatus(m, status)}</div>
+        <div className="flex items-center gap-2 md:block"><span className="md:hidden text-xs text-zinc-400 w-24">Entrega</span>{campoEntrega(m, ignoreLate)}</div>
         <div className="flex items-center gap-1.5 md:justify-end" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>{actions}</div>
       </div>
       {below && <div className="mt-3" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>{below}</div>}
@@ -3541,10 +3607,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             const ROLE_LABEL: Record<string, string> = { editor: 'Editor', designer: 'Designer', planner: 'Decupador', admin: 'Gestor' };
             const inputCls = `w-full px-3 py-2.5 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand transition-colors disabled:opacity-60`;
             const labelCls = 'block text-[13px] font-medium text-zinc-600 dark:text-zinc-300 mb-1.5';
-            const vazio = { nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '' };
+            const vazio = { nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '', foto_url: '' };
             const lista = membros.filter(m => `${m.nome || ''} ${m.email}`.toLowerCase().includes(membroBusca.toLowerCase()));
             const abrirNovo = () => { setEditingMembro(null); setFormE(vazio); setIsMembroModalOpen(true); };
-            const abrirEdicao = (m: MembroComNome) => { setEditingMembro(m); setFormE({ nome: m.nome || '', email: m.email || '', password: '', role: m.role || 'editor', telegram_thread_id: m.telegram_thread_id || '' }); setIsMembroModalOpen(true); };
+            const abrirEdicao = (m: MembroComNome) => { setEditingMembro(m); setFormE({ nome: m.nome || '', email: m.email || '', password: '', role: m.role || 'editor', telegram_thread_id: m.telegram_thread_id || '', foto_url: m.foto_url || '' }); setIsMembroModalOpen(true); };
             const fechar = () => { setIsMembroModalOpen(false); setEditingMembro(null); setFormE(vazio); };
             const secao = (titulo: string, desc: string, body: React.ReactNode) => (
               <div className={`px-6 py-5 border-b ${tc.borderStrong} last:border-0`}>
@@ -3570,7 +3636,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   <div className="space-y-2">
                     {lista.map(m => (
                       <div key={m.id} onClick={() => abrirEdicao(m)} className={`group cursor-pointer flex items-center gap-3 px-4 py-3 ${tc.bgCard} border ${tc.borderStrong} rounded-xl ${theme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50'} transition-colors`}>
-                        <span style={{ background: avatarColor(m.id) }} className="w-9 h-9 rounded-full text-xs font-semibold text-white inline-flex items-center justify-center shrink-0">{initials(m.nome || m.email)}</span>
+                        <Avatar pessoa={m} tamanho={36} />
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm truncate">{m.nome || 'Sem nome'}</p>
                           <p className="text-xs text-zinc-500 truncate">{ROLE_LABEL[m.role] || m.role} · {m.email}</p>
@@ -3627,11 +3693,24 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         <span className="ml-auto"><IconAction icon={X} label="Fechar" onClick={fechar} /></span>
                       </div>
 
-                      {secao('Dados pessoais', 'Nome e e-mail de acesso', (
+                      {secao('Dados pessoais', 'Foto, nome e e-mail de acesso', (
+                        <>
+                        <div className="flex items-center gap-4 mb-4">
+                          <Avatar pessoa={{ id: editingMembro?.id || formE.email || 'novo', nome: formE.nome, email: formE.email, foto_url: formE.foto_url || null }} tamanho={64} key={formE.foto_url || 'sem-foto'} />
+                          <input type="hidden" name="foto_url" value={formE.foto_url} />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className={`${btnLine} cursor-pointer ${enviandoFotoMembro ? 'opacity-60 pointer-events-none' : ''}`}>
+                              {enviandoFotoMembro ? <Loader2 size={15} className="animate-spin" /> : <ImageIcon size={15} />} {formE.foto_url ? 'Trocar foto' : 'Enviar foto'}
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) enviarFotoMembro(f); }} />
+                            </label>
+                            {formE.foto_url && <button type="button" onClick={() => setFormE(prev => ({ ...prev, foto_url: '' }))} className={btnLine}><X size={15} /> Remover</button>}
+                          </div>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div><label className={labelCls}>Nome *</label><input name="nome" placeholder="Nome completo" className={inputCls} value={formE.nome} onChange={e => setFormE({ ...formE, nome: e.target.value })} required /></div>
                           <div><label className={labelCls}>E-mail *</label><input name="email" type="email" placeholder="nome@exemplo.com" disabled={!!editingMembro} className={inputCls} value={formE.email} onChange={e => setFormE({ ...formE, email: e.target.value })} required={!editingMembro} /></div>
                         </div>
+                        </>
                       ))}
 
                       {secao('Acesso', 'Função no fluxo e senha de entrada', (
@@ -3655,7 +3734,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
                       <div className={`flex justify-end gap-2.5 px-6 py-4 border-t ${tc.borderStrong}`}>
                         <button type="button" onClick={fechar} className={btnLine}>Cancelar</button>
-                        <button type="submit" disabled={isCreatingUser} className={btnInk}>{isCreatingUser ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {editingMembro ? 'Salvar alterações' : 'Adicionar membro'}</button>
+                        <button type="submit" disabled={isCreatingUser || enviandoFotoMembro} className={btnInk}>{isCreatingUser ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} {editingMembro ? 'Salvar alterações' : 'Adicionar membro'}</button>
                       </div>
                     </form>
                   </div>
@@ -4391,53 +4470,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                   </div>
                 )}
                 <div className={`border-b ${tc.borderStrong} pb-2 mb-4`}>
-                  {field(Activity, 'Status', (
-                    <span className="relative inline-flex">
-                      {statusChip(st.label, st.cls)}
-                      <select
-                        value={m.status}
-                        onChange={(e) => atualizarCamposTarefa(m, { status: e.target.value as Material['status'] })}
-                        title="Mudar status"
-                        aria-label="Status"
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      >
-                        {!STATUS_INFO[m.status] && <option value={m.status}>{String(m.status)}</option>}
-                        {STATUS_OPCOES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                    </span>
-                  ))}
-                  {field(Users, 'Responsáveis', (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {PAPEIS_TAREFA.map(p => {
-                        const atual = m[p.campo] as string | null | undefined;
-                        const opcoes = membros.filter(mb => p.roles.includes(mb.role) || mb.id === atual);
-                        return (
-                          <label key={p.campo} className={`inline-flex items-center gap-1.5 h-7 pl-2 pr-1 rounded-md border ${tc.borderStrong} text-[12px]`}>
-                            <span className="text-zinc-500">{p.label}</span>
-                            <select
-                              value={atual || ''}
-                              onChange={(e) => atualizarCamposTarefa(m, { [p.campo]: e.target.value || null } as Partial<Material>)}
-                              className={`bg-transparent outline-none font-medium max-w-[140px] cursor-pointer ${tc.textMain} [&>option]:text-zinc-900`}
-                            >
-                              <option value="">Ninguém</option>
-                              {(opcoes.length ? opcoes : membros).map(mb => <option key={mb.id} value={mb.id}>{mb.nome || mb.email}</option>)}
-                            </select>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ))}
-                  {field(Calendar, 'Entrega', (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={m.data_limite ? String(m.data_limite).slice(0, 10) : ''}
-                        onChange={(e) => atualizarCamposTarefa(m, { data_limite: e.target.value || null } as Partial<Material>)}
-                        className={`h-7 px-2 rounded-md border ${tc.borderStrong} ${tc.bgInput} text-[13px] outline-none focus:border-brand ${isDateLate(m.data_limite || '') && !['aprovado', 'post_aprovado', 'concluido'].includes(m.status) ? 'text-red-600 dark:text-red-400' : tc.textMain} ${theme === 'dark' ? '[color-scheme:dark]' : ''}`}
-                      />
-                    </div>
-                  ))}
-                  {field(Tag, 'Tags', <>{tagChips(m, true)}<span className="[&>span]:opacity-100">{tagControl(m)}</span></>)}
+                  {field(Activity, 'Status', campoStatus(m))}
+                  {field(Users, 'Responsáveis', campoResponsaveis(m))}
+                  {field(Calendar, 'Entrega', campoEntrega(m))}
+                  {field(Tag, 'Tags', <>{tagChips(m, 'sempre')}<span className="[&>span]:opacity-100">{tagControl(m, true)}</span></>)}
                 </div>
                 <div className="flex items-center gap-2 mb-2.5"><span className="text-[15px] font-semibold">Roteiro</span></div>
                 <div onClick={(e) => { const target = (e.target as HTMLElement).closest('a'); if (target) { e.preventDefault(); const href = target.getAttribute('href'); if (href) window.open(href, '_blank', 'noopener,noreferrer'); } }} className={`${theme === 'dark' ? 'bg-zinc-950 text-zinc-300 [&_.ql-toolbar]:bg-zinc-950 [&_.ql-toolbar]:border-zinc-800 [&_.ql-container]:border-zinc-800 [&_.ql-stroke]:stroke-zinc-300 [&_.ql-fill]:fill-zinc-300 [&_.ql-picker]:text-zinc-300 [&_.ql-picker-options]:bg-zinc-900' : 'bg-white text-zinc-800 [&_.ql-toolbar]:bg-white [&_.ql-toolbar]:border-zinc-200 [&_.ql-container]:border-zinc-200'} rounded-xl [&_.ql-toolbar]:sticky [&_.ql-toolbar]:-top-4 [&_.ql-toolbar]:z-20 [&_.ql-toolbar]:shadow-[0_1px_0_rgba(0,0,0,0.04)] [&_.ql-toolbar]:rounded-t-xl [&_.ql-container]:rounded-b-xl [&_.ql-editor_a]:cursor-pointer [&_.ql-editor_a]:text-blue-500 [&_.ql-editor_a]:underline`}>
