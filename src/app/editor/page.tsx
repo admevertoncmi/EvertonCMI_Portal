@@ -4,7 +4,7 @@
 // avisos no ClickUp, registros e modo "Entrar" do admin), no visual do painel admin.
 // Peças comuns com o painel do decupador: src/components/equipe/kit.tsx
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Toaster, toast } from 'sonner'
 import {
@@ -16,10 +16,11 @@ import { formatRichText } from '@/lib/utils'
 import { notificarClickUpChat } from '@/actions/clickup'
 import { conversaEquipe, transcreverAudioEquipe } from '@/actions/conversa'
 import ConversaMaterial, { type MensagemConversa } from '@/components/ConversaMaterial'
+import { marcarTarefaLida } from '@/components/SinoNotificacoes'
 import {
-  TeamShell, PageHeader, StatCards, Filtros, GrupoCliente, LinhaTarefa, Vazio, PainelTarefa, Secao, TextoRecolhivel,
+  TeamShell, PageHeader, StatCards, Filtros, GrupoCliente, LinhaTarefa, Vazio, PainelTarefa, Secao,
   LinkPasta, Modal, CampoLinkDrive, ModalProblema, VisualizadorMidia, Chip, Prazo,
-  useTemaEquipe, instrucaoParaPapel, entradasFeedback, passaFiltro, prazoInfo, btnInk, btnLine, cardCls, type FiltroPrazo,
+  useTemaEquipe, entradasInstrucao, InstrucoesEquipe, entradasFeedback, passaFiltro, prazoInfo, btnInk, btnLine, cardCls, type FiltroPrazo,
 } from '@/components/equipe/kit'
 
 interface Material {
@@ -149,12 +150,33 @@ export default function EditorDashboard() {
 
   const aberto = materiais.find(m => m.id === abertoId) || null
 
+  // Sino / link do WhatsApp (?tarefa=<id>): abre a tarefa na aba certa
+  const abrirTarefa = (id: string) => {
+    if (!materiais.some(m => m.id === id)) { toast.error('Essa tarefa não está mais com você (pode ter sido entregue ou passada para outra pessoa).'); return }
+    setAba(fila.some(m => m.id === id) ? 'tarefas' : 'entregues')
+    setEntregaAberta(false); setProblemaAberto(false)
+    setAbertoId(id)
+  }
+  const linkTarefaAberto = useRef(false)
+  useEffect(() => {
+    if (loading || linkTarefaAberto.current) return
+    const id = new URLSearchParams(window.location.search).get('tarefa')
+    if (!id) return
+    linkTarefaAberto.current = true
+    abrirTarefa(id)
+    const url = new URL(window.location.href); url.searchParams.delete('tarefa')
+    window.history.replaceState(null, '', url.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
+  // Abrir a tarefa = notificações dela lidas (a admin no modo "Entrar" não marca pelo membro)
+  useEffect(() => { if (abertoId && !comoAdmin) marcarTarefaLida(abertoId).catch(() => null) }, [abertoId, comoAdmin])
+
   // Conversa com o cliente (pedido de ajuste com fotos e áudios), só leitura para a equipe de produção
   useEffect(() => {
     setConversa([])
-    if (!aberto || aberto.status !== 'ajustes') return
+    if (!aberto) return
     setCarregandoConversa(true)
-    conversaEquipe(aberto.id).then(setConversa).catch(() => setConversa([])).finally(() => setCarregandoConversa(false))
+    conversaEquipe(aberto.id, { marcarLida: false }).then(setConversa).catch(() => setConversa([])).finally(() => setCarregandoConversa(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abertoId, aberto?.status])
 
@@ -262,7 +284,7 @@ export default function EditorDashboard() {
   )
 
   const feedbackEquipe = aberto ? entradasFeedback(aberto.feedback).filter(e => e.daEquipe) : []
-  const instrucao = aberto ? instrucaoParaPapel(aberto.feedback_admin, papel) : ''
+  const instrucoes = aberto ? entradasInstrucao(aberto.feedback_admin, papel) : []
   const precisaVideo = !!aberto && souEditorDe(aberto) && !aberto.video_entregue
   const precisaCapa = !!aberto && souDesignerDe(aberto) && !aberto.design_entregue
   const podeEntregar = (!precisaVideo || !!newDriveLink.trim()) && (!precisaCapa || !!newCapaLink.trim())
@@ -275,7 +297,7 @@ export default function EditorDashboard() {
         { id: 'entregues', label: 'Entregues', icon: CheckCircle2 },
       ]}
       ativo={aba} onMenu={(id) => setAba(id as any)} theme={theme} alternarTema={alternar}
-      comoAdmin={comoAdmin} onSair={() => supabase.auth.signOut().then(() => router.push('/'))}>
+      comoAdmin={comoAdmin} onSair={() => supabase.auth.signOut().then(() => router.push('/'))} onAbrirNotificacao={abrirTarefa}>
       <Toaster position="top-right" richColors theme={theme} />
 
       {loading ? (
@@ -352,11 +374,18 @@ export default function EditorDashboard() {
             {aberto.status === 'ajustes' && (aberto.link_drive || aberto.link_capa) && <p className="text-xs text-zinc-500 mt-2">Os links acima são da versão que o cliente viu.</p>}
           </Secao>
 
-          {aberto.status === 'ajustes' && (
-            <Secao titulo="O que o cliente pediu">
+          {/* 1º o que a equipe pediu para fazer (a mais recente em destaque); 2º a conversa com o cliente, separada */}
+          {instrucoes.length > 0 && (
+            <Secao titulo="Instrução da equipe">
+              <InstrucoesEquipe entradas={instrucoes} />
+            </Secao>
+          )}
+
+          {(aberto.status === 'ajustes' || conversa.some(c => !c.evento)) && (
+            <Secao titulo="Conversa com o cliente" extra={<span className="text-[11px] text-zinc-400">só leitura</span>}>
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                <ConversaMaterial somenteLeitura className="max-h-[360px]" mensagens={conversa} carregando={carregandoConversa} perspectiva="equipe"
-                  dark={theme === 'dark'} onEnviar={async () => false} onTranscrever={(mensagemId) => transcreverAudioEquipe(aberto.id, mensagemId)} vazio="O pedido de ajuste ainda não tem detalhes." />
+                <ConversaMaterial somenteLeitura destacarUltimoPedido className="max-h-[380px]" mensagens={conversa} carregando={carregandoConversa} perspectiva="equipe"
+                  dark={theme === 'dark'} onEnviar={async () => false} onTranscrever={(mensagemId) => transcreverAudioEquipe(aberto.id, mensagemId)} vazio="O cliente ainda não mandou detalhes por aqui." />
               </div>
             </Secao>
           )}
@@ -374,11 +403,6 @@ export default function EditorDashboard() {
             </Secao>
           )}
 
-          {instrucao && (
-            <Secao titulo="Instrução do admin">
-              <div className="rounded-xl bg-blue-50/60 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-900/40 px-4 py-3 text-zinc-800 dark:text-zinc-100"><TextoRecolhivel texto={instrucao} /></div>
-            </Secao>
-          )}
 
           <Secao titulo="Pastas">
             <div className="space-y-2">

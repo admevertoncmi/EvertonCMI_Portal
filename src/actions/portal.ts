@@ -3,6 +3,7 @@
 import { getAdminSupabase } from '@/lib/supabase'
 import { requireClientePorToken } from '@/lib/auth-guard'
 import { enviarClickUpChat } from '@/lib/clickup-chat'
+import { avisarEquipe } from '@/lib/notificar-equipe'
 import { criarUploadAnexo, inserirMensagem, lerConversa, contarNaoLidas, transcreverAudio, type AnexoTipo, type NovaMensagem } from '@/lib/conversa'
 
 // O portal do cliente não tem login: o token mágico é a credencial.
@@ -47,9 +48,10 @@ async function materialDoCliente(token: string, materialId: string) {
 
 // ---------- Conversa do conteúdo (texto, fotos e áudio) ----------
 
-export async function conversaPortal(token: string, materialId: string) {
+export async function conversaPortal(token: string, materialId: string, opts?: { marcarLida?: boolean }) {
   await materialDoCliente(token, materialId)
-  return lerConversa(materialId, 'cliente')
+  // A agência olhando o portal (modo admin) não marca as respostas como lidas pelo cliente
+  return lerConversa(materialId, 'cliente', { marcarLida: opts?.marcarLida !== false })
 }
 
 /** Transcreve um áudio da conversa (só quando o cliente clica em "Transcrever"). */
@@ -75,11 +77,31 @@ export async function enviarMensagemPortal(token: string, materialId: string, ms
     feitoPelaAgencia: !!opts?.feitoPelaAgencia,
   }, msg)
 
-  // Mensagem comum avisa a equipe no ClickUp; pedido de ajuste e aprovação já têm aviso próprio
-  if (opts?.avisarEquipe !== false && !msg.ajuste && !msg.evento) {
-    const anexos = [msg.fotos?.length ? `${msg.fotos.length} foto(s)` : '', msg.audio ? 'áudio' : ''].filter(Boolean).join(' + ')
-    const texto = `💬 MENSAGEM DO CLIENTE${opts?.feitoPelaAgencia ? ' (FEITO PELA AGÊNCIA)' : ''}\n\n**${cliente.nome}**\n${material.titulo}\n\n${msg.texto || ''}${anexos ? `\n📎 ${anexos} (veja na tarefa)` : ''}`
-    await enviarClickUpChat(texto.slice(0, 4000)).catch(() => null)
+  // Avisa a equipe (sino na plataforma + WhatsApp + ClickUp) — ver src/lib/notificar-equipe.ts
+  // - mensagem/foto/áudio e pedido de ajuste: admins e responsáveis pela tarefa
+  //   (no ClickUp, o pedido de ajuste já tem o aviso próprio dos admins, então ali vai só para os responsáveis);
+  // - aprovação: só o sino dos admins (o aviso no ClickUp já é enviado pela tela do portal).
+  try {
+    const quem = opts?.feitoPelaAgencia ? `${cliente.nome} (pela agência)` : cliente.nome
+    if (msg.evento === 'aprovado') {
+      await avisarEquipe({
+        materialId, tipo: 'aprovado', titulo: `${quem} aprovou um conteúdo`, texto: material.titulo,
+        paraAdmins: true, paraResponsaveis: false, whatsapp: false, clickup: null,
+      })
+    } else if (!msg.evento && opts?.avisarEquipe !== false) {
+      const oQue = msg.audio ? 'um áudio' : msg.fotos?.length ? (msg.fotos.length > 1 ? `${msg.fotos.length} fotos` : 'uma foto') : 'uma mensagem'
+      const titulo = msg.ajuste ? `${quem} pediu ajuste${msg.audio ? ' (áudio)' : ''}` : `${quem} mandou ${oQue}`
+      const trecho = msg.texto ? `\n“${msg.texto.slice(0, 280)}${msg.texto.length > 280 ? '…' : ''}”` : ''
+      const anexos = [msg.fotos?.length ? `📷 ${msg.fotos.length} foto(s)` : '', msg.audio ? '🎙️ áudio' : ''].filter(Boolean).join(' + ')
+      const ck = `${msg.ajuste ? '🔔 PEDIDO DE AJUSTE NO PORTAL' : '💬 MENSAGEM DO CLIENTE NO PORTAL'}${opts?.feitoPelaAgencia ? ' (FEITO PELA AGÊNCIA)' : ''}\n\n**${cliente.nome}**\n${material.titulo}\n\n${msg.texto || ''}${anexos ? `\n📎 ${anexos} (abra a conversa da tarefa para ver/ouvir)` : ''}`
+      await avisarEquipe({
+        materialId, tipo: msg.ajuste ? 'ajuste' : 'mensagem', titulo, texto: `${material.titulo}${trecho}`,
+        paraAdmins: true, paraResponsaveis: true, whatsapp: true,
+        clickup: { texto: ck, incluirAdmins: !msg.ajuste },
+      })
+    }
+  } catch (e) {
+    console.error('Aviso da mensagem do portal falhou:', e)
   }
   return id
 }

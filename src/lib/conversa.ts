@@ -80,7 +80,7 @@ export async function inserirMensagem(base: {
 }
 
 /** Lê a conversa de um material, troca caminhos por links assinados e marca como lida pelo lado que abriu. */
-export async function lerConversa(materialId: string, leitor: 'cliente' | 'equipe'): Promise<MensagemConversa[]> {
+export async function lerConversa(materialId: string, leitor: 'cliente' | 'equipe', opts?: { marcarLida?: boolean }): Promise<MensagemConversa[]> {
   const admin = getAdminSupabase()
   const { data } = await admin
     .from('mensagens_material')
@@ -96,7 +96,8 @@ export async function lerConversa(materialId: string, leitor: 'cliente' | 'equip
     data?.forEach(d => { if (d.path && d.signedUrl) assinados.set(d.path, d.signedUrl) })
   }
 
-  const naoLidas = rows.filter(r => r.autor !== leitor && !(leitor === 'cliente' ? r.lida_pelo_cliente : r.lida_pela_equipe)).map(r => r.id)
+  // Quem só consulta (editor/designer vendo o pedido) não "apaga" o aviso de mensagem nova do admin
+  const naoLidas = opts?.marcarLida === false ? [] : rows.filter(r => r.autor !== leitor && !(leitor === 'cliente' ? r.lida_pelo_cliente : r.lida_pela_equipe)).map(r => r.id)
   if (naoLidas.length) {
     await admin.from('mensagens_material')
       .update(leitor === 'cliente' ? { lida_pelo_cliente: true } : { lida_pela_equipe: true })

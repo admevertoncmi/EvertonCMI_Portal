@@ -104,6 +104,9 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const [roteiroAberto, setRoteiroAberto] = useState(false)
   const [focarConversa, setFocarConversa] = useState(0)
   const convRef = useRef<HTMLElement>(null)
+  // Link do WhatsApp "A equipe respondeu" (?m=<conteúdo>&c=1): abre direto aquele conteúdo, já na conversa
+  const linkDireto = useRef<{ m: string; c: boolean } | null>(null)
+  const [conversaAbertaId, setConversaAbertaId] = useState<string | null>(null)
 
   // Modo admin: a admin "entra" no portal pela lista de clientes (?admin=1).
   // Só vale com sessão de admin no navegador; o parâmetro sozinho não liga nada.
@@ -112,6 +115,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     const sp = new URLSearchParams(window.location.search)
     const tab = sp.get('tab')
     if (tab === 'videos' || tab === 'roteiros') setActiveTab(tab)
+    const m = sp.get('m')
+    if (m) linkDireto.current = { m: m.replace(/-/g, '').toLowerCase(), c: sp.get('c') === '1' }
     if (sp.get('admin') === '1') {
       const supabase = createClient()
       supabase.auth.getUser().then(async ({ data }) => {
@@ -165,7 +170,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
   // Ciclos 100% aprovados começam recolhidos
   useEffect(() => {
-    setCollapsedCycles(ciclosOrdenados.filter(([, itens]) => itens.every(m => ['ok', 'prod'].includes(statusCliente(m, activeTab)))).map(([k]) => `${activeTab}-${k}`))
+    setCollapsedCycles(ciclosOrdenados.filter(([, itens]) => itens.every(m => ['ok', 'prod'].includes(statusCliente(m, activeTab))) && !itens.some(m => m.id === selectedId)).map(([k]) => `${activeTab}-${k}`))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, ciclosOrdenados.length])
 
@@ -188,6 +193,29 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     setSelectedId(prox?.id || null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, activeTab, currentList])
+
+  // Abre um conteúdo (pelo link do WhatsApp ou pelo aviso "A equipe respondeu"), na aba certa e com o ciclo aberto
+  const abrirConteudo = (id: string, comConversa: boolean) => {
+    const m = todosMateriais.find(x => x.id === id)
+    if (!m) return
+    const aba: Aba = videosList.some(x => x.id === id) ? 'videos' : 'roteiros'
+    setActiveTab(aba)
+    setSelectedId(id)
+    setDetalheAberto(true)
+    setCollapsedCycles(p => p.filter(k => k !== `${aba}-Ciclo ${m.ciclo || 1}`))
+    if (comConversa) {
+      setConversaAbertaId(id)
+      setTimeout(() => convRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400)
+    }
+  }
+  useEffect(() => {
+    if (loading || !linkDireto.current || !todosMateriais.length) return
+    const { m, c } = linkDireto.current
+    linkDireto.current = null
+    const alvo = todosMateriais.find(x => String(x.id).replace(/-/g, '').toLowerCase() === m)
+    if (alvo) abrirConteudo(alvo.id, c || (naoLidas[alvo.id] || 0) > 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, todosMateriais])
 
   // Ao trocar de conteúdo
   useEffect(() => {
@@ -232,9 +260,10 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   const carregarConversa = useCallback(async (id: string, silencioso = false) => {
     if (!silencioso) setCarregandoConversa(true)
     try {
-      const msgs = await conversaPortal(token, id)
+      const visitaDaAgencia = new URLSearchParams(window.location.search).get('admin') === '1'
+      const msgs = await conversaPortal(token, id, { marcarLida: !visitaDaAgencia })
       setMensagens(msgs)
-      setNaoLidas(prev => prev[id] ? { ...prev, [id]: 0 } : prev)
+      if (!visitaDaAgencia) setNaoLidas(prev => prev[id] ? { ...prev, [id]: 0 } : prev)
     } catch {
       if (!silencioso) setMensagens([])
     } finally {
@@ -242,7 +271,8 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
     }
   }, [token])
   useEffect(() => {
-    if (!selectedId) { setMensagens([]); return }
+    setMensagens([])
+    if (!selectedId) return
     carregarConversa(selectedId)
     const t = setInterval(() => carregarConversa(selectedId, true), 20000)
     return () => clearInterval(t)
@@ -363,8 +393,12 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
   )
 
   const corMarca = cliente?.cor_marca || '#A25431'
-  // A conversa só aparece ao tocar em "Pedir ajuste" ou quando já há um pedido de ajuste em andamento
-  const mostrarConversa = !!selected && (modoAjuste || stSel === 'fix')
+  // A conversa aparece ao tocar em "Pedir ajuste", com pedido de ajuste em andamento, quando já existe
+  // conversa sobre o conteúdo (ex.: a equipe respondeu) ou quando o cliente chegou pelo link da resposta
+  const temConversa = mensagens.some(m => !m.evento) || (!!selected && (naoLidas[selected.id] || 0) > 0)
+  const mostrarConversa = !!selected && (modoAjuste || stSel === 'fix' || temConversa || conversaAbertaId === selected.id)
+  const tituloConversa = modoAjuste || stSel === 'fix' ? 'Pedido de ajuste' : 'Conversa com a equipe'
+  const respostasNovas = Object.entries(naoLidas).filter(([id, n]) => n > 0 && id !== selectedId).map(([id]) => todosMateriais.find(m => m.id === id)).filter(Boolean) as any[]
   const pendAba = (aba: Aba) => pendentesAba(aba).length
   const ehVideoComCapa = !isRoteiro && !!selected?.link_drive && !!selected?.link_capa
   const linkAtualCapa = expandedCapaLinks[currentSlide] || selected?.link_capa || ''
@@ -465,7 +499,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
             {linkTelaCheia && <button type="button" onClick={() => setPreviewUrl(linkTelaCheia)} className={`${btnLine} w-full min-h-[40px]`}><Maximize2 size={14} /> Tela cheia</button>}
             {mostrarConversa && (
               <button type="button" onClick={() => convRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className={`${btnLine} w-full min-h-[40px]`}>
-                <MessageSquare size={14} /> Ajuste{qtdMsgs ? ` (${qtdMsgs})` : ''}
+                <MessageSquare size={14} /> {modoAjuste || stSel === 'fix' ? 'Ajuste' : 'Conversa'}{qtdMsgs ? ` (${qtdMsgs})` : ''}
               </button>
             )}
           </div>
@@ -526,6 +560,19 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
       </header>
 
       <main className="max-w-[1440px] mx-auto px-4 md:px-6 pt-4 pb-6">
+        {/* Respostas da equipe que o cliente ainda não viu: um toque abre a conversa */}
+        {respostasNovas.length > 0 && (
+          <div className="mb-4 rounded-xl border border-brand/30 bg-[#FFFBF8] px-3.5 py-2.5 space-y-1.5" role="status">
+            {respostasNovas.slice(0, 3).map(m => (
+              <div key={m.id} className="flex items-center gap-2.5 text-[13px]">
+                <MessageSquare size={15} className="text-brand shrink-0" />
+                <span className="flex-1 min-w-0 text-zinc-700">A equipe respondeu sobre <b className="font-semibold">{m.titulo}</b></span>
+                <button type="button" onClick={() => abrirConteudo(m.id, true)} className={`${btnInk} !py-1.5 !px-3 !text-xs shrink-0`}>Ver resposta</button>
+              </div>
+            ))}
+            {respostasNovas.length > 3 && <p className="text-xs text-zinc-500 pl-6">e mais {respostasNovas.length - 3} conteúdo(s) com resposta nova — veja os marcados com “Nova mensagem”.</p>}
+          </div>
+        )}
         {/* Abas + progresso do ciclo */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <nav className="inline-flex gap-0.5 p-1 bg-zinc-100 rounded-xl" aria-label="Tipo de conteúdo">
@@ -616,7 +663,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
 
                 {mostrarConversa && <section ref={convRef} className="scroll-mt-[150px] lg:scroll-mt-0 bg-white border-t lg:border border-zinc-200 lg:rounded-2xl flex flex-col flex-1 lg:flex-none lg:h-[560px] xl:h-auto xl:min-h-0 lg:overflow-hidden" aria-label="Conversa">
                   <div className="px-4 py-3.5 border-b border-zinc-200 flex items-center gap-2 shrink-0">
-                    <h3 className="text-[15px] font-semibold m-0">Pedido de ajuste</h3>
+                    <h3 className="text-[15px] font-semibold m-0">{tituloConversa}</h3>
                     <span className="text-xs text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md">sobre este {isRoteiro ? 'roteiro' : 'post'}</span>
                   </div>
                   <ConversaMaterial
@@ -634,7 +681,7 @@ export default function PortalCliente({ params }: { params: Promise<{ token_magi
                     mostrarSobre={modoAjuste && ehVideoComCapa}
                     alvoInicial={mediaTab === 'capa' ? 'capa' : 'video'}
                     vazio="Conte o que você quer ajustar. Você pode escrever, mandar fotos ou gravar um áudio."
-                    placeholder={modoAjuste ? 'O que você quer ajustar?' : 'Escreva sobre o ajuste…'}
+                    placeholder={modoAjuste ? 'O que você quer ajustar?' : stSel === 'fix' ? 'Escreva sobre o ajuste…' : 'Escreva uma mensagem para a equipe…'}
                   />
                 </section>}
               </div>

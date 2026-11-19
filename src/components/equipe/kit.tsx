@@ -4,10 +4,10 @@
 // Mesmo visual do painel admin: barra lateral clara, cabeçalho com ícone, cards de números,
 // filtros em pílulas, linhas de tarefa em card e painel lateral ao abrir a tarefa.
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import useEmblaCarousel from 'embla-carousel-react'
 import {
-  X, Menu, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Loader2, ExternalLink, AlertTriangle, Flag, Calendar, Palette, CheckCircle2,
+  X, Menu, LogOut, Sun, Moon, ChevronLeft, ChevronRight, Loader2, ExternalLink, AlertTriangle, Flag, Calendar, Palette, CheckCircle2, Camera,
 } from 'lucide-react'
 import { PALETAS_TEMA, aplicarCoresNaTela, limparCoresDaTela, temaValido, type BrandColors } from '@/lib/tema'
 import { lerPaletaMembro, salvarPaletaMembro } from '@/actions/tema'
@@ -16,6 +16,11 @@ import { ScaledGoogleDrivePlayer } from '@/components/ScaledGoogleDrivePlayer'
 import GoogleDrivePicker from '@/components/GoogleDrivePicker'
 import { getDriveFolderFiles } from '@/actions/google'
 import { isDateLate } from '@/lib/utils'
+import { rotuloQuando, type EntradaInstrucao } from '@/lib/instrucoes'
+import { Avatar } from '@/components/tarefa/campos'
+import { createClient } from '@/lib/supabase-browser'
+import { salvarMinhaFoto } from '@/actions/equipe'
+import SinoNotificacoes from '@/components/SinoNotificacoes'
 
 // ---------------------------------------------------------------------------
 // Utilidades de texto e mídia
@@ -33,18 +38,41 @@ export function TextoComLinks({ texto }: { texto?: string | null }) {
     : <span key={i}>{p}</span>)}</>
 }
 
-/** Instrução do admin filtrada para o papel (blocos [EDITOR] / [DESIGNER] + texto comum). */
-export function instrucaoParaPapel(text?: string | null, papel?: string) {
-  if (!text) return ''
-  const t = text.replace(/\[ID:[^\]]+\]\s*/g, '')
-  if (!t.includes('[EDITOR]') && !t.includes('[DESIGNER]')) return t.trim()
-  const blocos = (tag: string) => Array.from(t.matchAll(new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'g'))).map(m => m[1].trim())
-  let res = ''
-  if (papel === 'editor') res += blocos('EDITOR').join('\n\n---\n\n')
-  if (papel === 'designer') res += blocos('DESIGNER').join('\n\n---\n\n')
-  const comum = t.replace(/\[EDITOR\][\s\S]*?\[\/EDITOR\]/g, '').replace(/\[DESIGNER\][\s\S]*?\[\/DESIGNER\]/g, '').replace(/^(---|\s)+|(-+)\s*$/g, '').trim()
-  if (comum) res += (res ? '\n\n---\n\n' : '') + comum
-  return res.trim()
+/** Instrução da equipe filtrada para o papel, separada em entradas (da mais antiga para a mais recente). */
+export { entradasInstrucao } from '@/lib/instrucoes'
+
+/**
+ * Instruções internas da equipe: a mais recente em destaque (com data), as anteriores recolhidas.
+ * Assim quem produz sabe na hora qual é o pedido novo e não confunde com ajustes já feitos.
+ */
+export function InstrucoesEquipe({ entradas }: { entradas: EntradaInstrucao[] }) {
+  const [verAnteriores, setVerAnteriores] = useState(false)
+  if (!entradas.length) return null
+  const [atual, ...anteriores] = [...entradas].reverse()
+  return (
+    <div className="space-y-2">
+      <div className="rounded-xl bg-blue-50/70 dark:bg-blue-900/15 border border-blue-200 dark:border-blue-900/50 px-4 py-3 text-zinc-800 dark:text-zinc-100">
+        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-blue-600 text-white">{anteriores.length ? 'Mais recente' : 'Instrução'}</span>
+          {atual.data && <span className="text-xs text-zinc-500 dark:text-zinc-400">{rotuloQuando(atual.data)}</span>}
+        </div>
+        <TextoRecolhivel texto={atual.texto} />
+      </div>
+      {anteriores.length > 0 && (
+        <button type="button" onClick={() => setVerAnteriores(v => !v)} aria-expanded={verAnteriores}
+          className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-brand">
+          <ChevronRight size={13} className={`transition-transform ${verAnteriores ? 'rotate-90' : ''}`} />
+          {verAnteriores ? 'Ocultar instruções anteriores' : `Instruções anteriores (${anteriores.length}) · já pedidas antes`}
+        </button>
+      )}
+      {verAnteriores && anteriores.map((e, i) => (
+        <div key={i} className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-800 px-4 py-2.5 text-zinc-600 dark:text-zinc-300">
+          <p className="text-xs text-zinc-400 mb-1">{e.data ? rotuloQuando(e.data) : 'Instrução anterior'}</p>
+          <TextoRecolhivel texto={e.texto} linhas={4} />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /** Entradas do campo "feedback" (mais recente primeiro), separando as da equipe ([ID:]) das do cliente. */
@@ -202,6 +230,47 @@ function usePaletaPessoal(membroId: string | null) {
   return { paleta, escolher }
 }
 
+/** Foto de perfil do membro: lê do perfil, envia para o Storage e grava pelo servidor. */
+function useFotoPerfil(membroId: string | null) {
+  const [foto, setFoto] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState(false)
+  useEffect(() => {
+    if (!membroId) return
+    createClient().from('perfis_equipe').select('foto_url').eq('id', membroId).maybeSingle()
+      .then(({ data }) => setFoto((data as { foto_url?: string | null } | null)?.foto_url || null), () => null)
+  }, [membroId])
+
+  const gravar = async (url: string | null) => {
+    const r = await salvarMinhaFoto(url, membroId)
+    if ('error' in r) { toast.error(r.error); return false }
+    setFoto(url)
+    return true
+  }
+  const escolherFoto = async (file: File) => {
+    if (!membroId) return
+    if (!file.type.startsWith('image/')) { toast.error('Escolha um arquivo de imagem.'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('A foto deve ter no máximo 5 MB.'); return }
+    setEnviando(true)
+    try {
+      const storage = createClient().storage.from('roteiros-midia')
+      const ext = (file.name.split('.').pop() || file.type.split('/')[1] || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+      const caminho = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      const { error } = await storage.upload(caminho, file, { cacheControl: '3600', upsert: false, contentType: file.type })
+      if (error) throw error
+      if (await gravar(storage.getPublicUrl(caminho).data.publicUrl)) toast.success('Foto de perfil atualizada!')
+    } catch (err: any) {
+      toast.error('Não foi possível enviar a foto. ' + (err?.message || ''))
+    } finally {
+      setEnviando(false)
+    }
+  }
+  const removerFoto = async () => {
+    setEnviando(true)
+    try { if (await gravar(null)) toast.success('Foto removida.') } finally { setEnviando(false) }
+  }
+  return { foto, enviando, escolherFoto, removerFoto }
+}
+
 function ModalPaletas({ aberto, onFechar, paleta, onEscolher }: { aberto: boolean; onFechar: () => void; paleta: BrandColors | null; onEscolher: (c: BrandColors | null) => void }) {
   const opcao = (key: string, nome: string, cores: BrandColors | null, on: boolean, desc?: string) => (
     <button key={key} type="button" onClick={() => onEscolher(cores)}
@@ -233,13 +302,42 @@ function ModalPaletas({ aberto, onFechar, paleta, onEscolher }: { aberto: boolea
 
 export type ItemMenu = { id: string; label: string; icon: any; count?: number }
 
-export function TeamShell({ papel, nome, membroId, menu, ativo, onMenu, theme, alternarTema, comoAdmin, onSair, children }: {
+export function TeamShell({ papel, nome, membroId, menu, ativo, onMenu, theme, alternarTema, comoAdmin, onSair, onAbrirNotificacao, children }: {
   papel: string; nome: string; membroId: string | null; menu: ItemMenu[]; ativo: string; onMenu: (id: string) => void
-  theme: 'light' | 'dark'; alternarTema: () => void; comoAdmin: string | null; onSair: () => void; children: ReactNode
+  theme: 'light' | 'dark'; alternarTema: () => void; comoAdmin: string | null; onSair: () => void
+  onAbrirNotificacao?: (materialId: string) => void   // sino: abre a tarefa da notificação
+  children: ReactNode
 }) {
   // Mesmo esqueleto do painel admin: barra no topo no computador; no celular, topo com logo + barra de abas embaixo
-  const iniciais = (nome || '?').split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
   const { paleta, escolher } = usePaletaPessoal(membroId)
+  const { foto, enviando: enviandoFoto, escolherFoto, removerFoto } = useFotoPerfil(membroId)
+  const fotoRef = useRef<HTMLInputElement>(null)
+  // No modo "Entrar" da admin, o sino mostra as notificações do membro sem marcá-las como lidas
+  const sino = onAbrirNotificacao && membroId
+    ? <SinoNotificacoes membroId={comoAdmin ? membroId : null} somenteLeitura={!!comoAdmin} onAbrir={onAbrirNotificacao} />
+    : null
+  const [menuFoto, setMenuFoto] = useState(false)
+  // Foto de perfil: o próprio membro troca clicando na foto (no modo admin, a admin troca pela pessoa)
+  const botaoFoto = (tamanho: number) => (
+    <span className="relative shrink-0">
+      <button type="button" onClick={() => foto ? setMenuFoto(v => !v) : fotoRef.current?.click()} disabled={enviandoFoto || !membroId}
+        aria-label={foto ? 'Trocar foto de perfil' : 'Colocar foto de perfil'} title={foto ? 'Trocar foto de perfil' : 'Colocar foto de perfil'}
+        className="group relative block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+        <Avatar pessoa={{ id: membroId || nome || '?', nome, foto_url: foto }} tamanho={tamanho} key={foto || 'sem-foto'} />
+        <span className={`absolute inset-0 rounded-full bg-black/45 text-white inline-flex items-center justify-center transition-opacity ${enviandoFoto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          {enviandoFoto ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+        </span>
+        {!foto && !enviandoFoto && <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand text-white ring-2 ring-white dark:ring-zinc-900 inline-flex items-center justify-center"><Camera size={9} /></span>}
+      </button>
+      {menuFoto && foto && <>
+        <button type="button" aria-label="Fechar" className="fixed inset-0 z-[80] cursor-default" onClick={() => setMenuFoto(false)} />
+        <span className="absolute right-0 md:left-0 md:right-auto top-[calc(100%+6px)] z-[81] w-44 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl flex flex-col">
+          <button type="button" onClick={() => { setMenuFoto(false); fotoRef.current?.click() }} className="text-left px-3 py-2 rounded-lg text-[13px] hover:bg-zinc-100 dark:hover:bg-zinc-800">Trocar foto</button>
+          <button type="button" onClick={() => { setMenuFoto(false); removerFoto() }} className="text-left px-3 py-2 rounded-lg text-[13px] text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Remover foto</button>
+        </span>
+      </>}
+    </span>
+  )
   const [paletasAbertas, setPaletasAbertas] = useState(false)
   const iconBtn = `w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'}`
   const logo = <img src={theme === 'dark' ? '/logo-light.png' : '/logo-dark.png'} alt="Everton" className="h-9 w-auto object-contain" />
@@ -275,13 +373,14 @@ export function TeamShell({ papel, nome, membroId, menu, ativo, onMenu, theme, a
           })}
         </nav>
         <div className="ml-auto flex items-center gap-2 shrink-0">
-          <span className="hidden lg:flex items-center gap-2.5 pr-2 mr-1 border-r border-zinc-200 dark:border-zinc-800">
-            <span className="w-8 h-8 rounded-full bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft text-[11px] font-semibold inline-flex items-center justify-center shrink-0">{iniciais}</span>
-            <span className="leading-tight pr-2">
+          <span className="flex items-center gap-2.5 pr-2 mr-1 border-r border-zinc-200 dark:border-zinc-800">
+            {botaoFoto(32)}
+            <span className="hidden lg:block leading-tight pr-2">
               <span className="block text-[13px] font-medium max-w-[160px] truncate">{nome || '—'}</span>
               <span className="block text-[11px] text-zinc-500">{papel}</span>
             </span>
           </span>
+          {sino}
           {botaoPaleta}
           {botaoTema}
           {botaoSair}
@@ -291,8 +390,9 @@ export function TeamShell({ papel, nome, membroId, menu, ativo, onMenu, theme, a
       {/* TOPO (celular) */}
       <header className="md:hidden h-14 shrink-0 flex items-center gap-3 px-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         {logo}
-        <div className="ml-auto flex items-center gap-2">{botaoPaleta}{botaoTema}{botaoSair}</div>
+        <div className="ml-auto flex items-center gap-2">{botaoFoto(34)}{sino}{botaoPaleta}{botaoTema}{botaoSair}</div>
       </header>
+      <input ref={fotoRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) escolherFoto(f) }} />
 
       <main className="flex-1 overflow-y-auto">
         <div className="px-4 md:px-10 pt-6 md:pt-8 pb-28 md:pb-24">{children}</div>
@@ -319,10 +419,11 @@ export function TeamShell({ papel, nome, membroId, menu, ativo, onMenu, theme, a
       <ModalPaletas aberto={paletasAbertas} onFechar={() => setPaletasAbertas(false)} paleta={paleta} onEscolher={escolher} />
 
       {comoAdmin && (
-        <div className="fixed bottom-[84px] md:bottom-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 pl-4 pr-1.5 py-1.5 rounded-full bg-zinc-900 text-white text-[13px] shadow-xl max-w-[calc(100%-24px)]">
+        // Texto inteiro sempre visível: quebra em duas linhas quando não cabe (antes era cortado com "...")
+        <div className="fixed bottom-[84px] md:bottom-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 pl-4 pr-1.5 py-1.5 rounded-2xl bg-zinc-900 text-white text-[12.5px] md:text-[13px] leading-snug shadow-xl w-max max-w-[min(760px,calc(100%-24px))]">
           <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-          <span className="truncate">Você está no painel de <b>{comoAdmin}</b>. As ações valem de verdade e ficam registradas como “via admin”.</span>
-          <a href="/admin/dashboard" className="shrink-0 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 font-medium">Voltar ao painel</a>
+          <span className="min-w-0">Você está no painel de <b>{comoAdmin}</b>. As ações valem de verdade e ficam registradas como “via admin”.</span>
+          <a href="/admin/dashboard" className="shrink-0 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 font-medium whitespace-nowrap">Voltar ao painel</a>
         </div>
       )}
     </div>

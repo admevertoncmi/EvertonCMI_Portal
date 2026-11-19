@@ -13,10 +13,11 @@ async function materialComCliente(materialId: string) {
   return material as { id: string; cliente_id: string }
 }
 
-export async function conversaEquipe(materialId: string) {
-  await requireEquipe()
+export async function conversaEquipe(materialId: string, opts?: { marcarLida?: boolean }) {
+  const { perfil } = await requireEquipe()
   await materialComCliente(materialId)
-  return lerConversa(materialId, 'equipe')
+  // Só o admin (quem responde o cliente) marca as mensagens como lidas
+  return lerConversa(materialId, 'equipe', { marcarLida: opts?.marcarLida !== false && perfil.role === 'admin' })
 }
 
 export async function prepararAnexoEquipe(materialId: string, tipo: AnexoTipo, ext: string) {

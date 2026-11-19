@@ -47,25 +47,63 @@ export async function enviarAnexos(preparar: Preparar, fotos: File[], audio: { b
   return { fotos: caminhosFotos, audio: audioPath }
 }
 
+/**
+ * Player do áudio da conversa.
+ * A conversa se atualiza sozinha a cada 20s e cada atualização traz um link assinado NOVO do áudio.
+ * Antes o <audio> seguia esse link, então trocava de arquivo no meio da reprodução e o áudio
+ * reiniciava/parava (áudios com mais de ~20s nunca tocavam até o fim).
+ * Agora o link fica fixo a partir do primeiro play; o link novo só é usado se o antigo vencer.
+ */
 function AudioPill({ url, dur, dark }: { url: string; dur: number; dark?: boolean }) {
   const ref = useRef<HTMLAudioElement>(null)
-  const [tocando, setTocando] = useState(false)
+  const urlAtual = useRef(url)                 // link mais novo recebido
+  const fixo = useRef<string | null>(null)     // link em uso pelo player (não muda mais)
+  const [estado, setEstado] = useState<'parado' | 'carregando' | 'tocando'>('parado')
   const [pos, setPos] = useState(0)
-  const total = dur || 0
+  const [duracaoReal, setDuracaoReal] = useState(0)
+  const [erro, setErro] = useState(false)
+  useEffect(() => { urlAtual.current = url }, [url])
+
+  const total = duracaoReal || dur || 0
+  // Tudo síncrono até o play(): o iPhone só deixa tocar dentro do toque da pessoa
+  const tocar = () => {
+    const a = ref.current
+    if (!a) return
+    setErro(false)
+    if (!fixo.current) { fixo.current = urlAtual.current; a.src = fixo.current; setEstado('carregando') }
+    a.play().then(() => setEstado('tocando')).catch(() => {
+      // link vencido (a página ficou aberta por horas): tenta uma vez com o link mais novo
+      if (fixo.current !== urlAtual.current) {
+        fixo.current = urlAtual.current; a.src = fixo.current
+        a.play().then(() => setEstado('tocando')).catch(() => { setEstado('parado'); setErro(true) })
+      } else { setEstado('parado'); setErro(true) }
+    })
+  }
+  const tocando = estado === 'tocando'
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <audio ref={ref} src={url} preload="none" onTimeUpdate={(e) => setPos(e.currentTarget.currentTime)} onEnded={() => { setTocando(false); setPos(0); }} />
-      <button type="button" aria-label={tocando ? 'Pausar áudio' : 'Ouvir áudio'} onClick={() => { const a = ref.current; if (!a) return; if (tocando) { a.pause(); setTocando(false); } else { a.play().then(() => setTocando(true)).catch(() => null); } }}
-        className="w-8 h-8 rounded-full bg-brand text-white inline-flex items-center justify-center shrink-0">
-        {tocando ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
-      </button>
-      <span className="flex items-center gap-[2px] h-6" aria-hidden="true">
-        {WAVE.map((h, i) => {
-          const ativo = total > 0 && (i / WAVE.length) <= (pos / total)
-          return <i key={i} style={{ height: h }} className={`block w-[3px] rounded-full ${ativo ? 'bg-brand' : dark ? 'bg-zinc-600' : 'bg-zinc-300'}`} />
-        })}
+    <span className="inline-flex flex-col gap-1">
+      <span className="inline-flex items-center gap-2.5">
+        {/* sem src no JSX de propósito: o React não pode trocar o arquivo no meio (ver comentário acima) */}
+        <audio ref={ref} preload="none"
+          onTimeUpdate={(e) => setPos(e.currentTarget.currentTime)}
+          onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (Number.isFinite(d) && d > 0) setDuracaoReal(d) }}
+          onPause={() => setEstado(s => s === 'tocando' ? 'parado' : s)}
+          onError={() => { if (fixo.current) { setEstado('parado'); setErro(true) } }}
+          onEnded={() => { setEstado('parado'); setPos(0) }} />
+        <button type="button" aria-label={tocando ? 'Pausar áudio' : 'Ouvir áudio'} disabled={estado === 'carregando'}
+          onClick={() => { if (tocando) { ref.current?.pause(); setEstado('parado') } else tocar() }}
+          className="w-8 h-8 rounded-full bg-brand text-white inline-flex items-center justify-center shrink-0 disabled:opacity-70">
+          {estado === 'carregando' ? <Loader2 size={14} className="animate-spin" /> : tocando ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
+        </button>
+        <span className="flex items-center gap-[2px] h-6" aria-hidden="true">
+          {WAVE.map((h, i) => {
+            const ativo = total > 0 && (i / WAVE.length) <= (pos / total)
+            return <i key={i} style={{ height: h }} className={`block w-[3px] rounded-full ${ativo ? 'bg-brand' : dark ? 'bg-zinc-600' : 'bg-zinc-300'}`} />
+          })}
+        </span>
+        <span className="text-xs text-zinc-500 tabular-nums">{fmtDur(tocando || pos ? pos : total)}</span>
       </span>
-      <span className="text-xs text-zinc-500 tabular-nums">{fmtDur(tocando || pos ? pos : total)}</span>
+      {erro && <a href={url} target="_blank" rel="noopener noreferrer" className="text-[12px] text-red-500 underline">Não tocou aqui. Abrir o áudio</a>}
     </span>
   )
 }
@@ -111,7 +149,7 @@ function TranscricaoAudio({ mensagemId, inicial, onTranscrever }: { mensagemId: 
 export default function ConversaMaterial({
   mensagens, carregando, perspectiva, onEnviar, modoAjuste = false, onCancelarAjuste,
   mostrarSobre = false, alvoInicial = 'video', dark = false, placeholder, vazio, className = '', enviando: enviandoExterno = false,
-  composerClassName = '', mensagensClassName = '', focarSinal = 0, somenteLeitura = false, onTranscrever,
+  composerClassName = '', mensagensClassName = '', focarSinal = 0, somenteLeitura = false, onTranscrever, destacarUltimoPedido = false,
 }: {
   mensagens: MensagemConversa[]
   carregando?: boolean
@@ -131,6 +169,7 @@ export default function ConversaMaterial({
   focarSinal?: number              // muda o número para focar o campo de mensagem
   somenteLeitura?: boolean         // só mostra as mensagens (ex.: editor vendo o pedido do cliente)
   onTranscrever?: Transcrever      // botão "Transcrever" nos áudios (chama a API só no clique)
+  destacarUltimoPedido?: boolean   // marca o pedido mais recente do cliente (painel de quem produz)
 }) {
   const [texto, setTexto] = useState('')
   const [fotos, setFotos] = useState<{ file: File; url: string }[]>([])
@@ -207,6 +246,18 @@ export default function ConversaMaterial({
     }
   }
 
+  // Pedido mais recente do cliente (pedido de ajuste; se não houver, a última mensagem dele)
+  const doCliente = mensagens.filter(m => m.autor === 'cliente' && !m.evento)
+  const ultimoPedidoId = destacarUltimoPedido ? ([...doCliente].reverse().find(m => m.ajuste) || doCliente[doCliente.length - 1])?.id : undefined
+  // Separador de dia ("Hoje", "Ontem", "17/11") quando a data muda entre mensagens
+  const diaDe = (iso: string) => new Date(iso).toDateString()
+  const rotuloDia = (iso: string) => {
+    const d = new Date(iso); d.setHours(0, 0, 0, 0)
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+    const diff = Math.round((hoje.getTime() - d.getTime()) / 86400000)
+    return diff === 0 ? 'Hoje' : diff === 1 ? 'Ontem' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: d.getFullYear() !== hoje.getFullYear() ? 'numeric' : undefined })
+  }
+
   const ocupado = enviando || enviandoExterno
   const linha = dark ? 'border-zinc-800' : 'border-zinc-200'
   const meu = (m: MensagemConversa) => m.autor === perspectiva
@@ -223,21 +274,28 @@ export default function ConversaMaterial({
           <div className="flex justify-center py-8 text-zinc-400"><Loader2 size={18} className="animate-spin" /></div>
         ) : mensagens.length === 0 ? (
           <div className="text-center text-[13px] text-zinc-500 py-8 px-2">{vazio || 'Alguma dúvida ou pedido sobre este conteúdo? Escreva, mande fotos ou grave um áudio.'}</div>
-        ) : mensagens.map(m => {
+        ) : mensagens.map((m, idx) => {
           const eu = meu(m)
-          if (m.evento) return (
-            <div key={m.id} className={`flex flex-col mb-3 ${eu ? 'items-end' : 'items-start'}`}>
-              <span className="text-[11.5px] text-zinc-400 mb-1">{quem(m)} · {fmtQuando(m.created_at)}</span>
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"><Check size={12} strokeWidth={3} /> {m.evento === 'aprovado' ? 'Aprovou o conteúdo' : m.evento}</span>
+          const separador = (idx === 0 || diaDe(mensagens[idx - 1].created_at) !== diaDe(m.created_at)) && (
+            <div className="flex items-center gap-2 my-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400" aria-hidden="true">
+              <span className={`flex-1 h-px ${dark ? 'bg-zinc-800' : 'bg-zinc-200'}`} />{rotuloDia(m.created_at)}<span className={`flex-1 h-px ${dark ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
             </div>
           )
+          const destaque = m.id === ultimoPedidoId
+          if (m.evento) return (
+            <div key={m.id}>{separador}<div className={`flex flex-col mb-3 ${eu ? 'items-end' : 'items-start'}`}>
+              <span className="text-[11.5px] text-zinc-400 mb-1">{quem(m)} · {fmtQuando(m.created_at)}</span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"><Check size={12} strokeWidth={3} /> {m.evento === 'aprovado' ? 'Aprovou o conteúdo' : m.evento}</span>
+            </div></div>
+          )
           return (
-            <div key={m.id} className={`flex flex-col mb-3 ${eu ? 'items-end' : 'items-start'}`}>
+            <div key={m.id}>{separador}<div className={`flex flex-col mb-3 ${eu ? 'items-end' : 'items-start'}`}>
               <span className="text-[11.5px] text-zinc-400 mb-1">
+                {destaque && <span className="mr-1.5 text-[10.5px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-orange-500 text-white">Pedido mais recente</span>}
                 {quem(m)} · {fmtQuando(m.created_at)}
                 {m.ajuste && <span className="text-orange-600 dark:text-orange-400 font-medium"> · Pedido de ajuste{m.alvo ? ` · ${ALVO_LABEL[m.alvo]}` : ''}</span>}
               </span>
-              <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[13.5px] space-y-2 break-words ${eu
+              <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[13.5px] space-y-2 break-words ${destaque ? 'ring-2 ring-orange-400/70 ' : ''}${eu
                 ? (dark ? 'bg-brand/15 border border-brand/30 text-zinc-100' : 'bg-[#FFFBF8] border border-[#F3D9C8] text-zinc-800')
                 : (dark ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800')}`}>
                 {m.fotos.length > 0 && (
@@ -253,7 +311,7 @@ export default function ConversaMaterial({
                 {m.audio && <TranscricaoAudio mensagemId={m.id} inicial={m.audio.transcricao} onTranscrever={onTranscrever} />}
                 {m.texto && <p className="whitespace-pre-wrap m-0">{m.texto}</p>}
               </div>
-            </div>
+            </div></div>
           )
         })}
         <div ref={fimRef} />

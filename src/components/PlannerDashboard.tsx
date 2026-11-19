@@ -4,7 +4,7 @@
 // limpar "Cópia de", avisos no ClickUp, registros e modo "Entrar" do admin), no visual do painel admin.
 // Peças comuns com o painel do editor: src/components/equipe/kit.tsx
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Toaster, toast } from 'sonner'
 import {
@@ -14,11 +14,12 @@ import {
 import { createClient } from '@/lib/supabase-browser'
 import { formatRichText } from '@/lib/utils'
 import { notificarClickUpChat } from '@/actions/clickup'
+import { marcarTarefaLida } from '@/components/SinoNotificacoes'
 import { cleanCopyOfPrefix } from '@/actions/google-mutations'
 import {
-  TeamShell, PageHeader, StatCards, Filtros, GrupoCliente, LinhaTarefa, Vazio, PainelTarefa, Secao, TextoRecolhivel,
+  TeamShell, PageHeader, StatCards, Filtros, GrupoCliente, LinhaTarefa, Vazio, PainelTarefa, Secao,
   LinkPasta, Modal, CampoLinkDrive, ModalProblema, Chip, Prazo,
-  useTemaEquipe, instrucaoParaPapel, entradasFeedback, passaFiltro, prazoInfo, getGoogleDriveId, garantirGoogleIdentity,
+  useTemaEquipe, entradasInstrucao, InstrucoesEquipe, entradasFeedback, passaFiltro, prazoInfo, getGoogleDriveId, garantirGoogleIdentity,
   btnInk, btnLine, type FiltroPrazo,
 } from '@/components/equipe/kit'
 
@@ -132,6 +133,27 @@ export default function DecupadorDashboard() {
 
   const aberto = materiais.find(m => m.id === abertoId) || null
 
+  // Sino / link do WhatsApp (?tarefa=<id>): abre a tarefa na aba certa
+  const abrirTarefa = (id: string) => {
+    if (!materiais.some(m => m.id === id)) { toast.error('Essa tarefa não está mais com você (pode ter sido finalizada ou passada para outra pessoa).'); return }
+    setAba(prontas.some(m => m.id === id) ? 'prontas' : 'fila')
+    setEntregaAberta(false); setProblemaAberto(false)
+    setAbertoId(id)
+  }
+  const linkTarefaAberto = useRef(false)
+  useEffect(() => {
+    if (loading || linkTarefaAberto.current) return
+    const id = new URLSearchParams(window.location.search).get('tarefa')
+    if (!id) return
+    linkTarefaAberto.current = true
+    abrirTarefa(id)
+    const url = new URL(window.location.href); url.searchParams.delete('tarefa')
+    window.history.replaceState(null, '', url.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
+  // Abrir a tarefa = notificações dela lidas (a admin no modo "Entrar" não marca pelo membro)
+  useEffect(() => { if (abertoId && !comoAdmin) marcarTarefaLida(abertoId).catch(() => null) }, [abertoId, comoAdmin])
+
   const statusDe = (m: Material) => {
     if (m.status === 'organizado') return <Chip cor="green">Pasta entregue</Chip>
     if (PROBLEMA.includes(m.status)) return <Chip cor="amber">{m.status === 'faltando_material' ? 'Falta material' : 'Material com problema'}</Chip>
@@ -243,7 +265,7 @@ export default function DecupadorDashboard() {
   }
 
   const problemas = aberto ? entradasFeedback(aberto.feedback) : []
-  const instrucao = aberto ? instrucaoParaPapel(aberto.feedback_admin, 'planner') : ''
+  const instrucoes = aberto ? entradasInstrucao(aberto.feedback_admin, 'planner') : []
 
   return (
     <TeamShell papel="Decupador" membroId={userId} nome={(comoAdmin || userProfile?.nome || '').replace(' (via admin)', '')}
@@ -252,7 +274,7 @@ export default function DecupadorDashboard() {
         { id: 'prontas', label: 'Pastas prontas', icon: FolderCheck },
       ]}
       ativo={aba} onMenu={(id) => setAba(id as any)} theme={theme} alternarTema={alternar}
-      comoAdmin={comoAdmin} onSair={() => supabase.auth.signOut().then(() => router.push('/'))}>
+      comoAdmin={comoAdmin} onSair={() => supabase.auth.signOut().then(() => router.push('/'))} onAbrirNotificacao={abrirTarefa}>
       <Toaster position="top-right" richColors theme={theme} />
 
       {loading ? (
@@ -354,9 +376,9 @@ export default function DecupadorDashboard() {
             </Secao>
           )}
 
-          {instrucao && (
-            <Secao titulo="Instrução do admin">
-              <div className="rounded-xl bg-blue-50/60 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-900/40 px-4 py-3 text-zinc-800 dark:text-zinc-100"><TextoRecolhivel texto={instrucao} /></div>
+          {instrucoes.length > 0 && (
+            <Secao titulo="Instrução da equipe">
+              <InstrucoesEquipe entradas={instrucoes} />
             </Secao>
           )}
 

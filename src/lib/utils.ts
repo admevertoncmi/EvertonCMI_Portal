@@ -168,11 +168,12 @@ export function normalizePortalToken(rawToken?: string | null): string {
  * Gera uma URL segura e limpa do portal para envio no WhatsApp e compartilhamento.
  * Remove os hífens do UUID para evitar que o iOS interprete blocos numéricos como telefone discável.
  */
-export function getSafePortalUrl(baseUrl: string, tokenMagico: string, tab?: 'videos' | 'roteiros'): string {
+export function getSafePortalUrl(baseUrl: string, tokenMagico: string, tab?: 'videos' | 'roteiros', materialId?: string, abrirConversa?: boolean): string {
   if (!baseUrl || !tokenMagico) return '';
   const cleanBase = baseUrl.replace(/\/+$/, '');
   // Remove hífens do UUID para desativar o NSDataDetector telefônico do iOS
   const safeToken = tokenMagico.replace(/-/g, '').trim();
-  const queryString = tab ? `?tab=${tab}` : '';
-  return `${cleanBase}/portal/${safeToken}${queryString}`;
+  // m = abre direto este conteúdo no portal; c=1 = já com a conversa aberta (resposta da equipe)
+  const params = [tab ? `tab=${tab}` : '', materialId ? `m=${materialId.replace(/-/g, '')}` : '', materialId && abrirConversa ? 'c=1' : ''].filter(Boolean);
+  return `${cleanBase}/portal/${safeToken}${params.length ? `?${params.join('&')}` : ''}`;
 }

@@ -1,6 +1,6 @@
 'use server'
 
-import { requireAdmin } from '@/lib/auth-guard'
+import { requireAdmin, requireEquipe } from '@/lib/auth-guard'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseAdmin = createClient(
@@ -25,6 +25,19 @@ async function salvarFotoMembro(userId: string, formData: FormData, ignorarVazia
   return faltaColuna
     ? 'A foto não foi salva: falta rodar a atualização do banco (coluna foto_url em perfis_equipe).'
     : `A foto não foi salva: ${error.message}`
+}
+
+// WhatsApp para avisos (coluna nova: supabase-notificacoes.sql). Devolve a mensagem de erro, ou null.
+async function salvarWhatsappMembro(userId: string, formData: FormData): Promise<string | null> {
+  if (!formData.has('whatsapp')) return null
+  const bruto = String(formData.get('whatsapp') || '').trim()
+  // número: só dígitos (com DDD; o DDI 55 entra sozinho no envio); ID de grupo da Z-API fica como está
+  const whatsapp = !bruto ? null : (bruto.includes('@') || /-group$/.test(bruto)) ? bruto : bruto.replace(/\D/g, '')
+  if (whatsapp && !bruto.includes('@') && !/-group$/.test(bruto) && (whatsapp.length < 10 || whatsapp.length > 13)) return 'WhatsApp inválido: use DDD + número (ex.: 98 99999-9999).'
+  const { error } = await supabaseAdmin.from('perfis_equipe').update({ whatsapp }).eq('id', userId)
+  if (!error) return null
+  if (/whatsapp/i.test(error.message)) return whatsapp ? 'O WhatsApp não foi salvo: falta rodar a atualização do banco (supabase-notificacoes.sql).' : null
+  return `O WhatsApp não foi salvo: ${error.message}`
 }
 
 export async function criarMembroEquipe(formData: FormData): Promise<Resultado> {
@@ -61,7 +74,9 @@ export async function criarMembroEquipe(formData: FormData): Promise<Resultado> 
 
   // O membro já foi criado: se só a foto falhar, avisa sem dar erro
   const erroFoto = await salvarFotoMembro(data.user.id, formData, true)
-  return erroFoto ? { success: true, aviso: `Membro criado. ${erroFoto}` } : { success: true }
+  const erroWpp = await salvarWhatsappMembro(data.user.id, formData)
+  const avisos = [erroFoto, erroWpp].filter(Boolean).join(' ')
+  return avisos ? { success: true, aviso: `Membro criado. ${avisos}` } : { success: true }
 }
 
 // 👇 NOVA FUNÇÃO PARA EDITAR UM MEMBRO EXISTENTE 👇
@@ -95,7 +110,36 @@ export async function atualizarMembroEquipe(userId: string, formData: FormData):
   const erroFoto = await salvarFotoMembro(userId, formData, false)
   if (erroFoto) return { success: false, error: erroFoto }
 
+  const erroWpp = await salvarWhatsappMembro(userId, formData)
+  if (erroWpp) return { success: false, error: erroWpp }
+
   return { success: true }
+}
+
+/**
+ * O próprio membro troca a foto de perfil pelo painel dele (o admin também pode, no modo "Entrar").
+ * Só aceita a URL pública de um avatar enviado para o bucket roteiros-midia.
+ */
+export async function salvarMinhaFoto(fotoUrl: string | null, membroId?: string | null): Promise<Resultado> {
+  try {
+    const { user, perfil } = await requireEquipe()
+    const alvo = membroId && membroId !== user.id ? membroId : user.id
+    if (alvo !== user.id && perfil.role !== 'admin') return { success: false, error: 'Você só pode trocar a sua própria foto.' }
+
+    const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/roteiros-midia/avatar-`
+    const foto = fotoUrl ? String(fotoUrl).trim() : null
+    if (foto && (!foto.startsWith(base) || foto.length > 500)) return { success: false, error: 'Foto inválida. Envie a imagem de novo.' }
+
+    const { error } = await supabaseAdmin.from('perfis_equipe').update({ foto_url: foto }).eq('id', alvo)
+    if (error) {
+      return { success: false, error: /foto_url/i.test(error.message)
+        ? 'A foto não foi salva: falta rodar a atualização do banco (coluna foto_url em perfis_equipe).'
+        : `A foto não foi salva: ${error.message}` }
+    }
+    return { success: true }
+  } catch {
+    return { success: false, error: 'Sua sessão expirou. Entre de novo para trocar a foto.' }
+  }
 }
 
 export async function atualizarRoleMembro(userId: string, newRole: string) {

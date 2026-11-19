@@ -19,6 +19,8 @@ import { StorageWidget } from '@/components/StorageWidget'
 import ConversaMaterial, { enviarAnexos, type EnvioConversa, type MensagemConversa } from '@/components/ConversaMaterial'
 import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEquipe, transcreverAudioEquipe } from '@/actions/conversa'
 import { lerTemaEquipe, salvarTema } from '@/actions/tema'
+import { marcaData, entradasInstrucao, separarDatas, recolocarDatas } from '@/lib/instrucoes'
+import SinoNotificacoes, { marcarTarefaLida } from '@/components/SinoNotificacoes'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -41,7 +43,7 @@ import {
 , Save, ChevronLeft, PieChart, Building2, Flag, Palette, SendHorizontal, CheckCheck, UserPlus, Clapperboard, Images, MoreHorizontal, Home, LogIn } from 'lucide-react'
 
 export interface Cliente { id: string; nome: string; telefone: string; token_magico: string; wpp_suporte?: string; ciclos_contratados?: number; logo_url?: string; cor_marca?: string; whatsapp_group_id?: string; }
-export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; foto_url?: string | null; }
+export interface EquipeMember { id: string; email: string; nome?: string; role: 'admin' | 'editor' | 'planner' | 'designer'; telegram_thread_id?: string; created_at?: string; foto_url?: string | null; whatsapp?: string | null; }
 export interface Material { id: string; cliente_id: string; titulo: string; ciclo?: string | number; link_drive?: string; link_capa?: string; link_organizado?: string; link_bruto?: string; data_limite?: string; data_limite_editor?: string; data_limite_designer?: string; roteiro?: string; video_entregue?: boolean; design_entregue?: boolean; status: any; created_at: string; tags?: string[]; feedback?: string | null; feedback_admin?: string | null; editor_id?: string | null; designer_id?: string | null; planner_id?: string | null; clickup_task_id?: string | null; cliente?: Cliente; agendado_para?: string | null; wpp_enviado?: boolean; ordem?: number; responsaveis?: string[] | null; }
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
 interface Props { materials: Material[]; initialClientes?: Cliente[] }
@@ -342,6 +344,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const renderTextWithLinks = (text: string) => {
     if (!text) return null;
     let cleanText = getCleanText(text);
+    cleanText = cleanText.replace(/\[DATE:([^\]]+)\]\s*/g, '🗓️ $1 — ');
     
     // Format pseudo tags for Admin view
     cleanText = cleanText.replace(/\[EDITOR\]/g, '🎬 **[PARA O EDITOR]**');
@@ -576,7 +579,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     setIsConfirmModalOpen(true)
   }
 
-  const [formE, setFormE] = useState({ nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '', foto_url: '' })
+  const [formE, setFormE] = useState({ nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '', foto_url: '', whatsapp: '' })
   const [enviandoFotoMembro, setEnviandoFotoMembro] = useState(false)
   // Envia a foto de perfil para o Storage e guarda a URL no formulário (é salva junto com o membro)
   const enviarFotoMembro = async (file: File) => {
@@ -764,6 +767,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [materialToEditInstruction, setMaterialToEditInstruction] = useState<Material | null>(null);
   const [instructionEditorText, setInstructionEditorText] = useState('');
   const [instructionDesignerText, setInstructionDesignerText] = useState('');
+  const instrucaoDatasRef = useRef<Record<string, string>>({});
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [materialToSchedule, setMaterialToSchedule] = useState<Material | null>(null);
@@ -840,10 +844,11 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const conversaAbertaId = timelineMaterial?.id || (isEditRoteiroModalOpen ? roteiroToEdit?.id || null : null);
 
   const carregarConversaAdmin = useCallback(async (id: string, silencioso = false) => {
-    if (!silencioso) setCarregandoConversaAdmin(true);
+    if (!silencioso) { setCarregandoConversaAdmin(true); marcarTarefaLida(id).catch(() => null); }
     try {
       setConversaAdmin(await conversaEquipe(id));
       setMsgsNaoLidas(prev => prev[id] ? { ...prev, [id]: 0 } : prev);
+      if (naoLidasAnteriores.current) naoLidasAnteriores.current = { ...naoLidasAnteriores.current, [id]: 0 };
     } catch {
       if (!silencioso) setConversaAdmin([]);
     } finally {
@@ -857,13 +862,92 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     return () => clearInterval(t);
   }, [conversaAbertaId, carregarConversaAdmin]);
 
-  // Mensagens de clientes ainda não lidas pela equipe (ponto "Nova mensagem" nas tarefas)
+  // Mensagens de clientes ainda não lidas pela equipe (ponto "Nova mensagem" nas tarefas,
+  // ícone de mensagens no topo e aviso na tela quando chega uma nova)
+  const [msgsMenuAberto, setMsgsMenuAberto] = useState(false);
+  const naoLidasAnteriores = useRef<Record<string, number> | null>(null);
+  const avisarNovaMsgRef = useRef<(id: string) => void>(() => {});
   useEffect(() => {
-    const atualizar = () => naoLidasEquipe().then(setMsgsNaoLidas).catch(() => null);
+    const atualizar = () => naoLidasEquipe().then((atual) => {
+      const antes = naoLidasAnteriores.current;
+      if (antes) {
+        const novas = Object.entries(atual).filter(([id, n]) => n > (antes[id] || 0)).map(([id]) => id);
+        novas.forEach(id => avisarNovaMsgRef.current(id));
+      }
+      naoLidasAnteriores.current = atual;
+      setMsgsNaoLidas(atual);
+    }).catch(() => null);
     atualizar();
-    const t = setInterval(atualizar, 60000);
-    return () => clearInterval(t);
+    const t = setInterval(atualizar, 20000);
+    const aoVoltar = () => { if (document.visibilityState === 'visible') atualizar(); };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', aoVoltar); };
   }, []);
+
+  const conversasNaoLidas = useMemo(() => Object.entries(msgsNaoLidas)
+    .filter(([, n]) => n > 0)
+    .map(([id, n]) => ({ m: materiais.find(x => x.id === id), n }))
+    .filter((x): x is { m: Material; n: number } => !!x.m), [msgsNaoLidas, materiais]);
+  // Com o sino de notificações ativo, o aviso na tela vem dele (não avisa duas vezes)
+  const [sinoAtivo, setSinoAtivo] = useState(false);
+  avisarNovaMsgRef.current = (id: string) => {
+    const m = materiais.find(x => x.id === id);
+    if (sinoAtivo || !m || timelineMaterial?.id === id) return;
+    toast(`💬 Nova mensagem de ${m.cliente?.nome || 'cliente'}`, {
+      description: m.titulo, duration: 20000,
+      action: { label: 'Abrir conversa', onClick: () => setTimelineMaterial(m) },
+    });
+  };
+  // Abre a conversa da tarefa pelo sino, pelo aviso na tela ou pelo link do WhatsApp (?conversa=<id>)
+  const abrirConversaPorId = (id: string) => {
+    const m = materiais.find(x => x.id === id);
+    if (m) setTimelineMaterial(m);
+    else toast.error('Essa tarefa não está mais na lista (pode ter sido arquivada ou excluída).');
+  };
+  const linkConversaAberto = useRef(false);
+  useEffect(() => {
+    if (linkConversaAberto.current || !materiais.length) return;
+    const id = new URLSearchParams(window.location.search).get('conversa');
+    if (!id) return;
+    linkConversaAberto.current = true;
+    abrirConversaPorId(id);
+    const url = new URL(window.location.href); url.searchParams.delete('conversa');
+    window.history.replaceState(null, '', url.toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materiais]);
+  const sino = (mobile = false) => <SinoNotificacoes onAbrir={abrirConversaPorId} onDisponivel={setSinoAtivo} fallback={mensagensClientesBtn(mobile)} />;
+  // Ícone de mensagens dos clientes no topo: lista as conversas com mensagem nova e abre a conversa
+  // (usado só enquanto a tabela de notificações não existe no banco)
+  const mensagensClientesBtn = (mobile = false) => (
+    <div className="relative">
+      <button type="button" onClick={() => setMsgsMenuAberto(v => !v)} aria-label="Mensagens dos clientes" title="Mensagens dos clientes" aria-expanded={msgsMenuAberto}
+        className={`relative w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${conversasNaoLidas.length ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'} hover:text-brand`}>
+        <MessageSquare size={17} />
+        {conversasNaoLidas.length > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10.5px] font-semibold inline-flex items-center justify-center">{conversasNaoLidas.length}</span>}
+      </button>
+      {msgsMenuAberto && <>
+        <button type="button" aria-label="Fechar" className="fixed inset-0 z-[180] cursor-default" onClick={() => setMsgsMenuAberto(false)} />
+        <div className={`absolute ${mobile ? 'right-[-52px]' : 'right-0'} top-[calc(100%+8px)] z-[181] w-[min(340px,calc(100vw-24px))] rounded-xl border shadow-xl overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'}`}>
+          <div className={`px-4 py-3 border-b text-[13px] font-semibold ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>Mensagens dos clientes</div>
+          {conversasNaoLidas.length === 0
+            ? <p className="px-4 py-6 text-center text-[13px] text-zinc-500">Nenhuma mensagem nova.</p>
+            : <div className="max-h-[360px] overflow-y-auto py-1">
+              {conversasNaoLidas.map(({ m, n }) => (
+                <button key={m.id} type="button" onClick={() => { setMsgsMenuAberto(false); setTimelineMaterial(m); }}
+                  className={`w-full text-left px-4 py-2.5 flex items-start gap-2.5 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50'}`}>
+                  <span className="mt-1.5 w-2 h-2 rounded-full bg-brand shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[12px] text-zinc-500 truncate">{m.cliente?.nome || 'Cliente'}</span>
+                    <span className="block text-[13px] font-medium leading-snug line-clamp-2">{m.titulo}</span>
+                  </span>
+                  <span className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-brand text-white">{n}</span>
+                </button>
+              ))}
+            </div>}
+        </div>
+      </>}
+    </div>
+  );
 
   const enviarConversaAdmin = async (m: Material, envio: EnvioConversa) => {
     try {
@@ -873,7 +957,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       toast.success('Resposta enviada ao cliente.');
       // Avisa o cliente no WhatsApp que há resposta no portal
       if (avisarWppConversa && m.cliente?.token_magico && (m.cliente?.whatsapp_group_id || m.cliente?.telefone)) {
-        const link = getSafePortalUrl(window.location.origin, m.cliente.token_magico, (m.link_drive || m.link_capa) ? 'videos' : 'roteiros');
+        const link = getSafePortalUrl(window.location.origin, m.cliente.token_magico, (m.link_drive || m.link_capa) ? 'videos' : 'roteiros', m.id, true);
         const chatId = m.cliente.whatsapp_group_id || m.cliente.telefone.replace(/\D/g, '');
         notificarWhatsApp(`Olá! A equipe respondeu sobre "${m.titulo}" no seu portal. 💬\n\nVeja aqui:\n${link}`, chatId);
       }
@@ -1152,7 +1236,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
 
     const updatePayload: any = {
       status: newStatus,
-      feedback_admin: currentUserId && resolveText ? `${resolveText}\n\n[ID:${currentUserId}]` : resolveText,
+      // A instrução nova entra no fim (com data), sem apagar as anteriores; vai só para quem foi escolhido
+      feedback_admin: (() => {
+        const corpo = `${marcaData()}${resolveText.trim()}`;
+        const tag = resolveType === 'editor' && notifyTarget === 'editor' ? 'EDITOR' : resolveType === 'editor' && notifyTarget === 'designer' ? 'DESIGNER' : null;
+        const nova = `${tag ? `[${tag}]\n${corpo}\n[/${tag}]` : corpo}${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`;
+        return selectedMaterial.feedback_admin ? `${selectedMaterial.feedback_admin}\n\n---\n\n${nova}` : nova;
+      })(),
       link_bruto: resolveLinkBruto,
       feedback: null
     };
@@ -1259,7 +1349,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success("Enviado para aprovação do cliente!");
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-        const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'roteiros');
+        const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'roteiros', material.id);
         const textoMensagem = `Olá! O roteiro do material "${material.titulo}" já está disponível para a sua análise e aprovação. 📝\n\nAcesse o seu portal aqui:\n${linkPortal}`;
 
         const groupId = material.cliente.whatsapp_group_id;
@@ -1282,7 +1372,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!error) {
       toast.success("Roteiro devolvido para o cliente!");
       if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-        const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'roteiros');
+        const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'roteiros', material.id);
         const textoMensagem = `Olá! O roteiro do material "${material.titulo}" foi revisado e ajustado conforme as suas pontuações. 📝✨\n\nPor favor, acesse o portal para reanalisar:\n${linkPortal}`;
 
         const groupId = material.cliente.whatsapp_group_id;
@@ -1399,7 +1489,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     }).eq('id', id)
     toast.success("Aprovado! A abrir o WhatsApp do cliente...");
     if (material?.cliente?.telefone && material?.cliente?.token_magico) {
-      const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'videos');
+      const linkPortal = getSafePortalUrl(window.location.origin, material.cliente.token_magico, 'videos', material.id);
       const textoMensagem = `Olá! O material "${material.titulo}" foi concluído e está pronto para sua avaliação. 🎉\n\nPode acessar o seu portal aqui:\n${linkPortal}`;
 
       const groupId = material.cliente.whatsapp_group_id;
@@ -1588,13 +1678,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       
       let newFeedbackParts: string[] = [];
       if (delegationType === 'planner' && adminFeedbackPlanner.trim() !== '') {
-        newFeedbackParts.push(currentUserId ? `${adminFeedbackPlanner}\n\n[ID:${currentUserId}]` : adminFeedbackPlanner);
+        newFeedbackParts.push(currentUserId ? `${marcaData()}${adminFeedbackPlanner}\n\n[ID:${currentUserId}]` : `${marcaData()}${adminFeedbackPlanner}`);
       } else if (delegationType === 'editor') {
         if (selectedEditorId && adminFeedbackEditor.trim() !== '') {
-          newFeedbackParts.push(`[EDITOR]\n${adminFeedbackEditor}\n[/EDITOR]${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`);
+          newFeedbackParts.push(`[EDITOR]\n${marcaData()}${adminFeedbackEditor}\n[/EDITOR]${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`);
         }
         if (selectedDesignerId && adminFeedbackDesigner.trim() !== '') {
-          newFeedbackParts.push(`[DESIGNER]\n${adminFeedbackDesigner}\n[/DESIGNER]${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`);
+          newFeedbackParts.push(`[DESIGNER]\n${marcaData()}${adminFeedbackDesigner}\n[/DESIGNER]${currentUserId ? `\n\n[ID:${currentUserId}]` : ''}`);
         }
       }
 
@@ -1834,8 +1924,9 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     if (!materialToEditInstruction) return;
     setLoading(true);
     let combined = '';
-    if (instructionEditorText.trim()) combined += `[EDITOR]\n${instructionEditorText.trim()}\n[/EDITOR]\n\n`;
-    if (instructionDesignerText.trim()) combined += `[DESIGNER]\n${instructionDesignerText.trim()}\n[/DESIGNER]\n\n`;
+    const datas = instrucaoDatasRef.current;
+    if (instructionEditorText.trim()) combined += `[EDITOR]\n${recolocarDatas(instructionEditorText, datas)}\n[/EDITOR]\n\n`;
+    if (instructionDesignerText.trim()) combined += `[DESIGNER]\n${recolocarDatas(instructionDesignerText, datas)}\n[/DESIGNER]\n\n`;
     const instructionToSave = currentUserId && combined.trim() ? `${combined.trim()}\n\n[ID:${currentUserId}]` : combined.trim() || null;
     const { error } = await supabase.from('materiais').update({ feedback_admin: instructionToSave }).eq('id', materialToEditInstruction.id);
     if (!error) {
@@ -2771,6 +2862,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           <button onClick={toggleTheme} aria-label="Alternar tema" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'}`}>
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
+          {sino(true)}
           <button onClick={() => { setActiveTab('solicitacao-ajustes'); setIsMobileMenuOpen(false); }} aria-label="Solicitações de ajuste" className={`relative w-9 h-9 inline-flex items-center justify-center rounded-[10px] ${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'}`}>
             <Bell size={17} />
             {notificacoesAjustes.length > 0 && <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full"></span>}
@@ -2883,6 +2975,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
         </nav>
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {globalSearchBox('w-36 lg:w-56 xl:w-60 2xl:w-72')}
+          {sino()}
           {/* Configurações abre a página com abas (Clientes, Equipe, Relatórios, Cores do tema) */}
           <button type="button" onClick={() => { setActiveTab('cadastro-clientes'); setTopMenuOpen(null); }} aria-label="Configurações" title="Configurações" className={`w-9 h-9 inline-flex items-center justify-center rounded-[10px] transition-colors ${configAtivo ? 'bg-brand-soft text-brand dark:bg-brand/20 dark:text-brand-soft' : `${theme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-500'} hover:text-brand`}`}>
             <Settings size={17} />
@@ -3390,13 +3483,15 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                                                 {(dp, snapshot) => {
                                                   const editarInstrucao = () => {
                                                     setMaterialToEditInstruction(m);
-                                                    const text = m.feedback_admin ? m.feedback_admin.replace(/\[ID:[^\]]+\]/g, '').trim() : '';
-                                                    const editorText = Array.from(text.matchAll(/\[EDITOR\]([\s\S]*?)\[\/EDITOR\]/g)).map(x => x[1].trim()).join("\n\n---\n\n");
-                                                    const designerText = Array.from(text.matchAll(/\[DESIGNER\]([\s\S]*?)\[\/DESIGNER\]/g)).map(x => x[1].trim()).join("\n\n---\n\n");
-                                                    let legacyText = text.replace(/\[EDITOR\][\s\S]*?\[\/EDITOR\]/g, '').replace(/\[DESIGNER\][\s\S]*?\[\/DESIGNER\]/g, '').trim();
-                                                    legacyText = legacyText.replace(/^(---|\s)+|(-+)\s*$/g, '').trim();
-                                                    setInstructionEditorText(legacyText ? (editorText ? legacyText + "\n\n---\n\n" + editorText : legacyText) : editorText);
-                                                    setInstructionDesignerText(designerText);
+                                                    // Cada caixa mostra as entradas do papel (o texto comum vai nas duas), sem as marcas de data;
+                                                    // as datas voltam ao salvar (entrada nova ou alterada ganha a data de agora).
+                                                    // Antes o texto comum ia só para o Editor e o Designer perdia a instrução ao salvar.
+                                                    const juntar = (papel: 'editor' | 'designer') => entradasInstrucao(m.feedback_admin, papel).map(e => e.data ? `[DATE:${e.data}] ${e.texto}` : e.texto).join('\n\n---\n\n');
+                                                    const ed = separarDatas(juntar('editor'));
+                                                    const de = separarDatas(juntar('designer'));
+                                                    instrucaoDatasRef.current = { ...ed.datas, ...de.datas };
+                                                    setInstructionEditorText(ed.texto);
+                                                    setInstructionDesignerText(de.texto);
                                                     setIsEditInstructionModalOpen(true);
                                                   };
                                                   // Ação principal visível conforme a etapa; o resto fica no menu de 3 pontinhos
@@ -3608,10 +3703,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             const ROLE_LABEL: Record<string, string> = { editor: 'Editor', designer: 'Designer', planner: 'Decupador', admin: 'Gestor' };
             const inputCls = `w-full px-3 py-2.5 ${tc.bgCard} border ${tc.borderStrong} rounded-[10px] outline-none text-sm focus:border-brand transition-colors disabled:opacity-60`;
             const labelCls = 'block text-[13px] font-medium text-zinc-600 dark:text-zinc-300 mb-1.5';
-            const vazio = { nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '', foto_url: '' };
+            const vazio = { nome: '', email: '', password: '', role: 'editor' as any, telegram_thread_id: '', foto_url: '', whatsapp: '' };
             const lista = membros.filter(m => `${m.nome || ''} ${m.email}`.toLowerCase().includes(membroBusca.toLowerCase()));
             const abrirNovo = () => { setEditingMembro(null); setFormE(vazio); setIsMembroModalOpen(true); };
-            const abrirEdicao = (m: MembroComNome) => { setEditingMembro(m); setFormE({ nome: m.nome || '', email: m.email || '', password: '', role: m.role || 'editor', telegram_thread_id: m.telegram_thread_id || '', foto_url: m.foto_url || '' }); setIsMembroModalOpen(true); };
+            const abrirEdicao = (m: MembroComNome) => { setEditingMembro(m); setFormE({ nome: m.nome || '', email: m.email || '', password: '', role: m.role || 'editor', telegram_thread_id: m.telegram_thread_id || '', foto_url: m.foto_url || '', whatsapp: m.whatsapp || '' }); setIsMembroModalOpen(true); };
             const fechar = () => { setIsMembroModalOpen(false); setEditingMembro(null); setFormE(vazio); };
             const secao = (titulo: string, desc: string, body: React.ReactNode) => (
               <div className={`px-6 py-5 border-b ${tc.borderStrong} last:border-0`}>
@@ -3727,9 +3822,10 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         </div>
                       ))}
 
-                      {secao('Integração', 'Onde o membro recebe os avisos de tarefa', (
+                      {secao('Integração', 'Onde o membro recebe os avisos de tarefa', (<div className="space-y-4">
+                        <div><label className={labelCls}>WhatsApp para avisos</label><input name="whatsapp" inputMode="tel" placeholder="Ex.: 98 99999-9999" className={inputCls} value={formE.whatsapp} onChange={e => setFormE({ ...formE, whatsapp: e.target.value })} /><p className="text-[11.5px] text-zinc-500 mt-1">Recebe no WhatsApp quando o cliente manda mensagem, áudio ou pede ajuste numa tarefa desta pessoa (admins recebem de todas).</p></div>
                         <div><label className={labelCls}>ID do chat do ClickUp (View ID)</label><input name="telegram_thread_id" placeholder="Ex.: 8cjxyz-1234" className={inputCls} value={formE.telegram_thread_id} onChange={e => setFormE({ ...formE, telegram_thread_id: e.target.value })} /></div>
-                      ))}
+                      </div>))}
 
                       <div className={`flex justify-end gap-2.5 px-6 py-4 border-t ${tc.borderStrong}`}>
                         <button type="button" onClick={fechar} className={btnLine}>Cancelar</button>
