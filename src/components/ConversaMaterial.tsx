@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Image as ImageIcon, Mic, SendHorizontal, Trash2, Check, X, Play, Pause, Loader2, MessageSquare, FileText, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import type { MensagemConversa } from '@/lib/conversa'
+import { prepararFoto } from '@/lib/preparar-imagem'
 
 export type { MensagemConversa }
 export type Alvo = 'video' | 'capa' | 'ambos'
@@ -23,25 +24,37 @@ const fmtQuando = (iso: string) => {
   const d = new Date(iso)
   return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
 }
-const extDoAudio = (mime: string) => mime.includes('webm') ? 'webm' : mime.includes('ogg') ? 'ogg' : (mime.includes('mp4') || mime.includes('aac')) ? 'mp4' : 'webm'
-const extDaFoto = (f: File) => (f.name.split('.').pop() || f.type.split('/')[1] || 'jpg').toLowerCase()
+const extDoAudio = (mime: string) => mime.includes('webm') ? 'webm' : mime.includes('ogg') ? 'ogg' : (mime.includes('mp4') || mime.includes('aac') || mime.includes('m4a')) ? 'mp4' : 'webm'
+const TIPO_AUDIO: Record<string, string> = { webm: 'audio/webm', ogg: 'audio/ogg', mp4: 'audio/mp4' }
 
-/** Sobe fotos e áudio para o Storage usando links assinados e devolve os caminhos para gravar a mensagem. */
+/**
+ * Sobe fotos e áudio para o Storage usando links assinados e devolve os caminhos para gravar a mensagem.
+ * O Storage usa o tipo gravado no próprio arquivo (e o bucket só aceita uma lista de tipos), então
+ * foto e áudio sempre saem daqui com tipo válido — ver src/lib/preparar-imagem.ts.
+ */
 export async function enviarAnexos(preparar: Preparar, fotos: File[], audio: { blob: Blob; dur: number } | null) {
   const storage = createClient().storage.from(BUCKET)
   const caminhosFotos: string[] = []
   for (const f of fotos) {
-    const { path, token } = await preparar('foto', extDaFoto(f))
-    const { error } = await storage.uploadToSignedUrl(path, token, f, { contentType: f.type || 'image/jpeg' })
-    if (error) throw new Error('Não foi possível enviar a foto')
+    const foto = await prepararFoto(f)
+    const { path, token } = await preparar('foto', foto.ext)
+    const { error } = await storage.uploadToSignedUrl(path, token, foto.blob, { contentType: foto.type })
+    if (error) {
+      console.error('Envio da foto falhou:', error.message, { tipoOriginal: f.type, nome: f.name, tamanho: f.size, enviado: foto.type })
+      throw new Error(`Não foi possível enviar a foto${fotos.length > 1 ? ` ${caminhosFotos.length + 1}` : ''}. Tente de novo ou escolha outra imagem.`)
+    }
     caminhosFotos.push(path)
   }
   let audioPath: { path: string; dur: number } | null = null
   if (audio) {
-    const mime = (audio.blob.type || 'audio/webm').split(';')[0]
-    const { path, token } = await preparar('audio', extDoAudio(mime))
-    const { error } = await storage.uploadToSignedUrl(path, token, audio.blob, { contentType: mime })
-    if (error) throw new Error('Não foi possível enviar o áudio')
+    const ext = extDoAudio((audio.blob.type || 'audio/webm').toLowerCase())
+    const { path, token } = await preparar('audio', ext)
+    const arquivo = new Blob([audio.blob], { type: TIPO_AUDIO[ext] })
+    const { error } = await storage.uploadToSignedUrl(path, token, arquivo, { contentType: TIPO_AUDIO[ext] })
+    if (error) {
+      console.error('Envio do áudio falhou:', error.message, { tipoOriginal: audio.blob.type, tamanho: audio.blob.size })
+      throw new Error('Não foi possível enviar o áudio. Tente de novo.')
+    }
     audioPath = { path, dur: audio.dur }
   }
   return { fotos: caminhosFotos, audio: audioPath }

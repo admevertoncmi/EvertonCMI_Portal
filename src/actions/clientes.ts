@@ -1,6 +1,7 @@
 'use server'
 
 import { requireEquipe } from '@/lib/auth-guard'
+import { comTipoCerto } from '@/lib/preparar-imagem'
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -67,18 +68,22 @@ export async function cadastrarClienteCompleto(formData: FormData) {
   const logoFile = formData.get('logo') as File
   
   let logoUrl = null
+  let aviso: string | undefined
 
+  // Logo com tipo sempre válido (o bucket só aceita imagens e o celular às vezes manda sem tipo).
+  // Se o logo falhar, o cliente é cadastrado do mesmo jeito e a tela avisa o motivo.
   if (logoFile && logoFile.size > 0) {
-    const fileExt = logoFile.name.split('.').pop()
-    const fileName = `${Math.random()}.${fileExt}`
-    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+    const logo = comTipoCerto(logoFile)
+    const fileName = `${Math.random().toString(36).slice(2)}.${logo.ext}`
+    const { error: uploadError } = await supabaseAdmin.storage
       .from('logos')
-      .upload(fileName, logoFile)
+      .upload(fileName, logo.blob, { contentType: logo.type })
 
-    if (uploadError) throw uploadError
-
-    const { data } = supabaseAdmin.storage.from('logos').getPublicUrl(fileName)
-    logoUrl = data.publicUrl
+    if (uploadError) {
+      aviso = `O logo não foi enviado: ${/size|exceed/i.test(uploadError.message) ? 'o arquivo passa de 5 MB' : /mime/i.test(uploadError.message) ? 'use PNG, JPG, WEBP, SVG ou GIF' : uploadError.message}`
+    } else {
+      logoUrl = supabaseAdmin.storage.from('logos').getPublicUrl(fileName).data.publicUrl
+    }
   }
 
   const { error } = await supabaseAdmin.from('clientes').insert([
@@ -86,7 +91,7 @@ export async function cadastrarClienteCompleto(formData: FormData) {
   ])
 
   if (error) throw error
-  return { success: true }
+  return { success: true, aviso }
 }
 
 export async function registrarLog(materialId: string, acao: string, detalhes: string, email?: string) {

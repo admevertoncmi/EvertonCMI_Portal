@@ -21,6 +21,7 @@ import { Avatar } from '@/components/tarefa/campos'
 import { createClient } from '@/lib/supabase-browser'
 import { salvarMinhaFoto } from '@/actions/equipe'
 import SinoNotificacoes from '@/components/SinoNotificacoes'
+import { prepararFoto } from '@/lib/preparar-imagem'
 
 // ---------------------------------------------------------------------------
 // Utilidades de texto e mídia
@@ -248,14 +249,15 @@ function useFotoPerfil(membroId: string | null) {
   }
   const escolherFoto = async (file: File) => {
     if (!membroId) return
-    if (!file.type.startsWith('image/')) { toast.error('Escolha um arquivo de imagem.'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('A foto deve ter no máximo 5 MB.'); return }
+    // O iPhone às vezes entrega a foto sem tipo: aceita pelo tipo OU pela extensão do nome
+    if (file.type && !file.type.startsWith('image/')) { toast.error('Escolha um arquivo de imagem.'); return }
+    if (file.size > 25 * 1024 * 1024) { toast.error('A foto deve ter no máximo 25 MB.'); return }
     setEnviando(true)
     try {
       const storage = createClient().storage.from('roteiros-midia')
-      const ext = (file.name.split('.').pop() || file.type.split('/')[1] || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-      const caminho = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-      const { error } = await storage.upload(caminho, file, { cacheControl: '3600', upsert: false, contentType: file.type })
+      const foto = await prepararFoto(file, 512) // foto de perfil: JPEG pequeno, tipo sempre válido
+      const caminho = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${foto.ext}`
+      const { error } = await storage.upload(caminho, foto.blob, { cacheControl: '3600', upsert: false, contentType: foto.type })
       if (error) throw error
       if (await gravar(storage.getPublicUrl(caminho).data.publicUrl)) toast.success('Foto de perfil atualizada!')
     } catch (err: any) {

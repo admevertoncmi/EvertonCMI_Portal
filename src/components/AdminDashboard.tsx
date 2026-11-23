@@ -21,6 +21,7 @@ import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEqui
 import { lerTemaEquipe, salvarTema } from '@/actions/tema'
 import { marcaData, entradasInstrucao, separarDatas, recolocarDatas } from '@/lib/instrucoes'
 import SinoNotificacoes, { marcarTarefaLida } from '@/components/SinoNotificacoes'
+import { prepararFoto, comTipoCerto } from '@/lib/preparar-imagem'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -449,6 +450,17 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [globalSearch, setGlobalSearch] = useState('')
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false)
   const [moreMenuOpen, setMoreMenuOpen] = useState<string | null>(null)
+  // Posição do menu "..." na tela (calculada pelo botão; o menu é desenhado por cima de tudo)
+  const [moreMenuPos, setMoreMenuPos] = useState<DOMRect | null>(null)
+  useEffect(() => {
+    if (!moreMenuOpen) return
+    // Rolar ou girar a tela fecha o menu (a posição calculada deixaria de bater com o botão)
+    const fechar = () => setMoreMenuOpen(null)
+    const aoRolar = (e: Event) => { if ((e.target as Element | null)?.closest?.('[role="menu"]')) return; fechar() }
+    window.addEventListener('resize', fechar)
+    window.addEventListener('scroll', aoRolar, true)
+    return () => { window.removeEventListener('resize', fechar); window.removeEventListener('scroll', aoRolar, true) }
+  }, [moreMenuOpen])
   const [topMenuOpen, setTopMenuOpen] = useState<'planejamento' | 'config' | null>(null)
   const [expandedCiclos, setExpandedCiclos] = useState<string[]>([])
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<string[]>([]);
@@ -583,13 +595,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [enviandoFotoMembro, setEnviandoFotoMembro] = useState(false)
   // Envia a foto de perfil para o Storage e guarda a URL no formulário (é salva junto com o membro)
   const enviarFotoMembro = async (file: File) => {
-    if (!file.type.startsWith('image/')) { toast.error('Escolha um arquivo de imagem.'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('A foto deve ter no máximo 5 MB.'); return; }
+    // O iPhone às vezes entrega a foto sem tipo: aceita pelo tipo OU pela extensão do nome
+    if (file.type && !file.type.startsWith('image/')) { toast.error('Escolha um arquivo de imagem.'); return; }
+    if (file.size > 25 * 1024 * 1024) { toast.error('A foto deve ter no máximo 25 MB.'); return; }
     setEnviandoFotoMembro(true);
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const caminho = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from('roteiros-midia').upload(caminho, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+      const foto = await prepararFoto(file, 512);
+      const caminho = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${foto.ext}`;
+      const { error } = await supabase.storage.from('roteiros-midia').upload(caminho, foto.blob, { cacheControl: '3600', upsert: false, contentType: foto.type });
       if (error) throw error;
       const { data } = supabase.storage.from('roteiros-midia').getPublicUrl(caminho);
       setFormE(prev => ({ ...prev, foto_url: data.publicUrl }));
@@ -927,7 +940,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       </button>
       {msgsMenuAberto && <>
         <button type="button" aria-label="Fechar" className="fixed inset-0 z-[180] cursor-default" onClick={() => setMsgsMenuAberto(false)} />
-        <div className={`absolute ${mobile ? 'right-[-52px]' : 'right-0'} top-[calc(100%+8px)] z-[181] w-[min(340px,calc(100vw-24px))] rounded-xl border shadow-xl overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'}`}>
+        <div className={`${mobile ? 'fixed left-3 right-3 top-16' : 'absolute right-0 top-[calc(100%+8px)] w-[340px]'} z-[181] rounded-xl border shadow-xl overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'}`}>
           <div className={`px-4 py-3 border-b text-[13px] font-semibold ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'}`}>Mensagens dos clientes</div>
           {conversasNaoLidas.length === 0
             ? <p className="px-4 py-6 text-center text-[13px] text-zinc-500">Nenhuma mensagem nova.</p>
@@ -2381,23 +2394,39 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     const list = items.filter(Boolean) as Exclude<MoreItem, false | null | undefined>[];
     if (list.length === 0) return null;
     const open = moreMenuOpen === id;
+    // O menu sempre cabe na tela: alinha pela direita do botão quando dá, senão encosta na margem;
+    // abre para cima quando não cabe embaixo (no celular, acima da barra de navegação de baixo)
+    let estilo: React.CSSProperties = {};
+    if (open && moreMenuPos && typeof window !== 'undefined') {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const largura = Math.min(260, vw - 16);
+      const altura = Math.min(list.length * 37 + 14, vh - 120);
+      const fundo = vh - (vw < 768 ? 84 : 8);
+      const left = Math.max(8, Math.min(moreMenuPos.right - largura, vw - largura - 8));
+      const cabeEmbaixo = moreMenuPos.bottom + 6 + altura <= fundo;
+      const top = cabeEmbaixo ? moreMenuPos.bottom + 6 : Math.max(8, moreMenuPos.top - 6 - altura);
+      estilo = { position: 'fixed', left, top, width: largura, maxHeight: altura, zIndex: 10050 };
+    }
     return (
-      <span className={`relative inline-flex shrink-0 ${open ? 'z-50' : ''}`} onClick={(e) => e.stopPropagation()}>
-        <button type="button" aria-label="Mais ações" title="Mais ações" onClick={() => setMoreMenuOpen(open ? null : id)} className={`w-9 h-9 rounded-[10px] inline-flex items-center justify-center transition-colors border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50'} ${open ? 'text-brand' : ''}`}>
+      <span className="relative inline-flex shrink-0" onClick={(e) => e.stopPropagation()}>
+        <button type="button" aria-label="Mais ações" title="Mais ações" aria-expanded={open}
+          onClick={(e) => { setMoreMenuPos(e.currentTarget.getBoundingClientRect()); setMoreMenuOpen(open ? null : id); }}
+          className={`w-9 h-9 rounded-[10px] inline-flex items-center justify-center transition-colors border ${tc.borderStrong} ${tc.bgCard} text-zinc-500 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-50'} ${open ? 'text-brand' : ''}`}>
           <MoreHorizontal size={17} />
         </button>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setMoreMenuOpen(null)} />
-            <div className={`absolute right-0 top-full mt-1.5 min-w-[220px] ${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl z-50 p-1.5 text-left`}>
+        {open && moreMenuPos && typeof document !== 'undefined' && createPortal(
+          <div className={theme} onClick={(e) => e.stopPropagation()}>
+            <div className="fixed inset-0 z-[10049]" onClick={() => setMoreMenuOpen(null)} />
+            <div role="menu" style={estilo} className={`${tc.bgCard} border ${tc.borderStrong} rounded-xl shadow-xl p-1.5 text-left overflow-y-auto`}>
               {list.map((it, i) => (
-                <button key={i} type="button" disabled={it.disabled} onClick={() => { setMoreMenuOpen(null); it.onClick(); }}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] whitespace-nowrap disabled:opacity-50 transition-colors ${it.danger ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20' : `${tc.textMain} ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}`}>
-                  <it.icon size={15} className={it.danger ? '' : 'text-zinc-400'} /> {it.label}
+                <button key={i} type="button" role="menuitem" disabled={it.disabled} onClick={() => { setMoreMenuOpen(null); it.onClick(); }}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-left disabled:opacity-50 transition-colors ${it.danger ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20' : `${tc.textMain} ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}`}>
+                  <it.icon size={15} className={`shrink-0 ${it.danger ? '' : 'text-zinc-400'}`} /> <span className="min-w-0">{it.label}</span>
                 </button>
               ))}
             </div>
-          </>
+          </div>,
+          document.body
         )}
       </span>
     );
@@ -3634,13 +3663,14 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                           if (editingCliente) {
                             let logoUrl = editingCliente.logo_url;
                             const logoFile = f.get('logo') as File;
-                            if (logoFile && logoFile.size > 0) { const fname = `${Math.random()}.${logoFile.name.split('.').pop()}`; await supabase.storage.from('logos').upload(fname, logoFile); logoUrl = supabase.storage.from('logos').getPublicUrl(fname).data.publicUrl; }
+                            if (logoFile && logoFile.size > 0) { const logo = comTipoCerto(logoFile); const fname = `${Math.random().toString(36).slice(2)}.${logo.ext}`; const { error: erroLogo } = await supabase.storage.from('logos').upload(fname, logo.blob, { contentType: logo.type }); if (erroLogo) { toast.error(`O logo não foi enviado: ${/size|exceed/i.test(erroLogo.message) ? 'o arquivo passa de 5 MB' : /mime/i.test(erroLogo.message) ? 'use PNG, JPG, WEBP, SVG ou GIF' : erroLogo.message}`); } else logoUrl = supabase.storage.from('logos').getPublicUrl(fname).data.publicUrl; }
 
                             await supabase.from('clientes').update({ nome, telefone, wpp_suporte, ciclos_contratados: ciclos, logo_url: logoUrl, cor_marca, whatsapp_group_id }).eq('id', editingCliente.id);
                             toast.success("Cliente atualizado!");
                           } else {
-                            await cadastrarClienteCompleto(f);
+                            const r = await cadastrarClienteCompleto(f);
                             toast.success("Cliente cadastrado!");
+                            if (r?.aviso) toast.warning(r.aviso);
                           }
                           fechar();
                           loadData();
