@@ -8,8 +8,10 @@ import { FileText, Folder, PenTool, Search, Clock, MessageSquare, CheckCircle2 }
 
 // Adaptação dos types para uso no hook
 import type { Cliente, Material, EquipeMember } from '@/components/AdminDashboard'
+import { prontoParaPostar } from '@/lib/status-material'
 
 interface MembroComNome extends EquipeMember { nome?: string; telegram_thread_id?: string; }
+
 
 export function useAdminData(initialMaterials: Material[], initialClientes: Cliente[]) {
   const supabase = createClient()
@@ -122,7 +124,7 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
   }, [pipeline]);
 
   const filaAnaliseRoteiro = useMemo(() => materiais.filter(m => m.status === 'analise_roteiro'), [materiais]);
-  const filaRoteirosAprovados = useMemo(() => materiais.filter(m => (m.status === 'aprovado' || m.status === 'roteiro_aprovado') && !m.planner_id && !(m.link_drive || m.link_capa)), [materiais]);
+  const filaRoteirosAprovados = useMemo(() => materiais.filter(m => (m.status === 'aprovado' || m.status === 'roteiro_aprovado') && !m.planner_id && !(m.link_drive || m.link_capa) && !prontoParaPostar(m)), [materiais]);
   const filaEmDecupagem = useMemo(() => materiais.filter(m => m.status === 'planejamento' || m.status === 'em_organizacao'), [materiais]);
   const filaProblemasDecupagem = useMemo(() => materiais.filter(m => m.status === 'faltando_material' || m.status === 'verificar_material'), [materiais]);
   const filaProducaoPronta = useMemo(() => materiais.filter(m => m.status === 'organizado'), [materiais]);
@@ -141,7 +143,7 @@ export function useAdminData(initialMaterials: Material[], initialClientes: Clie
   }), [materiais]);
 
   const notificacoesAjustes = useMemo(() => materiais.filter(m => m.status === 'ajustes'), [materiais]);
-  const filaMateriaisAprovados = useMemo(() => materiais.filter(m => (m.status === 'aprovado' || m.status === 'post_aprovado') && (m.link_drive || m.link_capa)), [materiais]);
+  const filaMateriaisAprovados = useMemo(() => materiais.filter(m => prontoParaPostar(m)), [materiais]);
 
   const editores = useMemo(() => membros.filter(m => m.role === 'editor'), [membros]);
   const designers = useMemo(() => membros.filter(m => m.role === 'designer'), [membros]);

@@ -32,8 +32,17 @@ const TIPO_AUDIO: Record<string, string> = { webm: 'audio/webm', ogg: 'audio/ogg
  * O Storage usa o tipo gravado no próprio arquivo (e o bucket só aceita uma lista de tipos), então
  * foto e áudio sempre saem daqui com tipo válido — ver src/lib/preparar-imagem.ts.
  */
-export async function enviarAnexos(preparar: Preparar, fotos: File[], audio: { blob: Blob; dur: number } | null) {
+export async function enviarAnexos(prepararServidor: Preparar, fotos: File[], audio: { blob: Blob; dur: number } | null) {
   const storage = createClient().storage.from(BUCKET)
+  // Se o servidor não preparar o envio, quase sempre é página aberta desde antes de uma atualização
+  // (ou sessão vencida): o aviso diz o que fazer em vez de um erro genérico
+  const preparar: Preparar = async (tipo, ext) => {
+    try { return await prepararServidor(tipo, ext) } catch (e) {
+      console.error('Preparar envio falhou:', e)
+      throw new Error('Não foi possível preparar o envio. Atualize a página (ou feche e abra o app) e tente de novo.')
+    }
+  }
+  const motivo = (m: string) => /mime|type/i.test(m) ? 'formato do arquivo não aceito' : /size|large|exceed/i.test(m) ? 'arquivo grande demais' : /token|signature|expired|jwt/i.test(m) ? 'o link de envio venceu, tente de novo' : 'falha de conexão'
   const caminhosFotos: string[] = []
   for (const f of fotos) {
     const foto = await prepararFoto(f)
@@ -41,7 +50,7 @@ export async function enviarAnexos(preparar: Preparar, fotos: File[], audio: { b
     const { error } = await storage.uploadToSignedUrl(path, token, foto.blob, { contentType: foto.type })
     if (error) {
       console.error('Envio da foto falhou:', error.message, { tipoOriginal: f.type, nome: f.name, tamanho: f.size, enviado: foto.type })
-      throw new Error(`Não foi possível enviar a foto${fotos.length > 1 ? ` ${caminhosFotos.length + 1}` : ''}. Tente de novo ou escolha outra imagem.`)
+      throw new Error(`Não foi possível enviar a foto${fotos.length > 1 ? ` ${caminhosFotos.length + 1}` : ''} (${motivo(error.message)}). Tente de novo ou escolha outra imagem.`)
     }
     caminhosFotos.push(path)
   }
@@ -53,7 +62,7 @@ export async function enviarAnexos(preparar: Preparar, fotos: File[], audio: { b
     const { error } = await storage.uploadToSignedUrl(path, token, arquivo, { contentType: TIPO_AUDIO[ext] })
     if (error) {
       console.error('Envio do áudio falhou:', error.message, { tipoOriginal: audio.blob.type, tamanho: audio.blob.size })
-      throw new Error('Não foi possível enviar o áudio. Tente de novo.')
+      throw new Error(`Não foi possível enviar o áudio (${motivo(error.message)}). Tente de novo.`)
     }
     audioPath = { path, dur: audio.dur }
   }

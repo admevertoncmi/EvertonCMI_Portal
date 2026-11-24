@@ -6,6 +6,7 @@ import 'react-day-picker/dist/style.css';
 import { connection } from 'next/server'
 import { lerTemaServidor } from '@/lib/tema-servidor'
 import { cssDoTema } from '@/lib/tema'
+import AvisoNovaVersao from '@/components/AvisoNovaVersao'
 
 // 1. Configuração da Fonte
 // Inter variável (latin) dentro do projeto: o build não depende de baixar do Google Fonts
@@ -87,6 +88,8 @@ export default async function RootLayout({
       {/* 👇 Removemos bg-zinc-50 fixo para evitar barras brancas no Safari mobile */}
       <body suppressHydrationWarning className={`${inter.className} ${inter.variable} min-h-[100dvh] antialiased`}>
         {children}
+        {/* Pede para recarregar quando sai uma versão nova (aba ou app aberto há tempo) */}
+        <AvisoNovaVersao />
         
         {/* Script para registrar o PWA (App instalável) */}
         <script

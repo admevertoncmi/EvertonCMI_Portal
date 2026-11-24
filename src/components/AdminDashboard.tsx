@@ -13,6 +13,7 @@ import { Avatar, CampoResponsaveis, CampoStatus, CampoEntrega } from '@/componen
 import { notificarClickUpChat, getClickUpTaskAndSubtasks, getClickUpTask } from '@/actions/clickup'
 import { notificarWhatsApp, buscarGruposWhatsApp } from '@/actions/whatsapp'
 import { useAdminData } from '@/hooks/useAdminData'
+import { prontoParaPostar } from '@/lib/status-material'
 import { getDriveFolderFiles } from '@/actions/google'
 import { createBatchFolders } from '@/actions/google-mutations'
 import { StorageWidget } from '@/components/StorageWidget'
@@ -2185,7 +2186,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
       if (i.status === 'em_edicao') c.edicao++;
       if (i.status === 'revisao') c.revisao++;
       if (i.status === 'ajustes') c.ajustes++;
-      if (i.status === 'aprovado' || i.status === 'post_aprovado') { if (i.link_drive || i.link_capa) c.video++; else c.roteiro++; }
+      if (i.status === 'aprovado' || i.status === 'post_aprovado') { if (prontoParaPostar(i)) c.video++; else c.roteiro++; }
       if (i.status === 'roteiro_aprovado') c.roteiro++;
     });
     return c;
@@ -2213,7 +2214,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     portal: { label: 'No portal do cliente', test: (m: Material) => m.status === 'pendente' },
     pendentes: { label: 'Pendentes com o cliente', test: (m: Material) => m.status === 'pendente' || m.status === 'roteiro_pendente' },
     aprovados: { label: 'Aprovados', test: (m: Material) => ['aprovado', 'roteiro_aprovado', 'post_aprovado'].includes(m.status) },
-    roteirosAprovados: { label: 'Roteiros aprovados', test: (m: Material) => m.status === 'roteiro_aprovado' || ((m.status === 'aprovado' || m.status === 'post_aprovado') && !(m.link_drive || m.link_capa)) },
+    roteirosAprovados: { label: 'Roteiros aprovados', test: (m: Material) => m.status === 'roteiro_aprovado' || ((m.status === 'aprovado' || m.status === 'post_aprovado') && !prontoParaPostar(m)) },
   } as const;
   const filtrarInicio = (etapa: keyof typeof ETAPA_TESTE, clienteId?: string) => {
     const f = { ...ETAPA_TESTE[etapa], clienteId };
@@ -3361,8 +3362,16 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
                         {taskHead()}
                         {data.itens.map((m: Material) => taskRow({
                           m, ignoreLate: true,
-                          lead: mediaThumbs(m),
+                          // Sem link: post entregue e aprovado por fora da plataforma (status mudado à mão)
+                          lead: (m.link_drive || m.link_capa) ? mediaThumbs(m) : (
+                            <span title="Post entregue e aprovado por fora da plataforma (sem link do vídeo/capa no sistema)" className="w-11 h-[76px] shrink-0 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 flex flex-col items-center justify-center gap-0.5 text-center">
+                              <ExternalLink size={14} /><span className="text-[8.5px] font-semibold leading-tight">Por<br />fora</span>
+                            </span>
+                          ),
                           status: statusChip('Pronto para postar', STATUS_INFO.aprovado.cls),
+                          below: (m.link_drive || m.link_capa) ? undefined : (
+                            <p className="text-xs text-zinc-500">Entregue e aprovado por fora da plataforma: não há link do vídeo/capa no sistema.</p>
+                          ),
                           actions: <>
                             <IconAction icon={Archive} variant="ink" label="Marcar como postado e arquivar" loading={actionLoading === m.id} onClick={() => openConfirm('Arquivar e finalizar', 'Deseja marcar como postado e arquivar?', async () => { setActionLoading(m.id); await supabase.from('materiais').update({ status: 'concluido' }).eq('id', m.id); loadData(); setActionLoading(null); }, 'warning')} />
                             {moreMenu(`ok-${m.id}`, [
