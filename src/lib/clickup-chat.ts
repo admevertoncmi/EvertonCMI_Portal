@@ -3,20 +3,20 @@ import { getAdminSupabase } from '@/lib/supabase'
 // Avisos da equipe pelo chat do ClickUp. Cada membro tem o "ID do chat do ClickUp (View ID)"
 // no cadastro da equipe (coluna perfis_equipe.telegram_thread_id).
 //
-// Chat geral da agência: usado quando nenhum admin tem chat próprio cadastrado, para o aviso
-// nunca se perder (antes, sem chat de admin cadastrado, o aviso simplesmente não ia para ninguém).
-// Pode ser trocado pela variável de ambiente CLICKUP_CHAT_GERAL.
-const CHAT_GERAL = process.env.CLICKUP_CHAT_GERAL || '6-900702112393-8'
+// Canal dos avisos de admin (ex.: "Central de Avisos") quando nenhum admin tem chat próprio cadastrado.
+// Vem SÓ da variável de ambiente CLICKUP_CHAT_GERAL. Sem ela, os avisos de admin não vão para canal
+// nenhum do ClickUp (o sino da plataforma continua avisando). Nunca usar ID fixo aqui: o antigo
+// '6-900702112393-8' hoje é o canal de Decupagem e os avisos de admin caíam lá.
+const CHAT_GERAL = (process.env.CLICKUP_CHAT_GERAL || '').trim()
 
-/** Chats dos admins; se nenhum admin tiver chat cadastrado, o chat geral da agência. */
 export async function chatsDosAdmins(): Promise<string[]> {
   try {
     const { data } = await getAdminSupabase().from('perfis_equipe').select('telegram_thread_id').ilike('role', 'admin')
     const chats: string[] = Array.from(new Set((data || []).map((a: { telegram_thread_id: string | null }) => String(a.telegram_thread_id || '').trim()).filter(Boolean)))
-    return chats.length ? chats : [CHAT_GERAL]
+    return chats.length ? chats : CHAT_GERAL ? [CHAT_GERAL] : []
   } catch (err) {
     console.error('Erro ao buscar admins para notificação:', err)
-    return [CHAT_GERAL]
+    return CHAT_GERAL ? [CHAT_GERAL] : []
   }
 }
 
