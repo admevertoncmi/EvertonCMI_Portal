@@ -5,7 +5,7 @@
 // Quem usa decide como enviar (cada lado tem sua server action); aqui ficam a tela,
 // a gravação de áudio e o envio dos arquivos para o Storage por link assinado.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Image as ImageIcon, Mic, SendHorizontal, Trash2, Check, X, Play, Pause, Loader2, MessageSquare, FileText, ChevronUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import type { MensagemConversa } from '@/lib/conversa'
@@ -172,6 +172,7 @@ export default function ConversaMaterial({
   mensagens, carregando, perspectiva, onEnviar, modoAjuste = false, onCancelarAjuste,
   mostrarSobre = false, alvoInicial = 'video', dark = false, placeholder, vazio, className = '', enviando: enviandoExterno = false,
   composerClassName = '', mensagensClassName = '', focarSinal = 0, somenteLeitura = false, onTranscrever, destacarUltimoPedido = false,
+  ehMeu, acimaDoCampo, onAbrirDemanda,
 }: {
   mensagens: MensagemConversa[]
   carregando?: boolean
@@ -192,6 +193,9 @@ export default function ConversaMaterial({
   somenteLeitura?: boolean         // só mostra as mensagens (ex.: editor vendo o pedido do cliente)
   onTranscrever?: Transcrever      // botão "Transcrever" nos áudios (chama a API só no clique)
   destacarUltimoPedido?: boolean   // marca o pedido mais recente do cliente (painel de quem produz)
+  ehMeu?: (m: MensagemConversa) => boolean  // chat da equipe: várias pessoas do mesmo lado, então 'minha' depende de quem escreveu
+  acimaDoCampo?: ReactNode   // chat da equipe: seletor de demanda em cima do campo de mensagem
+  onAbrirDemanda?: (materialId: string) => void // chat da equipe: clicar na demanda citada abre o conteúdo
 }) {
   const [texto, setTexto] = useState('')
   const [fotos, setFotos] = useState<{ file: File; url: string }[]>([])
@@ -282,7 +286,7 @@ export default function ConversaMaterial({
 
   const ocupado = enviando || enviandoExterno
   const linha = dark ? 'border-zinc-800' : 'border-zinc-200'
-  const meu = (m: MensagemConversa) => m.autor === perspectiva
+  const meu = (m: MensagemConversa) => ehMeu ? ehMeu(m) : m.autor === perspectiva
   const quem = (m: MensagemConversa) => {
     if (m.autor === 'cliente') return perspectiva === 'cliente' ? (m.feito_pela_agencia ? 'Agência (pelo portal)' : 'Você') : `${m.autor_nome || 'Cliente'}${m.feito_pela_agencia ? ' · feito pela agência' : ''}`
     return perspectiva === 'cliente' ? 'Equipe' : (m.autor_nome || 'Equipe')
@@ -320,6 +324,13 @@ export default function ConversaMaterial({
               <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-[13.5px] space-y-2 break-words ${destaque ? 'ring-2 ring-orange-400/70 ' : ''}${eu
                 ? (dark ? 'bg-brand/15 border border-brand/30 text-zinc-100' : 'bg-[#FFFBF8] border border-[#F3D9C8] text-zinc-800')
                 : (dark ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800')}`}>
+                {m.demanda && (
+                  <button type="button" onClick={() => onAbrirDemanda?.(m.demanda!.id)} disabled={!onAbrirDemanda} title={onAbrirDemanda ? 'Abrir este conteúdo' : undefined}
+                    className={`flex items-center gap-1.5 max-w-full text-left text-[12px] font-medium px-2 py-1 rounded-lg border ${dark ? 'border-zinc-700 bg-zinc-900/60 text-zinc-300' : 'border-zinc-200 bg-white/70 text-zinc-600'} ${onAbrirDemanda ? 'hover:border-brand hover:text-brand' : 'cursor-default'}`}>
+                    <FileText size={12} className="shrink-0" />
+                    <span className="truncate">{m.demanda.cliente ? `${m.demanda.cliente} · ` : ''}{m.demanda.titulo}</span>
+                  </button>
+                )}
                 {m.fotos.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {m.fotos.map((u, i) => (
@@ -341,6 +352,7 @@ export default function ConversaMaterial({
 
       {/* CAMPO DE MENSAGEM */}
       {!somenteLeitura && <div className={`border-t ${linha} px-3 pt-2.5 pb-3 shrink-0 ${dark ? 'bg-zinc-900' : 'bg-white'} ${composerClassName}`}>
+        {acimaDoCampo}
         {modoAjuste && (
           <div className="flex items-center gap-2 text-[12.5px] text-orange-800 bg-orange-50 border border-orange-200 rounded-lg pl-2.5 pr-1 py-1.5 mb-2 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-900/40">
             <MessageSquare size={14} className="shrink-0" />

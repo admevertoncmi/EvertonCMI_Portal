@@ -17,6 +17,8 @@ export type MensagemConversa = {
   autor_nome: string | null
   feito_pela_agencia: boolean
   texto: string | null
+  autor_id?: string | null              // chat da equipe: quem escreveu
+  demanda?: { id: string; titulo: string; cliente: string | null } | null // chat da equipe: conteúdo a que a mensagem se refere
   fotos: string[]                       // links assinados (temporários)
   audio: { url: string; dur: number; transcricao: string | null } | null
   ajuste: boolean
@@ -166,11 +168,11 @@ function ajustesLegados(materialId: string, feedback: string | null | undefined,
  * Transcreve o áudio de uma mensagem (só quando alguém clica em "Transcrever").
  * Usa a API da Groq (Whisper) e guarda o texto: a segunda vez não chama a API de novo.
  */
-export async function transcreverAudio(materialId: string, mensagemId: string): Promise<string> {
+export async function transcreverAudio(materialId: string | null, mensagemId: string, tabela: 'mensagens_material' | 'mensagens_equipe' = 'mensagens_material'): Promise<string> {
   const admin = getAdminSupabase()
-  const { data: msg, error } = await admin.from('mensagens_material')
-    .select('id, audio_path, audio_transcricao')
-    .eq('id', mensagemId).eq('material_id', materialId).maybeSingle()
+  let consulta = admin.from(tabela).select('id, audio_path, audio_transcricao').eq('id', mensagemId)
+  if (materialId) consulta = consulta.eq('material_id', materialId)
+  const { data: msg, error } = await consulta.maybeSingle()
   if (error) throw new Error('A transcrição ainda não está ativada no banco.')
   if (!msg?.audio_path) throw new Error('Áudio não encontrado')
   if (msg.audio_transcricao) return msg.audio_transcricao
@@ -198,7 +200,7 @@ export async function transcreverAudio(materialId: string, mensagemId: string): 
   }
   const texto = String((await resp.json())?.text || '').trim() || '(áudio sem fala reconhecida)'
 
-  await admin.from('mensagens_material').update({ audio_transcricao: texto }).eq('id', mensagemId)
+  await admin.from(tabela).update({ audio_transcricao: texto }).eq('id', mensagemId)
   return texto
 }
 

@@ -9,12 +9,13 @@ import { useRouter } from 'next/navigation'
 import { Toaster, toast } from 'sonner'
 import {
   FolderDown, FolderCheck, ListTodo, Calendar, Flame, List, CalendarRange, CalendarClock, AlertTriangle, Play,
-  CheckCircle2, Loader2, Eraser, Inbox, Undo2, Clock, ExternalLink,
+  CheckCircle2, Loader2, Eraser, Inbox, Undo2, Clock, ExternalLink, MessageSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { formatRichText } from '@/lib/utils'
 import { notificarClickUpChat } from '@/actions/clickup'
 import { marcarTarefaLida } from '@/components/SinoNotificacoes'
+import ChatEquipe, { useChatNaoLidas } from '@/components/ChatEquipe'
 import { cleanCopyOfPrefix } from '@/actions/google-mutations'
 import {
   TeamShell, PageHeader, StatCards, Filtros, GrupoCliente, LinhaTarefa, Vazio, PainelTarefa, Secao,
@@ -47,7 +48,7 @@ export default function DecupadorDashboard() {
     await supabase.from('logs_acesso').insert([{ material_id: materialId, evento }])
   }
 
-  const [aba, setAba] = useState<'fila' | 'prontas'>('fila')
+  const [aba, setAba] = useState<'fila' | 'prontas' | 'chat'>('fila')
   const [filtro, setFiltro] = useState<FiltroPrazo>('todas')
   const [materiais, setMateriais] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
@@ -132,6 +133,7 @@ export default function DecupadorDashboard() {
   }
 
   const aberto = materiais.find(m => m.id === abertoId) || null
+  const chatNaoLidas = useChatNaoLidas(!comoAdmin)
 
   // Sino / link do WhatsApp (?tarefa=<id>): abre a tarefa na aba certa
   const abrirTarefa = (id: string) => {
@@ -272,6 +274,7 @@ export default function DecupadorDashboard() {
       menu={[
         { id: 'fila', label: 'Fila de decupagem', icon: ListTodo, count: fila.length },
         { id: 'prontas', label: 'Pastas prontas', icon: FolderCheck },
+        ...(comoAdmin ? [] : [{ id: 'chat', label: 'Chat', icon: MessageSquare, count: chatNaoLidas }]),
       ]}
       ativo={aba} onMenu={(id) => setAba(id as any)} theme={theme} alternarTema={alternar}
       comoAdmin={comoAdmin} onSair={() => supabase.auth.signOut().then(() => router.push('/'))} onAbrirNotificacao={abrirTarefa}>
@@ -279,6 +282,8 @@ export default function DecupadorDashboard() {
 
       {loading ? (
         <div className="flex items-center justify-center py-24 text-zinc-500"><Loader2 className="animate-spin mr-2" size={18} /> Carregando sua fila…</div>
+      ) : aba === 'chat' ? (
+        <ChatEquipe theme={theme} onAbrirDemanda={abrirTarefa} />
       ) : aba === 'fila' ? (
         <>
           <PageHeader icon={FolderDown} titulo={`Olá${userProfile?.nome ? `, ${(comoAdmin || userProfile.nome).split(' ')[0]}` : ''}`}

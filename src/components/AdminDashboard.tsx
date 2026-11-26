@@ -22,6 +22,7 @@ import { conversaEquipe, prepararAnexoEquipe, enviarMensagemEquipe, naoLidasEqui
 import { lerTemaEquipe, salvarTema } from '@/actions/tema'
 import { marcaData, entradasInstrucao, separarDatas, recolocarDatas } from '@/lib/instrucoes'
 import SinoNotificacoes, { marcarTarefaLida } from '@/components/SinoNotificacoes'
+import ChatEquipe, { useChatNaoLidas } from '@/components/ChatEquipe'
 import { prepararFoto, comTipoCerto } from '@/lib/preparar-imagem'
 import { useState, useCallback, useEffect, useMemo, useRef, startTransition } from 'react'
 import { createPortal } from 'react-dom'
@@ -409,7 +410,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
   const [editingMembro, setEditingMembro] = useState<MembroComNome | null>(null);
   const [isMembroModalOpen, setIsMembroModalOpen] = useState(false);
   const [membroBusca, setMembroBusca] = useState('');
-  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios' | 'cores-tema'>('geral')
+  const [activeTab, setActiveTabState] = useState<'geral' | 'planejamento' | 'cadastro-clientes' | 'equipe' | 'solicitacao-ajustes' | 'materiais-aprovacao' | 'materiais-aprovados' | 'relatorios' | 'cores-tema' | 'chat-equipe'>('geral')
   // Subpáginas de Planejamento e Relatórios (cada etapa/bloco abre na sua própria página)
   const [planSub, setPlanSubState] = useState<PlanSub>('analise')
   const [relSub, setRelSubState] = useState<RelSub>('resumo')
@@ -929,6 +930,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
     window.history.replaceState(null, '', url.toString());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materiais]);
+  const chatNaoLidas = useChatNaoLidas();
   const sino = (mobile = false) => <SinoNotificacoes onAbrir={abrirConversaPorId} onDisponivel={setSinoAtivo} fallback={mensagensClientesBtn(mobile)} />;
   // Ícone de mensagens dos clientes no topo: lista as conversas com mensagem nova e abre a conversa
   // (usado só enquanto a tabela de notificações não existe no banco)
@@ -2934,6 +2936,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           {navItem('geral', 'Início', Home)}
           {navGroup('planejamento', 'Planejamento', ListTodo, PLAN_SUBS.map(s => ({ ...s, count: planCounts[s.id], danger: s.id === 'problemas' })), planSub, totalPlanejamento)}
           {navItem('materiais-aprovacao', 'Aprovação interna', ClipboardCheck, filaMateriaisAprovacao.length, 'bg-brand-soft text-brand')}
+          {navItem('chat-equipe', 'Chat da equipe', MessageSquare, chatNaoLidas, 'bg-brand-soft text-brand')}
           {navItem('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length, 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400')}
           {navItem('materiais-aprovados', 'Prontos para postar', CheckCircle2, filaMateriaisAprovados.length, 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400')}
 
@@ -3000,6 +3003,7 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
             PLAN_SUBS.map(s => dropdownItem(s.label, () => setActiveTab('planejamento', s.id), { dot: s.dot, count: planCounts[s.id], on: activeTab === 'planejamento' && planSub === s.id }))
           )}
           {topLink('materiais-aprovacao', 'Aprovação interna', ClipboardCheck, filaMateriaisAprovacao.length, 'Aprovação')}
+          {topLink('chat-equipe', 'Chat da equipe', MessageSquare, chatNaoLidas, 'Chat')}
           {topLink('solicitacao-ajustes', 'Solicitação de ajustes', Bell, notificacoesAjustes.length, 'Ajustes')}
           {topLink('materiais-aprovados', 'Prontos para postar', CheckCircle2, filaMateriaisAprovados.length, 'Prontos')}
         </nav>
@@ -3281,6 +3285,13 @@ export function AdminDashboard({ materials: initialMaterials, initialClientes = 
           )}
 
           {/* ABA: SOLICITAÇÃO DE AJUSTES */}
+          {activeTab === 'chat-equipe' && (
+            <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
+              {pageHeader({ title: 'Chat da equipe', icon: MessageSquare, meta: 'Converse com a equipe sobre uma demanda específica ou sobre qualquer assunto' })}
+              <ChatEquipe theme={theme === 'dark' ? 'dark' : 'light'} onAbrirDemanda={abrirConversaPorId} />
+            </div>
+          )}
+
           {activeTab === 'solicitacao-ajustes' && (
             <div className="max-w-7xl mx-auto text-left animate-in fade-in duration-300">
               {pageHeader({ title: 'Solicitação de ajustes', icon: Bell, iconCls: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400', meta: `${qtd(notificacoesAjustes.length, 'pedido', 'pedidos')} · ${qtd(Object.keys(groupedAjustes).length, 'cliente', 'clientes')}` })}

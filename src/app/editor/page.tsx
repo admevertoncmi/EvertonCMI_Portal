@@ -9,8 +9,9 @@ import { useRouter } from 'next/navigation'
 import { Toaster, toast } from 'sonner'
 import {
   ListTodo, CheckCircle2, Clock, Flame, Calendar, List, CalendarRange, CalendarClock, AlertTriangle, Send,
-  PlayCircle, Image as ImageIcon, FileVideo, Loader2, Check, Inbox,
+  PlayCircle, Image as ImageIcon, FileVideo, Loader2, Check, Inbox, MessageSquare,
 } from 'lucide-react'
+import ChatEquipe, { useChatNaoLidas } from '@/components/ChatEquipe'
 import { createClient } from '@/lib/supabase-browser'
 import { formatRichText } from '@/lib/utils'
 import { notificarClickUpChat } from '@/actions/clickup'
@@ -43,7 +44,7 @@ export default function EditorDashboard() {
     await supabase.from('logs_acesso').insert([{ material_id: materialId, evento }])
   }
 
-  const [aba, setAba] = useState<'tarefas' | 'entregues'>('tarefas')
+  const [aba, setAba] = useState<'tarefas' | 'entregues' | 'chat'>('tarefas')
   const [filtro, setFiltro] = useState<FiltroPrazo>('todas')
   const [materiais, setMateriais] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
@@ -149,6 +150,7 @@ export default function EditorDashboard() {
   }
 
   const aberto = materiais.find(m => m.id === abertoId) || null
+  const chatNaoLidas = useChatNaoLidas(!comoAdmin)
 
   // Sino / link do WhatsApp (?tarefa=<id>): abre a tarefa na aba certa
   const abrirTarefa = (id: string) => {
@@ -295,6 +297,7 @@ export default function EditorDashboard() {
       menu={[
         { id: 'tarefas', label: 'Minhas tarefas', icon: ListTodo, count: fila.length },
         { id: 'entregues', label: 'Entregues', icon: CheckCircle2 },
+        ...(comoAdmin ? [] : [{ id: 'chat', label: 'Chat', icon: MessageSquare, count: chatNaoLidas }]),
       ]}
       ativo={aba} onMenu={(id) => setAba(id as any)} theme={theme} alternarTema={alternar}
       comoAdmin={comoAdmin} onSair={() => supabase.auth.signOut().then(() => router.push('/'))} onAbrirNotificacao={abrirTarefa}>
@@ -302,6 +305,8 @@ export default function EditorDashboard() {
 
       {loading ? (
         <div className="flex items-center justify-center py-24 text-zinc-500"><Loader2 className="animate-spin mr-2" size={18} /> Carregando suas tarefas…</div>
+      ) : aba === 'chat' ? (
+        <ChatEquipe theme={theme} onAbrirDemanda={abrirTarefa} />
       ) : aba === 'tarefas' ? (
         <>
           <PageHeader icon={ListTodo} titulo={`Olá${userProfile?.nome ? `, ${(comoAdmin || userProfile.nome).split(' ')[0]}` : ''}`}
